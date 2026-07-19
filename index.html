@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#123d30">
+  <title>SourceFlow · 中国采购任务中心</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="demo-ribbon" data-i18n="demo">演示版 · 数据均为虚构</div>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">S</span><span><b>SourceFlow</b><small data-i18n="chinaPortal">中国采购执行端</small></span></div>
+      <nav id="sideNav" aria-label="Main navigation"></nav>
+      <div class="side-foot"><span class="online-dot"></span><span data-i18n="localSaved">本机自动保存已开启</span></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="mobile-brand"><b>SourceFlow</b></div>
+        <label class="project-picker"><span data-i18n="currentProject">当前项目</span><select id="projectSelect"></select></label>
+        <div class="top-actions">
+          <div class="role-switch" aria-label="Role preview">
+            <button id="roleCn" class="active" type="button">中国执行端</button>
+            <button id="roleKr" type="button">韩国总部端</button>
+          </div>
+          <button id="langBtn" class="btn compact" type="button">한국어</button>
+          <button id="shareBtn" class="btn compact" type="button" data-i18n="share">分享</button>
+        </div>
+      </header>
+
+      <div class="page">
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+        <section id="cnApp">
+          <div class="page-head">
+            <div class="product-identity">
+              <button id="projectImageBtn" class="product-thumb" type="button" aria-label="Open product image">
+                <img id="projectImage" src="" alt="">
+                <span data-i18n="openImage">查看大图</span>
+              </button>
+              <div><span id="projectCode" class="eyebrow"></span><h1 id="projectName"></h1><p id="projectPurpose"></p><small id="imageNote" class="image-note"></small></div>
+            </div>
+            <div class="head-status"><span class="demo-chip" data-i18n="demoData">演示数据</span><span id="deadlineChip" class="deadline-chip"></span></div>
+          </div>
+          <div id="viewRoot"></div>
+        </section>
+
+        <section id="krApp" hidden>
+          <div class="page-head"><div><span class="eyebrow">KOREA HQ · STAGE 1</span><h1 data-i18n="hqTitle">한국 본사 분석·미션 확정</h1><p data-i18n="hqDesc">상품 원본 분석은 본사에서만 확인하며, 중국지사에는 확정된 실행 조건만 전달됩니다.</p></div><span class="secure-chip" data-i18n="hqOnly">본사 전용</span></div>
+          <div id="hqRoot"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="shareDialog">
+    <div class="dialog-head"><div><h2 data-i18n="wechatShare">微信分享</h2><p data-i18n="shareHint">复制演示地址后发送到微信群。</p></div><button id="closeDialog" class="icon-btn" type="button" aria-label="Close">×</button></div>
+    <div class="share-layout"><img src="wechat-qr.svg" alt="Demo address QR code"><div><label data-i18n="demoAddress">演示地址</label><div class="copy-row"><input id="shareUrl" readonly><button id="copyBtn" class="btn primary" type="button" data-i18n="copyLink">复制链接</button></div><small data-i18n="shareCaution">公开演示页，请勿录入真实供应商或个人信息。</small></div></div>
+  </dialog>
+
+  <dialog id="imageDialog" class="image-dialog">
+    <div class="dialog-head"><div><h2 id="imageDialogTitle"></h2><p id="imageDialogNote"></p></div><button id="closeImageDialog" class="icon-btn" type="button" aria-label="Close">×</button></div>
+    <img id="imageDialogImg" src="" alt="">
+  </dialog>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
