@@ -120,3 +120,22 @@ export const NOTIF_KIND_LABEL: Record<string, string> = {
   status: '상태 갱신',
   system: '안내',
 };
+
+/** v2 check — 청구서 점검 행동 이름(홈 첫 행동·점검 화면·화주 목록이 같은 말을 쓴다) */
+export const CHECK_ACTION = {
+  start: '내 견적서·청구서 점검받기',
+  run: '점검하기',
+  save: '이 결과 보관',
+  again: '고쳐서 다시 점검',
+  list: '청구서 점검',
+} as const;
+
+/** 청구서 점검 판정 — 색만으로 뜻을 싣지 않도록 늘 글자와 함께 */
+export const CHECK_VERDICT: Record<string, { label: string; tone: 'neutral' | 'info' | 'caution' | 'ok' | 'stamp' | 'label' }> = {
+  high: { label: '과함', tone: 'stamp' },
+  typical: { label: '시세 안', tone: 'ok' },
+  low: { label: '낮음', tone: 'caution' },
+  missing: { label: '빠짐', tone: 'caution' },
+  separate: { label: '보통 따로', tone: 'neutral' },
+  unknown: { label: '기준 없음', tone: 'neutral' },
+};

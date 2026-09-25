@@ -4,6 +4,7 @@ import { env } from '@/lib/env';
 import { AccountSlot, MobileNav } from './header-client';
 
 export const PUBLIC_NAV: { href: string; label: string; lgOnly?: boolean }[] = [
+  { href: '/check', label: '청구서 점검' },
   { href: '/lanes', label: '구간 시세' },
   { href: '/partners', label: '업체 찾기' },
   // 768 폭에서는 머리 줄이 넘쳐 lg 부터 보인다(바닥글·홈 도구 띠에는 늘 있다)

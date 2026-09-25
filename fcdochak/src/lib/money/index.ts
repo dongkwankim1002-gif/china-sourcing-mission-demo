@@ -7,3 +7,4 @@ export * from './score';
 export * from './eligibility';
 export * from './totals';
 export * from './seller';
+export * from './invoice-check';

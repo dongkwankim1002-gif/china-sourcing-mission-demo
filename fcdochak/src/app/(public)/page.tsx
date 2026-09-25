@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, BadgeCheck, CalculatorIcon, CalendarClock, FileSpreadsheet, PackageCheck, Truck } from 'lucide-react';
+import { ArrowRight, BadgeCheck, CalculatorIcon, CalendarClock, ClipboardCheck, FileSpreadsheet, PackageCheck, Truck } from 'lucide-react';
 import { Calculator } from '@/components/public/calculator';
 import { buildQuoteResponse, type QuoteResponse } from '@/lib/public-quote';
 import { DEFAULT_INPUT } from '@/lib/calc-defaults';
@@ -16,7 +16,7 @@ import { getReference } from '@/lib/server/reference';
 import { loadSettings } from '@/lib/server/settings';
 import { loadTraitNotes } from '@/lib/server/tools';
 import { dateKo, notFuture, num, wonShort } from '@/lib/format';
-import { ACTION, BIZ_TYPE_LABEL } from '@/lib/terms';
+import { ACTION, BIZ_TYPE_LABEL, CHECK_ACTION } from '@/lib/terms';
 import { SEGMENTS, SEGMENT_LABEL_KO } from '@/lib/money/segments';
 
 export const revalidate = 600;
@@ -91,7 +91,21 @@ export default async function Home() {
           <p className="mt-3 max-w-2xl text-md text-on-ink-muted">
             업체마다 다른 견적 양식을 9구간으로 맞춰 적습니다. 뒤에 붙던 추가비용이 어디서 생기는지 먼저 보입니다.
           </p>
-          <div className="mt-8">
+          {/* 첫 행동 — 받은 견적서·청구서 점검(v2 check). 계산기는 둘째 */}
+          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Button asChild variant="primary" size="lg" data-testid="hero-check">
+              <Link href="/check">
+                <ClipboardCheck aria-hidden /> {CHECK_ACTION.start} <ArrowRight aria-hidden />
+              </Link>
+            </Button>
+            <p className="text-sm text-on-ink-muted">
+              받은 청구서를 올리면 9구간으로 갈라 빠진 구간·과한 구간을 짚습니다. 로그인 없이 됩니다.{' '}
+              <a href="#calc" className="font-semibold text-on-ink underline underline-offset-4">
+                또는 화물로 시세 계산
+              </a>
+            </p>
+          </div>
+          <div className="mt-8 scroll-mt-20" id="calc">
             <Calculator hubs={ref.hubs} fcs={ref.fcs} traits={ref.traits} initial={initial} demo={env.demoMode} traitNotes={traitNotes} />
           </div>
         </div>

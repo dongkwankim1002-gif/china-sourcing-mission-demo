@@ -168,4 +168,9 @@ export const SETTINGS: { key: string; value: unknown; note: string }[] = [
     ],
     note: '화물 특성마다 생길 수 있는 추가비용 항목(금액 없이 글로). 계산기·비교에서 경고로 보인다',
   },
+  {
+    key: 'invoice_check_rule',
+    value: { minSamples: 3, highOverMedianBp: 2000, lowUnderMedianBp: 3000, missingCoverageBp: 5000, publicPerMinute: 20 },
+    note: '청구서 점검 — 구간 표본 최소 요금표 수 · 과함(중간값 +bp, 비싼 쪽 25% 초과) · 낮음(중간값 −bp) · 빠짐(그 구간을 맡는 요금표 비율 bp 이상) · 비로그인 분당 횟수',
+  },
 ];
