@@ -34,7 +34,7 @@ export interface AssureBasis {
   /** 표본의 운송 방식(대표 업체의 방식) */
   mode: string | null;
   /** 회송 보장·후불을 셈할 대표 업체(비교 1위 또는 가장 싼 응찰) */
-  lead: { partnerName: string; total: number; segments: { segment: Segment; amount: number | null }[]; metrics: PartnerMetrics | null } | null;
+  lead: { partnerName: string; total: number; segments: { segment: Segment; amount: number | null }[]; metrics: PartnerMetrics | null; /** v2 alliance — 계약 상대를 고를 때 이 업체를 먼저 본다 */ partnerId?: string } | null;
 }
 
 export interface AssureView {
@@ -82,7 +82,7 @@ export function basisFromOffers(offers: Offer[]): AssureBasis {
   return {
     totals: offers.filter((o) => o.mode === lead.mode).map((o) => o.quote.total),
     mode: lead.mode,
-    lead: { partnerName: lead.partner.name, total: lead.quote.total, segments: lead.quote.segments, metrics: lead.metrics },
+    lead: { partnerName: lead.partner.name, total: lead.quote.total, segments: lead.quote.segments, metrics: lead.metrics, partnerId: lead.partner.id },
   };
 }
 
@@ -107,7 +107,7 @@ export async function requestBasis(q: Queryable, requestId: string, orgId: strin
     reqNo: r.req_no,
     totals: leadRow ? full.filter((x) => x.b.mode === leadRow.b.mode).map((x) => x.total) : [],
     mode: leadRow?.b.mode ?? null,
-    lead: leadRow ? { partnerName: leadRow.b.partner_name, total: leadRow.total, segments: leadRow.segments, metrics: facts?.metrics.get(leadRow.b.org_id) ?? null } : null,
+    lead: leadRow ? { partnerName: leadRow.b.partner_name, total: leadRow.total, segments: leadRow.segments, metrics: facts?.metrics.get(leadRow.b.org_id) ?? null, partnerId: leadRow.b.org_id } : null,
   };
 }
 

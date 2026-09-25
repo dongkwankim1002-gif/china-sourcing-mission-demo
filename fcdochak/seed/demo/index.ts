@@ -25,6 +25,7 @@ import { Rng } from './rng';
 import { seedDemoInvoiceChecks } from './invoice-checks';
 import { seedDemoEvents } from './events';
 import { seedWorkspaceDemo } from './workspace';
+import { seedAllianceDemo } from './alliance';
 
 export const DEMO_SEED = 0x0fcd0c4a;
 export const DEMO_ACCOUNTS = {
@@ -93,6 +94,8 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
     log(`데모 조직 ${existing[0].n}곳이 이미 있어 넣지 않았습니다.`);
     const ev = await db.transaction((q) => seedDemoEvents(q)); // v2 metrics — 이벤트가 없던 데모에만 채운다
     if (ev) log(`데모 이벤트 ${ev}줄을 기존 데모 자료에서 만들었습니다.`);
+    const al = await db.transaction((q) => seedAllianceDemo(q, { now: opts.now ?? Date.now(), adminEmail: DEMO_ACCOUNTS.admin.email })); // v2 alliance — 제휴 기록이 없던 데모에만
+    if (al) log(`데모 제휴 기록 ${al}줄을 넣었습니다.`);
     return { inserted: false };
   }
   const rng = new Rng(DEMO_SEED);
@@ -902,6 +905,7 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
   // v2 셀러 공간(서류함 칸·청구 결정·거래처 초대) — 위 자료 위에 덧붙인다
   await db.transaction((q) => seedWorkspaceDemo(q, { now, shipperEmail: DEMO_ACCOUNTS.shipper.email }));
   const demoEvents = await db.transaction((q) => seedDemoEvents(q)); // v2 metrics — 방금 넣은 자료에서 이벤트
+  await db.transaction((q) => seedAllianceDemo(q, { now, adminEmail: DEMO_ACCOUNTS.admin.email })); // v2 alliance — 예시 제휴 두 곳
   if (pw && opts.createAuthUser) {
     for (const [k, id] of Object.entries(demoIds)) {
       const a = DEMO_ACCOUNTS[k as keyof typeof DEMO_ACCOUNTS];

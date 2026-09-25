@@ -30,6 +30,11 @@ export const DEMO_TABLES: { table: string; sql: string }[] = [
   { table: 'invoice_decisions', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.invoice_decisions x join fcd.orgs o on o.id = x.shipper_org_id` },
   { table: 'partner_invites', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.partner_invites x join fcd.orgs o on o.id = x.shipper_org_id` },
   { table: 'shipper_partners', sql: `select count(*) filter (where o.is_demo or p.is_demo)::int demo, count(*) filter (where not o.is_demo and not p.is_demo)::int real from fcd.shipper_partners x join fcd.orgs o on o.id = x.shipper_org_id join fcd.orgs p on p.id = x.partner_org_id` },
+  // v2 alliance
+  { table: 'alliance_partners', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.alliance_partners x join fcd.orgs o on o.id = x.partner_org_id` },
+  { table: 'alliance_requirements', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.alliance_requirements x join fcd.orgs o on o.id = x.partner_org_id` },
+  { table: 'alliance_terms', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.alliance_terms x join fcd.orgs o on o.id = x.partner_org_id` },
+  { table: 'alliance_settlements', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.alliance_settlements x join fcd.orgs o on o.id = x.partner_org_id` },
 ];
 
 export async function demoCounts(q: Queryable) {
