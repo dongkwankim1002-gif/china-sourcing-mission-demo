@@ -11,6 +11,15 @@
 | `fcdochak` | FC도착의 기준 가지 = 운영 배포 가지. 직접 push 하지 않고 PR 로만 합칩니다. |
 | 작업 가지 | `claude/…`, `fcdochak-<단계>` 등 → `fcdochak` 으로 PR |
 
+## 지금 배포 상태 (2026-09-25)
+
+- Vercel 프로젝트 **`fcdochak`** (팀 dongkwankim1002-gif's projects, 기존 프로젝트와 별개) · Root `fcdochak` · 리전 `icn1` · Node 22
+- 운영 주소 **https://fcdochak.vercel.app** — 작업 가지 `claude/fcdochak-phase-1-0n4xlc` 커밋 `efec3d0` 을 운영 대상으로 배포
+- 환경변수: `DEMO_MODE=on` · `OUTBOUND_ENABLED=false` · `NEXT_PUBLIC_SITE_URL` · `SESSION_SECRET`·`DEMO_PASSWORD`(Sensitive, 무작위)
+- **Supabase 없음 → PGlite 데모 미리보기.** 둘러보기·데모 로그인은 되지만 새 가입·요청 등 쓰기는 서버 인스턴스가 바뀌면 사라진다
+- 보호: Vercel 로그인은 미리보기 배포에만(운영 주소는 공개). `main` 가지 커밋은 빌드하지 않는다(Ignored Build Step)
+- 남은 일: PR #1 을 `fcdochak` 에 합친 뒤 Vercel → Settings → Git → Production Branch 를 `fcdochak` 으로. 그 뒤로는 `fcdochak` 에 합칠 때마다 운영 배포
+
 ## 로컬
 
 ```bash
