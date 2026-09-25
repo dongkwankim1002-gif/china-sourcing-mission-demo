@@ -1,0 +1,223 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { ExternalLink, Info } from 'lucide-react';
+import { listPartners, partnerBySlug, publicReviews, STANDARD_CARGO } from '@/lib/server/public';
+import { getReference, nameOf } from '@/lib/server/reference';
+import { loadCards } from '@/lib/server/compare';
+import { loadSettings } from '@/lib/server/settings';
+import { asPublic } from '@/lib/db';
+import { completeWithReference, computeQuote, type Segment } from '@/lib/money';
+import { LetterMark } from '@/components/brand-mark';
+import { FcReadyChip, PartnerStatusChip, RelatedChip } from '@/components/badges';
+import { NineBar } from '@/components/nine-bar';
+import { ListingActions } from '@/components/public/listing-forms';
+import { Chip, DefList, EmptyState, Panel, PanelHead } from '@/components/ui/core';
+import { JsonLd } from '@/components/json-ld';
+import { env } from '@/lib/env';
+import { dateKo, num, pct, won, ymdDots } from '@/lib/format';
+import { BIZ_TYPE_LABEL } from '@/lib/terms';
+
+export const revalidate = 3600;
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  const all = await listPartners();
+  return all.map((p) => ({ slug: p.slug }));
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const d = await partnerBySlug(slug);
+  if (!d) return { title: '업체를 찾을 수 없습니다', robots: { index: false } };
+  const p = d.partner;
+  return {
+    title: `${p.name}${p.name_zh ? ` (${p.name_zh})` : ''} — ${BIZ_TYPE_LABEL[p.business_type ?? ''] ?? '물류'} · ${p.hq_city ?? ''}`,
+    description:
+      p.status === 'official'
+        ? `${p.name} 요금표와 실측 점수(정시 입고·청구 편차·FC 회송률). 중국 → 쿠팡 FC 물류.`
+        : `${p.name} — 공개정보 기준 회사 정보와 노선. 확인일 ${ymdDots(p.public_checked_on)}.`,
+    alternates: { canonical: `/p/${p.slug}` },
+  };
+}
+
+export default async function PartnerPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const [d, ref] = await Promise.all([partnerBySlug(slug), getReference()]);
+  if (!d) notFound();
+  const { partner: p, caps, metrics, fcReady, publicCards } = d;
+  const official = p.status === 'official' || p.status === 'pending_verification';
+  const reviews = official ? await publicReviews(6, p.id) : [];
+
+  // 공개가 요금표 — 기준 화물로 계산(비로그인이 볼 수 있는 것만)
+  const priced = official
+    ? await asPublic(async (q) => {
+        const s = await loadSettings(q);
+        const refQ = computeQuote(s.referenceLines, STANDARD_CARGO, s.quoteParams);
+        const reference = Object.fromEntries(refQ.segments.map((x) => [x.segment, x.amount])) as Partial<Record<Segment, number>>;
+        const out: { lane: string; mode: string; validTo: string; total: number; segs: ReturnType<typeof computeQuote>['segments'] }[] = [];
+        const lanes = [...new Set(publicCards.map((c) => `${c.origin_hub}|${c.port}|${c.mode}`))];
+        for (const l of lanes) {
+          const [hub, port, mode] = l.split('|');
+          const { cards, lines, tiers } = await loadCards(q, { hub, port, mode, cardIds: publicCards.filter((c) => c.origin_hub === hub && c.port === port && c.mode === mode).map((c) => c.id) });
+          for (const c of cards) {
+            const ls = lines.get(c.id) ?? [];
+            if (!ls.length) continue;
+            const r = completeWithReference(computeQuote(ls, STANDARD_CARGO, s.quoteParams, tiers.get(c.id) ?? []), reference, STANDARD_CARGO.units);
+            out.push({ lane: `${nameOf(ref, 'hub', hub)} → ${nameOf(ref, 'port', port)}`, mode: nameOf(ref, 'mode', mode), validTo: c.valid_to, total: r.total, segs: r.segments });
+          }
+        }
+        return out;
+      })
+    : [];
+
+  const hubs = (p.hubs ?? []).map((h) => nameOf(ref, 'hub', h));
+  const modes = (p.modes ?? []).map((m) => nameOf(ref, 'mode', m));
+  const m = metrics as Record<string, number | null> | null;
+
+  return (
+    <div className="mx-auto max-w-[1280px] px-4 py-10">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: p.name,
+          alternateName: p.name_zh ?? undefined,
+          address: p.address ?? undefined,
+          telephone: p.phone ?? undefined,
+          url: `${env.siteUrl}/p/${p.slug}`,
+          ...(m?.reviews_count ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: Number(m.avg_rating ?? 0).toFixed(1), reviewCount: m.reviews_count, bestRating: 5, worstRating: 1 } } : {}),
+        }}
+      />
+      <nav aria-label="경로" className="text-xs text-muted">
+        <Link href="/partners" className="hover:text-text">업체 찾기</Link> / {p.name}
+      </nav>
+      <header className="mt-3 flex flex-wrap items-start gap-4">
+        <LetterMark name={p.name} logo={p.logo_path} size={64} />
+        <div className="min-w-0 flex-1">
+          <h1 className="display text-[clamp(26px,3.6vw,40px)] leading-tight">{p.name}</h1>
+          <p className="text-sm text-muted">{p.name_zh} · {BIZ_TYPE_LABEL[p.business_type ?? ''] ?? ''} · {p.hq_city}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <PartnerStatusChip status={p.status} />
+            {fcReady ? <FcReadyChip /> : null}
+            {p.related_party_note ? <RelatedChip note={p.related_party_note} /> : null}
+            {p.is_demo ? <Chip tone="label">예시 업체</Chip> : null}
+          </div>
+        </div>
+      </header>
+
+      {p.related_party_note ? (
+        <aside className="mt-5 rounded-md border border-caution/40 bg-caution-bg p-4 text-sm">
+          <p className="font-bold text-caution">특수관계 공개</p>
+          <p className="mt-1 text-text">{p.related_party_note}</p>
+          <p className="mt-1 text-xs text-muted">이 관계는 추천 점수에 들어가지 않습니다. 목록 순서는 실측 점수로만 정해집니다.</p>
+        </aside>
+      ) : null}
+
+      {official ? (
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
+          <div className="grid min-w-0 gap-6">
+            <Panel>
+              <PanelHead title="실측 점수" sub="손으로 넣는 칸이 아닙니다 — 선적·청구 기록에서 계산합니다" />
+              <dl className="grid grid-cols-2 gap-px bg-line-2 sm:grid-cols-4">
+                {[
+                  ['정시 입고율', m?.shipments_done ? pct(m.on_time_rate, 0) : '실측 없음', `완료 ${num(m?.shipments_done ?? 0)}건`],
+                  ['평균 청구 편차', m?.invoiced_count ? pct(m.avg_signed_deviation, 1, true) : '실측 없음', `청구 ${num(m?.invoiced_count ?? 0)}건`],
+                  ['30일 FC 회송률', m?.done_30d ? pct(m.return_rate_30d, 1) : '실측 없음', `30일 입고 ${num(m?.done_30d ?? 0)}건`],
+                  ['화주 평가', m?.reviews_count ? `${Number(m.avg_rating).toFixed(1)} / 5` : '평가 없음', `${num(m?.reviews_count ?? 0)}건`],
+                ].map(([k, v, s]) => (
+                  <div key={k} className="bg-surface p-4">
+                    <dt className="text-xs text-muted">{k}</dt>
+                    <dd className="display mt-1 text-2xl tnum">{v}</dd>
+                    <dd className="text-2xs text-muted">{s}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Panel>
+            <Panel>
+              <PanelHead title="공개 요금" sub={`기준 화물 ${STANDARD_CARGO.cbm} CBM · ${num(STANDARD_CARGO.kg)} kg — 빈 구간은 참고치. 비공개 요금은 가입 후 비교에서`} />
+              {priced.length ? (
+                <ul>
+                  {priced.map((r, i) => (
+                    <li key={i} className="grid gap-2 border-b border-line-2 px-4 py-3 last:border-0 sm:grid-cols-[200px_1fr_140px] sm:items-center">
+                      <div>
+                        <p className="text-sm font-semibold">{r.lane}</p>
+                        <p className="text-2xs text-muted">{r.mode} · {dateKo(r.validTo, { dow: false })}까지</p>
+                      </div>
+                      <NineBar segments={r.segs} size="md" />
+                      <p className="text-right text-sm font-bold tnum">{won(r.total)}</p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState title="공개한 요금이 없습니다" body="이 업체는 요금을 가입한 화주에게만 보여 줍니다." />
+              )}
+            </Panel>
+            <Panel>
+              <PanelHead title="화주 후기" sub="FC 입고까지 끝난 선적의 평가" />
+              {reviews.length ? (
+                <ul>
+                  {reviews.map((r) => (
+                    <li key={r.id} className="border-b border-line-2 px-4 py-3 last:border-0">
+                      <p className="text-sm">“{r.body}”</p>
+                      <p className="mt-1 text-2xs text-muted">{r.rating}/5 · {r.author_label} · {dateKo(r.created_at, { dow: false })}</p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState title="아직 평가가 없습니다" />
+              )}
+            </Panel>
+          </div>
+          <aside className="grid content-start gap-6">
+            <Panel>
+              <PanelHead title="회사 정보" />
+              <div className="p-4">
+                <DefList
+                  items={[
+                    ['주소', p.address ?? '—'],
+                    ['대표 연락처', p.phone ?? '—'],
+                    ['거점', hubs.join(' · ') || '—'],
+                    ['운송 방식', modes.join(' · ') || '—'],
+                    ['취급 능력', caps.map((c) => c.name_ko).join(' · ') || '일반 화물'],
+                    ['업역 등록', p.license_no ?? '—'],
+                    ['적하보험', p.cargo_insurance ?? '—'],
+                    ...(p.website ? [['누리집', <a key="w" href={p.website} rel="nofollow noopener" className="inline-flex items-center gap-1 underline">{p.website.replace(/^https?:\/\//, '')} <ExternalLink className="size-3" /></a>] as [string, React.ReactNode]] : []),
+                  ]}
+                />
+                {p.intro ? <p className="mt-4 border-t border-line-2 pt-4 text-sm leading-6">{p.intro}</p> : null}
+              </div>
+            </Panel>
+          </aside>
+        </div>
+      ) : (
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
+          <Panel>
+            <PanelHead title="공개정보 기준" sub={`확인일 ${ymdDots(p.public_checked_on)} · 출처: ${p.public_source ?? '공개 자료'}`} />
+            <div className="p-4">
+              <DefList
+                items={[
+                  ['회사명', p.name],
+                  ['주소', p.address ?? '—'],
+                  ['대표 연락처', p.phone ?? '—'],
+                  ['노선', `${hubs.join(' · ')} / ${modes.join(' · ')}`],
+                ]}
+              />
+              <p className="mt-4 flex items-start gap-2 rounded-sm bg-surface-2 p-3 text-xs text-muted">
+                <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                이 페이지는 업체가 직접 올린 것이 아닙니다. 공개된 회사 정보만 싣고, 가격·소개문·사진·담당자 개인 연락처는 싣지 않습니다.
+              </p>
+            </div>
+          </Panel>
+          <Panel>
+            <PanelHead title="이 회사 담당자이신가요?" />
+            <div className="grid gap-3 p-4 text-sm">
+              <p>인증하면 요금표를 올리고 견적 요청을 받을 수 있습니다. 원하지 않으시면 게시를 내릴 수 있습니다.</p>
+              <ListingActions orgId={p.id} orgName={p.name} />
+            </div>
+          </Panel>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -7,6 +7,7 @@ const config: NextConfig = {
   // PGlite(wasm)·postgres 는 서버 번들에 넣지 않고 node_modules 에서 읽는다
   serverExternalPackages: ['@electric-sql/pglite', 'postgres'],
   poweredByHeader: false,
+  outputFileTracingIncludes: { '/**': ['./src/assets/og/**'] },
   typedRoutes: false,
   images: { unoptimized: true },
   experimental: {

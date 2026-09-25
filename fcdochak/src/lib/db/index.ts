@@ -23,7 +23,7 @@ async function boot(): Promise<Driver> {
     await db.transaction((tx) => seedReference(tx));
     if (env.pgliteSeedDemo) {
       const { seedDemo } = await import('@seed/demo');
-      await seedDemo(db, { today: todayKst() });
+      await seedDemo(db, { today: todayKst(), password: env.demoPassword });
     }
   }
   return db;

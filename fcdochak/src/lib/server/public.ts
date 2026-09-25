@@ -228,3 +228,24 @@ export async function partnerBySlug(slug: string) {
     return { partner: p, caps, metrics, fcReady: grade?.granted ?? false, gradeAt: grade?.created_at ?? null, publicCards: cards };
   });
 }
+
+/** 이 구간에 지금 유효한 요금표를 둔 업체(이름만 — 가격은 싣지 않는다) */
+export async function lanePartners(hub: string, port: string, mode: string) {
+  const today = todayKst();
+  return asSystem((q) =>
+    q.query<{ id: string; name: string; slug: string; status: string; logo_path: string | null; business_type: string | null; related_party_note: string | null }>(
+      `select distinct o.id, o.name, o.slug, o.status, o.logo_path, o.business_type, o.related_party_note
+         from fcd.rate_cards r join fcd.orgs o on o.id = r.org_id
+        where r.origin_hub = $1 and r.port = $2 and r.mode = $3 and r.status = 'active' and r.valid_to >= $4::date
+          and not exists (select 1 from fcd.rate_cards n where n.supersedes_id = r.id)
+          and o.status in ('official','pending_verification') and ($5 or not o.is_demo)
+        order by o.status desc, o.name`,
+      [hub, port, mode, today, env.demoMode],
+    ),
+  );
+}
+
+export async function laneBySlug(slug: string) {
+  const all = await laneStats();
+  return { lane: all.find((l) => l.slug === slug) ?? null, all };
+}

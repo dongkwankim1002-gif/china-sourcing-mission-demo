@@ -34,15 +34,10 @@ for (const theme of themes) {
     });
     const page = await ctx.newPage();
     if (login) {
-      await page.goto(base + '/login');
-      await page.evaluate(async (as) => {
-        const f = document.createElement('form');
-        f.method = 'post';
-        f.action = `/api/demo-login?as=${as}`;
-        document.body.append(f);
-        f.submit();
-      }, login);
-      await page.waitForLoadState('load');
+      const r = await ctx.request.post(`${base}/api/demo-login?as=${login}`, { maxRedirects: 0 });
+      if (r.status() !== 303) throw new Error(`데모 로그인 실패: ${r.status()}`);
+      const loc = r.headers()['location'] ?? '';
+      if (loc.includes('/login')) throw new Error(`데모 로그인 거부: ${loc}`);
     }
     for (const p of paths) {
       const url = base + p;
