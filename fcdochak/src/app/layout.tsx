@@ -29,9 +29,9 @@ const themeScript = `try{var t=localStorage.getItem('fcd-theme');if(t==='dark'||
 /**
  * 글꼴은 첫 화면 경로에서 뺀다(모바일 LCP·CLS). 처음 온 기기는 이 쪽을 시스템 글꼴로 끝까지 그리고,
  * 한가할 때 글꼴 파일만 캐시에 받아 둔다(이 쪽에서 글꼴을 바꿔 끼우지 않으므로 화면이 밀리지 않는다).
- * 받아 둔 기기는 다음 쪽부터 머리에서 바로 붙인다 — 캐시에 있으니 첫 그리기부터 Pretendard·Black Han Sans.
+ * 받아 둔 기기는 다음 쪽부터 머리에 글꼴 CSS·미리 받기를 파싱 중에 써 넣는다(첫 그리기 전에 캐시에서) — 처음부터 Pretendard·Black Han Sans.
  */
-const fontScript = `(function(){var k='fcd-fonts',h='/fonts/fcd/fonts.css',F=['/fonts/fcd/PretendardVariable.ks.woff2','/fonts/fcd/BlackHanSans.ks.woff2'];var c=false;try{c=localStorage.getItem(k)==='1'}catch(e){}if(c){var l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l);return}function warm(){Promise.all(F.map(function(u){return fetch(u).then(function(r){return r.ok&&r.blob()})})).then(function(){try{localStorage.setItem(k,'1')}catch(e){}},function(){})}function idle(){(window.requestIdleCallback||function(f){setTimeout(f,500)})(warm,{timeout:4000})}if(document.readyState==='complete')idle();else addEventListener('load',idle)})()`;
+const fontScript = `(function(){var k='fcd-fonts',h='/fonts/fcd/fonts.css',F=['/fonts/fcd/PretendardVariable.ks.woff2','/fonts/fcd/BlackHanSans.ks.woff2'];var c=false;try{c=localStorage.getItem(k)==='1'}catch(e){}if(c){document.write(F.map(function(u){return '<link rel="preload" href="'+u+'" as="font" type="font/woff2" crossorigin>'}).join('')+'<link rel="stylesheet" href="'+h+'">');return}function warm(){Promise.all(F.map(function(u){return fetch(u).then(function(r){return r.ok&&r.blob()})})).then(function(){try{localStorage.setItem(k,'1')}catch(e){}},function(){})}function idle(){(window.requestIdleCallback||function(f){setTimeout(f,500)})(warm,{timeout:4000})}if(document.readyState==='complete')idle();else addEventListener('load',idle)})()`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

@@ -51,7 +51,7 @@ export function RateCardForm({
   }
   return (
     <div className="grid gap-5">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Field label={zh ? '起运地' : '출발 거점'} htmlFor="rc-hub" error={errors.hub}>
           <NativeSelect id="rc-hub" value={value.hub} onChange={(e) => set('hub', e.target.value)}>
             {hubs.map((h) => (

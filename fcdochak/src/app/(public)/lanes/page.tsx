@@ -55,12 +55,12 @@ export default async function LanesPage() {
                               {l.portName} · {l.modeName}
                             </Link>
                           </th>
-                          <td className="px-4 py-2.5 text-right font-bold">{wonShort(l.median)}</td>
-                          <td className="px-4 py-2.5 text-right text-muted">{wonShort(l.min)}</td>
-                          <td className="px-4 py-2.5 text-right text-muted">{wonShort(l.medianPerCbm)}</td>
-                          <td className="px-4 py-2.5 text-right text-muted">{l.transitMin}~{l.transitMax}일</td>
-                          <td className="px-4 py-2.5 text-right text-muted">{l.cards}장 · {l.partners}곳</td>
-                          <td className="px-4 py-2.5 text-right text-muted">{ago(l.updatedAt)}</td>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-right font-bold">{wonShort(l.median)}</td>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-right text-muted">{wonShort(l.min)}</td>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-right text-muted">{wonShort(l.medianPerCbm)}</td>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-right text-muted">{l.transitMin}~{l.transitMax}일</td>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-right text-muted">{l.cards}장 · {l.partners}곳</td>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-right text-muted">{ago(l.updatedAt)}</td>
                         </tr>
                       ))}
                     </tbody>

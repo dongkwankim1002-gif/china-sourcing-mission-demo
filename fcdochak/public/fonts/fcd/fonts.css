@@ -3,13 +3,13 @@
   font-family: 'Pretendard Variable';
   font-style: normal;
   font-weight: 45 920;
-  font-display: optional;
+  font-display: swap;
   src: url('/fonts/fcd/PretendardVariable.ks.woff2') format('woff2-variations'), url('/fonts/fcd/PretendardVariable.ks.woff2') format('woff2');
 }
 @font-face {
   font-family: 'Black Han Sans';
   font-style: normal;
   font-weight: 400;
-  font-display: optional;
+  font-display: swap;
   src: url('/fonts/fcd/BlackHanSans.ks.woff2') format('woff2');
 }

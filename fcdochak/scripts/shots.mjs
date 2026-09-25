@@ -43,6 +43,9 @@ for (const theme of themes) {
       const loc = r.headers()['location'] ?? '';
       if (loc.includes('/login')) throw new Error(`데모 로그인 거부: ${loc}`);
     }
+    // 글꼴을 이 창의 캐시에 먼저 받아 둔다(재방문과 같은 조건)
+    await page.goto(base + '/robots.txt');
+    await page.evaluate(() => Promise.all(['/fonts/fcd/PretendardVariable.ks.woff2', '/fonts/fcd/BlackHanSans.ks.woff2'].map((u) => fetch(u).then((r) => r.blob()))));
     if (cookieLocale) await ctx.addCookies([{ name: 'fcd_locale', value: cookieLocale, url: base }]);
     for (const spec of paths) {
       // 「목록>접두어」 — 목록에서 그 접두어로 시작하는 첫 상세 링크를 따라간다

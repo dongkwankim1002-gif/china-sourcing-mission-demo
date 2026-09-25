@@ -42,7 +42,7 @@ for (const mode of modes) {
   const server = spawn('npx', ['next', 'start', '-p', String(port)], { cwd: root, env: { ...process.env, ...env }, stdio: ['ignore', 'inherit', 'inherit'], detached: true });
   try {
     await wait(`http://localhost:${port}/`);
-    const r = spawnSync('npx', ['playwright', 'test'], { cwd: root, stdio: 'inherit', env: { ...process.env, E2E_BASE: `http://localhost:${port}`, E2E_DEMO: mode, E2E_ADMIN_EMAIL: admin.ADMIN_EMAIL, E2E_ADMIN_PASSWORD: admin.ADMIN_PASSWORD } });
+    const r = spawnSync('npx', ['playwright', 'test'], { cwd: root, stdio: 'inherit', env: { ...process.env, E2E_BASE: `http://localhost:${port}`, E2E_DEMO: mode, DEMO_PASSWORD: env.DEMO_PASSWORD, E2E_ADMIN_EMAIL: admin.ADMIN_EMAIL, E2E_ADMIN_PASSWORD: admin.ADMIN_PASSWORD } });
     if (r.status !== 0) failed = true;
   } finally {
     try {
