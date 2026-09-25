@@ -141,6 +141,42 @@ describe('RLS — 누가 무엇을 보는가', () => {
   });
 });
 
+describe('RLS — 넣은 행을 바로 돌려받는다(INSERT … RETURNING)', () => {
+  // 넣고 되돌린다 — 다른 시험의 건수를 바꾸지 않게
+  const rollback = async (role: 'fcd_user', uid: string, fn: (q: Driver) => Promise<unknown>) => {
+    const out: unknown[] = [];
+    await expect(
+      asRole(db, role, uid, true, async (q) => {
+        out.push(await fn(q));
+        throw new Error('ROLLBACK');
+      }),
+    ).rejects.toThrow('ROLLBACK');
+    return out[0];
+  };
+  it('화주가 견적 요청을 올린다', async () => {
+    const org = (await db.query<{ org_id: string }>(`select org_id from fcd.memberships where user_id = $1`, [ids.shipper]))[0].org_id;
+    const r = (await rollback('fcd_user', ids.shipper, (q) =>
+      q.query<{ id: string }>(
+        `insert into fcd.quote_requests (org_id, req_no, title, units, cartons, kg, cbm, goods_value, goods_currency, hs_category, traits, origin_hub, port, fc_code, ready_on, bid_deadline, status, created_by)
+         values ($1, 'RQ-T-1', 't', 10, 1, 5, 0.1, 100, 'RMB', 'household', '{}', 'YIW', 'ICN', 'FC-ICH', current_date, now() + interval '1 day', 'open', $2) returning id`,
+        [org, ids.shipper],
+      ),
+    )) as { id: string }[];
+    expect(r[0].id).toBeTruthy();
+  });
+  it('물류사가 요금표를 넣는다', async () => {
+    const org = (await db.query<{ org_id: string }>(`select org_id from fcd.memberships where user_id = $1`, [ids.partner]))[0].org_id;
+    const r = (await rollback('fcd_user', ids.partner, (q) =>
+      q.query<{ id: string }>(
+        `insert into fcd.rate_cards (org_id, card_no, origin_hub, port, mode, valid_from, valid_to, certainty, transit_days_min, transit_days_max)
+         values ($1, 'RC-T-1', 'YIW', 'ICN', 'LCL', current_date, current_date + 30, 'confirmed', 7, 12) returning id`,
+        [org],
+      ),
+    )) as { id: string }[];
+    expect(r[0].id).toBeTruthy();
+  });
+});
+
 describe('DEMO_MODE', () => {
   it('끄면 공개·화주·물류사 어디에도 데모가 안 보인다', async () => {
     const counts = await asRole(db, 'fcd_public', null, false, async (q) => ({

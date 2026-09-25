@@ -118,6 +118,22 @@ export function Calculator({
     };
   }, [input, valid]);
 
+  // 구간 쪽에서 「내 화물로 계산하기」로 넘어오면 ?hub·port·mode 를 첫 값으로
+  React.useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const hub = q.get('hub')?.toUpperCase();
+    const port = q.get('port')?.toUpperCase();
+    const mode = q.get('mode')?.toUpperCase();
+    const next: Partial<CalcInput> = {};
+    if (hub && hubs.some((h) => h.code === hub)) next.hub = hub;
+    if (port && ['ICN', 'PTK'].includes(port)) next.port = port;
+    if (mode && ['ANY', 'LCL', 'FCL', 'AIR', 'FERRY'].includes(mode)) next.mode = mode;
+    const sd = ['QDG', 'WEH', 'YNT', 'RZH'].includes(next.hub ?? DEFAULT_INPUT.hub);
+    if (!sd && next.port === 'PTK') delete next.port;
+    if (!sd && next.mode === 'FERRY') delete next.mode;
+    if (Object.keys(next).length) setInput((s) => ({ ...s, ...next }));
+  }, [hubs]);
+
   const best = data?.top[0] ?? null;
   const total = useTween(best?.total ?? 0);
   const perUnit = useTween(best?.perUnit ?? 0);

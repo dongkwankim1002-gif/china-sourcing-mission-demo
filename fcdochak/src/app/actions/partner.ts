@@ -180,8 +180,8 @@ export async function updateStage(input: z.infer<typeof StageInput>): Promise<Re
     if (d.returned != null && d.returned > s.units) return { error: '회송 수량이 선적 수량보다 많습니다' };
     await q.query(`insert into fcd.shipment_events (shipment_id, stage, raw_status, note, occurred_at, created_by) values ($1,$2,$3,$4,$5,$6)`, [d.shipmentId, d.stage, d.raw || null, d.note || null, at.toISOString(), v.id]);
     await q.query(
-      `update fcd.shipments set stage = $2, delivered_at = case when $2 = 9 then coalesce(delivered_at, $3::timestamptz) else delivered_at end,
-              fc_returned_units = coalesce($4, fc_returned_units) where id = $1`,
+      `update fcd.shipments set stage = $2::int, delivered_at = case when $2::int = 9 then coalesce(delivered_at, $3::timestamptz) else delivered_at end,
+              fc_returned_units = coalesce($4::int, fc_returned_units) where id = $1`,
       [d.shipmentId, d.stage, at.toISOString(), d.stage === 9 ? (d.returned ?? 0) : null],
     );
     if (d.stage === 9 && d.returned) {

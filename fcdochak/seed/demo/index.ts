@@ -36,6 +36,8 @@ export interface DemoSeedOptions {
   password?: string | null;
   /** Supabase Auth 에 데모 계정을 만들 때(아이디를 그대로 씀) */
   createAuthUser?: (u: { id: string; email: string; password: string; name: string }) => Promise<void>;
+  /** 로컬 비밀번호 해시를 fcd.local_credentials 에 넣을지(Supabase Auth 를 쓰면 false) */
+  localCredentials?: boolean;
   log?: (m: string) => void;
 }
 
@@ -814,7 +816,7 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
 
   // 계정 자격 --------------------------------------------------------------
   const pw = opts.password ?? null;
-  if (pw) {
+  if (pw && opts.localCredentials !== false) {
     const h = await hashPassword(pw);
     for (const id of [demoIds.shipper, demoIds.partner, demoIds.admin]) T.creds.add(id, h);
   }

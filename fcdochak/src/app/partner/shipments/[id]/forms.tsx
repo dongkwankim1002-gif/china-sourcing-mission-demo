@@ -25,6 +25,8 @@ export function StageForm({ shipmentId, stage, units, zh }: { shipmentId: string
   const [returned, setReturned] = React.useState<number | null>(0);
   const [pending, start] = React.useTransition();
   const names = zh ? STAGES_ZH : STAGES;
+  // 갱신 뒤 새 단계가 들어오면 「다음 단계」도 그 다음으로
+  React.useEffect(() => setNext(Math.min(9, stage + 1)), [stage]);
   if (stage >= 9) return <p className="text-sm text-ok">{names[9]}</p>;
   return (
     <form

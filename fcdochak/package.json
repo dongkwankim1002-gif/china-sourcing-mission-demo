@@ -9,7 +9,15 @@
     "start": "next start",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "db:migrate": "tsx scripts/fcd.ts db:migrate",
+    "demo:seed": "tsx scripts/fcd.ts demo:seed",
+    "demo:status": "tsx scripts/fcd.ts demo:status",
+    "demo:purge": "tsx scripts/fcd.ts demo:purge",
+    "admin:create": "tsx scripts/fcd.ts admin:create",
+    "shots": "node scripts/shots.mjs",
+    "verify:no-demo": "node scripts/verify.mjs --no-demo",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

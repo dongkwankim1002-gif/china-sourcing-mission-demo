@@ -76,27 +76,39 @@ language sql stable security definer set search_path = fcd, pg_temp as $$
   )
 $$;
 
+-- 행 값으로 판정 — 자기 표의 읽기 정책은 이쪽을 쓴다.
+-- (INSERT … RETURNING 때 같은 문장이 넣은 새 행은 id 로 다시 찾아도 보이지 않는다)
+create or replace function fcd.request_row_visible(p_org uuid, p_id uuid, p_status text, p_hub text) returns boolean
+language sql stable security definer set search_path = fcd, pg_temp as $$
+  select fcd.org_visible(p_org) and (
+    fcd.is_member(p_org)
+    or fcd.is_platform()
+    or exists (select 1 from fcd.bids b where b.request_id = p_id and b.org_id in (select fcd.my_org_ids()))
+    or (p_status = 'open' and exists (
+          select 1 from fcd.org_hubs h
+          where h.hub = p_hub and h.org_id in (select fcd.my_org_ids()) and fcd.partner_priced(h.org_id)))
+  )
+$$;
+
 create or replace function fcd.can_see_request(r uuid) returns boolean
 language sql stable security definer set search_path = fcd, pg_temp as $$
   select exists (
     select 1 from fcd.quote_requests q
-    where q.id = r and fcd.org_visible(q.org_id) and (
-      fcd.is_member(q.org_id)
-      or fcd.is_platform()
-      or exists (select 1 from fcd.bids b where b.request_id = q.id and b.org_id in (select fcd.my_org_ids()))
-      or (q.status = 'open' and exists (
-            select 1 from fcd.org_hubs h
-            where h.hub = q.origin_hub and h.org_id in (select fcd.my_org_ids()) and fcd.partner_priced(h.org_id)))
-    )
+    where q.id = r and fcd.request_row_visible(q.org_id, q.id, q.status, q.origin_hub)
   )
+$$;
+
+create or replace function fcd.shipment_row_visible(p_shipper uuid, p_partner uuid) returns boolean
+language sql stable security definer set search_path = fcd, pg_temp as $$
+  select fcd.org_visible(p_shipper) and fcd.org_visible(p_partner)
+    and (fcd.is_member(p_shipper) or fcd.is_member(p_partner) or fcd.is_platform())
 $$;
 
 create or replace function fcd.can_see_shipment(s uuid) returns boolean
 language sql stable security definer set search_path = fcd, pg_temp as $$
   select exists (
     select 1 from fcd.shipments x
-    where x.id = s and fcd.org_visible(x.shipper_org_id) and fcd.org_visible(x.partner_org_id)
-      and (fcd.is_member(x.shipper_org_id) or fcd.is_member(x.partner_org_id) or fcd.is_platform())
+    where x.id = s and fcd.shipment_row_visible(x.shipper_org_id, x.partner_org_id)
   )
 $$;
 
@@ -119,15 +131,20 @@ language sql stable security definer set search_path = fcd, pg_temp as $$
   )
 $$;
 
+create or replace function fcd.rate_card_row_visible(p_org uuid, p_public boolean, p_status text) returns boolean
+language sql stable security definer set search_path = fcd, pg_temp as $$
+  select fcd.org_visible(p_org) and (
+    fcd.is_member(p_org) or fcd.is_platform()
+    or (fcd.i_am_shipper() and fcd.partner_priced(p_org))
+    or (p_public and fcd.partner_priced(p_org) and p_status = 'active')
+  )
+$$;
+
 create or replace function fcd.can_see_rate_card(c uuid) returns boolean
 language sql stable security definer set search_path = fcd, pg_temp as $$
   select exists (
     select 1 from fcd.rate_cards r
-    where r.id = c and fcd.org_visible(r.org_id) and (
-      fcd.is_member(r.org_id) or fcd.is_platform()
-      or (fcd.i_am_shipper() and fcd.partner_priced(r.org_id))
-      or (r.is_public_price and fcd.partner_priced(r.org_id) and r.status = 'active')
-    )
+    where r.id = c and fcd.rate_card_row_visible(r.org_id, r.is_public_price, r.status)
   )
 $$;
 
@@ -138,7 +155,8 @@ begin
     'my_org_ids()', 'is_member(uuid)', 'is_org_admin(uuid)', 'is_platform()', 'org_visible(uuid)',
     'org_kind(uuid)', 'org_status(uuid)', 'partner_listed(uuid)', 'partner_priced(uuid)',
     'has_booking_with(uuid)', 'can_see_request(uuid)', 'can_see_shipment(uuid)',
-    'is_shipment_partner(uuid)', 'is_shipment_shipper(uuid)', 'can_see_rate_card(uuid)', 'i_am_shipper()'
+    'is_shipment_partner(uuid)', 'is_shipment_shipper(uuid)', 'can_see_rate_card(uuid)', 'i_am_shipper()',
+    'request_row_visible(uuid, uuid, text, text)', 'shipment_row_visible(uuid, uuid)', 'rate_card_row_visible(uuid, boolean, text)'
   ] loop
     execute format('revoke all on function fcd.%s from public', f);
     execute format('grant execute on function fcd.%s to fcd_public, fcd_user', f);
@@ -212,7 +230,7 @@ create policy memberships_read on fcd.memberships for select to fcd_user using (
 -- 요금표 — 수정 권한 없음, 새 판만 --------------------------------------------
 grant select on fcd.rate_cards, fcd.rate_card_lines, fcd.rate_card_tiers to fcd_public, fcd_user;
 grant insert on fcd.rate_cards, fcd.rate_card_lines, fcd.rate_card_tiers to fcd_user;
-create policy rate_cards_read on fcd.rate_cards for select to fcd_public, fcd_user using (fcd.can_see_rate_card(id));
+create policy rate_cards_read on fcd.rate_cards for select to fcd_public, fcd_user using (fcd.rate_card_row_visible(org_id, is_public_price, status));
 create policy rate_cards_insert on fcd.rate_cards for insert to fcd_user with check (
   fcd.is_member(org_id) and fcd.org_kind(org_id) = 'partner' and fcd.org_status(org_id) <> 'deleted'
 );
@@ -235,7 +253,7 @@ create policy skus_update on fcd.skus for update to fcd_user using (fcd.is_membe
 
 -- 견적 요청 ------------------------------------------------------------------
 grant select, insert, update on fcd.quote_requests to fcd_user;
-create policy qr_read on fcd.quote_requests for select to fcd_user using (fcd.can_see_request(id));
+create policy qr_read on fcd.quote_requests for select to fcd_user using (fcd.request_row_visible(org_id, id, status, origin_hub));
 create policy qr_insert on fcd.quote_requests for insert to fcd_user with check (
   fcd.is_member(org_id) and fcd.org_kind(org_id) = 'shipper'
 );
@@ -267,7 +285,7 @@ create policy bookings_read on fcd.bookings for select to fcd_user using (
 create policy bookings_insert on fcd.bookings for insert to fcd_user with check (fcd.is_member(shipper_org_id));
 
 grant select, insert, update on fcd.shipments to fcd_user;
-create policy shipments_read on fcd.shipments for select to fcd_user using (fcd.can_see_shipment(id));
+create policy shipments_read on fcd.shipments for select to fcd_user using (fcd.shipment_row_visible(shipper_org_id, partner_org_id));
 create policy shipments_insert on fcd.shipments for insert to fcd_user with check (fcd.is_member(shipper_org_id));
 create policy shipments_update on fcd.shipments for update to fcd_user
   using (fcd.is_member(partner_org_id) or fcd.is_platform())
