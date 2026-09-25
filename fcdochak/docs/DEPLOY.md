@@ -35,7 +35,17 @@ CLI(`db:migrate`, `demo:*`, `admin:create`)는 `DATABASE_URL` 이 없으면 `PGL
 개발 서버와 같은 로컬 DB 를 보려면 `.env.local` 에 `PGLITE_DIR=.pglite` 를 넣고, CLI 는 개발 서버를 멈춘 뒤 돌립니다
 (PGlite 폴더는 한 프로세스만 엽니다).
 
-## 1. 새 Supabase 프로젝트 (사람이 합니다)
+## 1-가. 새 Supabase — Vercel 마켓플레이스로(권장)
+
+Vercel → 프로젝트 `fcdochak` → **Storage** → Create → **Supabase** → 지역 Seoul(ap-northeast-2) → 프로젝트 `fcdochak` 에 연결.
+새 Supabase 프로젝트가 만들어지고 `POSTGRES_URL`·`SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_ANON_KEY`·`SUPABASE_SERVICE_ROLE_KEY` 등이
+환경변수로 자동 입력된다(값을 사람이 옮기지 않는다). 앱은 `DATABASE_URL` 이 없으면 `POSTGRES_URL` 을 쓴다.
+
+그다음 재배포하면 `npm run vercel-build` 가 **빌드 앞단에서** `tsx scripts/fcd.ts vercel:prepare` 를 돈다:
+스키마 만들기(마이그레이션)·참조 첫 판 → `DEMO_MODE` 가 켜져 있으면 데모 한 번(있으면 건너뜀, 데모 계정은 Supabase Auth 에) → 비공개 버킷 `fcd-docs`.
+DB 연결값이 없으면 건너뛰고 PGlite 미리보기로 빌드한다. 자료를 지우거나 덮는 단계는 없다.
+
+## 1-나. 새 Supabase 프로젝트 — 직접 (사람이 합니다)
 
 1. supabase.com 에서 **새 프로젝트**를 만듭니다(기존 프로젝트 재사용 금지). 지역은 서울(ap-northeast-2).
 2. Storage → 새 버킷 `fcd-docs`, **Public 끔**.

@@ -268,3 +268,13 @@ describe('사전 판정', () => {
     expect(daysUntil('2026-09-24', '2026-09-25')).toBe(-1);
   });
 });
+
+import { cleanDatabaseUrl } from '@/lib/db/driver';
+describe('DB 연결 문자열', () => {
+  it('Vercel·Supabase 연동이 붙이는 도구용 매개변수를 뗀다', () => {
+    const u = cleanDatabaseUrl('postgres://postgres.abc:pw@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x&pgbouncer=true');
+    expect(u).toContain('sslmode=require');
+    expect(u).not.toContain('supa=');
+    expect(u).not.toContain('pgbouncer');
+  });
+});

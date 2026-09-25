@@ -58,9 +58,26 @@ async function createPglite(dataDir: string | null): Promise<Driver> {
   };
 }
 
-async function createPostgres(url: string): Promise<Driver> {
+/**
+ * 연결 문자열 정리 — Vercel 의 Supabase 연동이 붙이는 도구용 매개변수(supa·pgbouncer 등)는
+ * postgres.js 가 서버 설정으로 넘겨 거절되므로 뗀다. sslmode 는 그대로 둔다.
+ */
+export function cleanDatabaseUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    for (const k of ['supa', 'pgbouncer', 'connection_limit', 'pool_timeout', 'schema']) u.searchParams.delete(k);
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}
+
+async function createPostgres(rawUrl: string): Promise<Driver> {
   const postgres = (await import('postgres')).default;
+  const url = cleanDatabaseUrl(rawUrl);
+  const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url);
   const sql = postgres(url, {
+    ssl: local || /sslmode=/.test(url) ? undefined : 'require',
     prepare: false, // Supabase 트랜잭션 풀러
     max: Number(process.env.DATABASE_POOL_MAX || 5),
     idle_timeout: 20,
