@@ -45,3 +45,4 @@
 - postgres.js 는 jsonb 자리에 넘긴 JSON 글자를 한 번 더 JSON 으로 감싼다 — 2026-09-25 첫 Supabase 시드(설정·응찰·청구 금액 등)가 글자로 감싸여 저장됐다. 드라이버가 쓰기는 다시 감싸지 않게, 읽기는 한 겹 벗기게 고쳐 저장된 자료는 건드리지 않았다(지우거나 덮는 SQL 을 돌리지 않는 규칙). SQL 쪽에서 jsonb 안을 읽는 곳은 없다.
 - 배열(text[]·int[])도 드라이버가 직접 푼다 — 풀러 뒤에서 postgres.js 가 배열 형식을 못 알아내는 경우 대비.
 - 실제 Postgres 드라이버 경로 시험: PGlite 소켓 서버(@electric-sql/pglite-socket, maxConnections 50)에 postgres.js 로 붙여 마이그레이션·시드·next build·smoke 10개를 돌렸다.
+- Vercel 빌드는 미국(iad1)에서 돌고 운영 DB 는 서울이라 왕복이 길다 — 구간 시세(`laneStats`)가 구간마다 요금표를 따로 읽어 구간 화면 미리 만들기가 60초를 넘겼다. 모든 구간 요금표를 한 번에 읽고, 같은 결과를 60초 동안 나눠 쓰며, `staticPageGenerationTimeout` 을 180초로 둔다. 업체 화면(`/p/[slug]`)도 요금표를 한 번에 읽는다. 시험: 실제 Postgres 16 앞에 왕복 180ms 지연 프록시를 두고 빌드 — 고치기 전 60초 초과 25건·실패, 고친 뒤 76장 36초.

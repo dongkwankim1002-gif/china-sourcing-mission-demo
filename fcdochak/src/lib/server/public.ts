@@ -63,7 +63,23 @@ function quantile(a: number[], p: number) {
  * 구간 시세 — 모든 공식·인증 대기 업체의 현재 요금표로 기준 화물 총액을 계산해 중간값·최저·상위 25% 만 낸다.
  * 개별 업체 가격은 내보내지 않는다. 데모는 DEMO_MODE 에 따라 뺀다.
  */
-export async function laneStats(): Promise<LaneStat[]> {
+export function laneStats(): Promise<LaneStat[]> {
+  // 한 화면이 제목·본문·공유 그림에서 세 번 부르고, 빌드는 구간 화면 수십 장을 동시에 만든다 — 잠깐 같은 결과를 나눠 쓴다.
+  const now = Date.now();
+  if (!laneMemo || now - laneMemo.at > LANE_MEMO_MS) {
+    const p = computeLaneStats();
+    laneMemo = { at: now, p };
+    p.catch(() => {
+      if (laneMemo?.p === p) laneMemo = null;
+    });
+  }
+  return laneMemo.p;
+}
+
+const LANE_MEMO_MS = 60_000;
+let laneMemo: { at: number; p: Promise<LaneStat[]> } | null = null;
+
+async function computeLaneStats(): Promise<LaneStat[]> {
   const today = todayKst();
   return asSystem(async (q) => {
     const s = await loadSettings(q);
@@ -80,13 +96,15 @@ export async function laneStats(): Promise<LaneStat[]> {
     const refQuote = computeQuote(s.referenceLines, STANDARD_CARGO, s.quoteParams);
     const reference = Object.fromEntries(refQuote.segments.map((x) => [x.segment, x.amount])) as Partial<Record<Segment, number>>;
     const out: LaneStat[] = [];
+    // 구간마다 따로 읽으면 DB 가 먼 곳(빌드 서버)에서 왕복이 수백 번 쌓인다 — 모든 구간을 한 번에 읽어 나눈다.
+    const { cards: allCards, lines, tiers } = await loadCards(q, { hub: null, port: null, mode: null });
+    const orgs = await q.query<{ id: string; ok: boolean }>(
+      `select id, (status in ('official','pending_verification') and ($2 or not is_demo)) ok from fcd.orgs where id = any($1::uuid[])`,
+      [[...new Set(allCards.map((c) => c.org_id))], env.demoMode],
+    );
+    const okOrg = new Set(orgs.filter((o) => o.ok).map((o) => o.id));
     for (const lane of lanes) {
-      const { cards, lines, tiers } = await loadCards(q, { hub: lane.hub, port: lane.port, mode: lane.mode });
-      const orgs = await q.query<{ id: string; ok: boolean }>(
-        `select id, (status in ('official','pending_verification') and ($2 or not is_demo)) ok from fcd.orgs where id = any($1::uuid[])`,
-        [[...new Set(cards.map((c) => c.org_id))], env.demoMode],
-      );
-      const okOrg = new Set(orgs.filter((o) => o.ok).map((o) => o.id));
+      const cards = allCards.filter((c) => c.origin_hub === lane.hub && c.port === lane.port && c.mode === lane.mode);
       const totals: number[] = [];
       const segs: Record<string, number[]> = {};
       const partners = new Set<string>();

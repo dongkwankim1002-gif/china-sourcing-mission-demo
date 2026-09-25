@@ -7,6 +7,8 @@ const config: NextConfig = {
   // PGlite(wasm)·postgres 는 서버 번들에 넣지 않고 node_modules 에서 읽는다
   serverExternalPackages: ['@electric-sql/pglite', 'postgres'],
   poweredByHeader: false,
+  // 빌드 서버(미국)와 운영 DB(서울)가 멀다 — 공개 화면 미리 만들기가 60초 기본값에 걸리지 않게 여유를 둔다
+  staticPageGenerationTimeout: 180,
   outputFileTracingIncludes: { '/**': ['./src/assets/og/**'] },
   typedRoutes: false,
   images: { unoptimized: true },

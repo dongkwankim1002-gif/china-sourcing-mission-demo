@@ -93,6 +93,8 @@ export interface CompareResult {
 interface CardRow {
   id: string;
   org_id: string;
+  origin_hub: string;
+  port: string;
   card_no: string;
   version: number;
   mode: string;
@@ -107,12 +109,13 @@ interface CardRow {
   created_at: string;
 }
 
-export async function loadCards(q: Queryable, where: { hub: string; port: string; mode: string | null; cardIds?: string[] }) {
+/** 구간의 현재 요금표와 줄·할인 구간. hub·port 를 null 로 주면 모든 구간을 한 번에 읽는다(구간 시세용). */
+export async function loadCards(q: Queryable, where: { hub: string | null; port: string | null; mode: string | null; cardIds?: string[] }) {
   const cards = await q.query<CardRow>(
-    `select id, org_id, card_no, version, mode, valid_from, valid_to, certainty, fuel_surcharge_separate, is_public_price,
+    `select id, org_id, origin_hub, port, card_no, version, mode, valid_from, valid_to, certainty, fuel_surcharge_separate, is_public_price,
             transit_days_min, transit_days_max, status, created_at
        from fcd.v_rate_cards_current
-      where origin_hub = $1 and port = $2 and ($3::text is null or mode = $3)
+      where ($1::text is null or origin_hub = $1) and ($2::text is null or port = $2) and ($3::text is null or mode = $3)
         and ($4::uuid[] is null or id = any($4::uuid[]))
         and valid_to >= (now() at time zone 'Asia/Seoul')::date - 30`,
     [where.hub, where.port, where.mode, where.cardIds ?? null],
