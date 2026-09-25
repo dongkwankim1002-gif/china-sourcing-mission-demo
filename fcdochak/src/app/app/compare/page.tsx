@@ -21,6 +21,9 @@ import { dateKo, num, pct, won } from '@/lib/format';
 import { ACTION, SEGMENTS_SHORT } from './labels';
 import { SEGMENTS, SEGMENT_LABEL_KO } from '@/lib/money/segments';
 import { ScoreBreakdown } from '@/components/trust/score-breakdown';
+import { assureView, basisFromOffers, currentFirmQuote, laneKey, loadAssureConfig, myInterestKinds } from '@/lib/server/assure';
+import { AssurePanel } from '@/components/assure/assure-panel';
+import { cargoToSearch } from '@/lib/cargo-params';
 
 export const metadata = { title: '같은 조건 비교' };
 
@@ -41,14 +44,17 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   const f = { confirmedOnly: sp.conf === '1', fcReadyOnly: sp.fcr === '1', officialOnly: sp.off === '1' };
   const withRelated = sp.rel === '1';
   const today = todayKst();
-  const { result, skus, traitNotes } = await asUser(v, async (q) => {
+  const { result, skus, traitNotes, assure } = await asUser(v, async (q) => {
     const s = await loadSettings(q);
     const [result, skus, traitNotes] = await Promise.all([
       compare(q, { hub: cq.hub, port: cq.port, mode: cq.mode, cargo: toCargo(cq), traits: cq.traits }, s, today),
       listSkus(q, v.org.id),
       loadTraitNotes(q),
     ]);
-    return { result, skus, traitNotes };
+    // v2 assure — 확정가·보장 참고(스위치 꺼짐이면 참고 숫자 + 관심 등록만)
+    const [config, mine, current] = await Promise.all([loadAssureConfig(q), myInterestKinds(q, v.id), currentFirmQuote(q, v.org.id, { laneKey: laneKey(cq) })]);
+    const assure = { view: assureView(config, basisFromOffers(result.offers)), mine: [...mine], current };
+    return { result, skus, traitNotes, assure };
   });
   // 특수관계 업체는 기본으로 순위에서 뺀다 — 「특수관계 포함」을 켜면 넣고, 1위가 특수관계면 경고 띠
   const ranked = rankOffers(filterOffers(result.offers, f), { sort, includeRelated: withRelated });
@@ -222,6 +228,14 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
         </div>
       )}
       <NineBarLegend className="mt-3" />
+      <AssurePanel
+        view={assure.view}
+        mine={assure.mine}
+        current={assure.current}
+        sampleLabel="요금표"
+        modeLabel={assure.view.mode ? nameOf(ref, 'mode', assure.view.mode) : null}
+        ctx={{ source: 'compare', query: cargoToSearch({ hub: cq.hub, port: cq.port, mode: cq.mode, units: cq.units, cartons: cq.cartons, kg: cq.kg, cbm: cq.cbm, goods: cq.goods, cur: cq.cur, fc: cq.fc, traits: cq.traits }) }}
+      />
 
       {result.excluded.length ? (
         <details className="group mt-6 rounded-md border border-line bg-surface">

@@ -23,6 +23,8 @@ export const DEMO_TABLES: { table: string; sql: string }[] = [
   { table: 'review_replies', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.review_replies x join fcd.orgs o on o.id = x.partner_org_id` },
   { table: 'audit_log', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where o.is_demo is not true)::int real from fcd.audit_log x left join fcd.orgs o on o.id = x.org_id` },
   { table: 'invoice_checks', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.invoice_checks x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'assure_interests', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.assure_interests x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'firm_price_quotes', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.firm_price_quotes x join fcd.orgs o on o.id = x.org_id` },
 ];
 
 export async function demoCounts(q: Queryable) {
