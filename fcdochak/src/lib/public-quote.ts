@@ -6,6 +6,7 @@ import type { CompareResult, Offer } from './server/compare';
 import type { Segment } from './money/segments';
 import { totalsBreakdown, type TotalsBreakdown } from './money/totals';
 import { isRelated, rankOffers, type SortKey } from './ranking';
+import { reasonText } from './money/eligibility';
 
 export type PublicSort = Extract<SortKey, 'cheapest' | 'recommend'>;
 
@@ -36,6 +37,8 @@ export interface QuoteResponse {
   bar: { segment: Segment; amount: number | null; certainty: 'confirmed' | 'estimated' | 'extra_possible' | null; filled: boolean }[] | null;
   barUnit: 'won' | 'permille';
   verdicts: { code: string; name: string; text: string }[];
+  /** v2 tools — 조건(화물 특성 등)이 안 맞아 뺀 업체의 이름과 사유(가격 없음) */
+  excludedList: { name: string; mode: string; reasons: string[] }[];
 }
 
 export function parsePublicSort(v: string | null | undefined): PublicSort {
@@ -81,5 +84,6 @@ export function buildQuoteResponse(
       : null,
     barUnit: opts.detail ? 'won' : 'permille',
     verdicts: result.verdicts.map((v) => ({ code: v.code, name: v.name_ko, text: v.verdict_ko })),
+    excludedList: (result.excluded as Offer[]).map((o) => ({ name: o.partner.name, mode: o.mode, reasons: o.exclusions.map(reasonText) })),
   };
 }

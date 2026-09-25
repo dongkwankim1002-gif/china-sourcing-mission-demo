@@ -20,6 +20,7 @@ export function PublicFooter() {
           <h2 className="text-xs font-bold text-on-ink">서비스</h2>
           <ul className="mt-3 space-y-2 text-sm">
             <li><Link className="hover:text-on-ink" href="/lanes">구간 시세</Link></li>
+            <li><Link className="hover:text-on-ink" href="/tools/pnl">판매손익 계산기</Link></li>
             <li><Link className="hover:text-on-ink" href="/partners">업체 찾기</Link></li>
             <li><Link className="hover:text-on-ink" href="/join/shipper">화주로 시작하기</Link></li>
             <li><Link className="hover:text-on-ink" href="/join/partner">물류사 입점 신청</Link></li>
