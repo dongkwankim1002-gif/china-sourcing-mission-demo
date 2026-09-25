@@ -29,17 +29,18 @@ export interface CardListRow {
 
 export function RatesTable({ rows, today }: { rows: CardListRow[]; today: string }) {
   const t = useTranslations('p.rates');
+  const tc = useTranslations('p.cols');
   const router = useRouter();
   const [extend, setExtend] = React.useState<{ ids: string[]; clear: () => void } | null>(null);
   const [to, setTo] = React.useState(() => new Date(Date.parse(today) + 60 * 86400_000).toISOString().slice(0, 10));
   const [pending, start] = React.useTransition();
   const tone = { valid: 'ok', soon: 'caution', expired: 'stamp', withdrawn: 'neutral' } as const;
   const cols: ColumnDef<CardListRow, unknown>[] = [
-    { id: 'card', header: '#', accessorKey: 'card_no', cell: ({ row }) => <Link href={`/partner/rates/${row.original.id}`} className="font-semibold hover:underline">{row.original.card_no} <span className="text-2xs text-muted">v{row.original.version}</span></Link> },
-    { id: 'lane', header: '⇄', accessorKey: 'lane' },
-    { id: 'state', header: '●', accessorKey: 'state', cell: ({ row }) => <Chip tone={tone[row.original.state]}>{t(row.original.state === 'valid' ? 'valid' : row.original.state === 'soon' ? 'soon' : row.original.state === 'expired' ? 'expired' : 'withdrawn')}</Chip> },
-    { id: 'valid', header: '📅', accessorKey: 'valid_to', cell: ({ row }) => <span className="tnum text-xs">{dateKo(row.original.valid_from, { dow: false })} ~ {dateKo(row.original.valid_to, { dow: false })}</span> },
-    { id: 'incl', header: '9', accessorKey: 'included', meta: { align: 'right' }, cell: ({ row }) => `${row.original.included}/9` },
+    { id: 'card', header: tc('no'), accessorKey: 'card_no', cell: ({ row }) => <Link href={`/partner/rates/${row.original.id}`} className="font-semibold hover:underline">{row.original.card_no} <span className="text-2xs text-muted">v{row.original.version}</span></Link> },
+    { id: 'lane', header: tc('lane'), accessorKey: 'lane' },
+    { id: 'state', header: tc('state'), accessorKey: 'state', cell: ({ row }) => <Chip tone={tone[row.original.state]}>{t(row.original.state === 'valid' ? 'valid' : row.original.state === 'soon' ? 'soon' : row.original.state === 'expired' ? 'expired' : 'withdrawn')}</Chip> },
+    { id: 'valid', header: tc('valid'), accessorKey: 'valid_to', cell: ({ row }) => <span className="tnum text-xs">{dateKo(row.original.valid_from, { dow: false })} ~ {dateKo(row.original.valid_to, { dow: false })}</span> },
+    { id: 'incl', header: tc('segs'), accessorKey: 'included', meta: { align: 'right' }, cell: ({ row }) => `${row.original.included}/9` },
     { id: 'pub', header: t('public'), accessorKey: 'is_public_price', cell: ({ row }) => (row.original.is_public_price ? <Chip tone="info">{t('public')}</Chip> : null) },
   ];
   const act = (ids: string[], kind: 'expire' | 'withdraw', clear: () => void) =>

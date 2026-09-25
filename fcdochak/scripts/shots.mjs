@@ -34,6 +34,8 @@ for (const theme of themes) {
       timezoneId: 'Asia/Seoul',
       reducedMotion: 'reduce',
     });
+    // 재방문 상태 — 글꼴을 받아 둔 기기처럼 처음부터 Pretendard·Black Han Sans 로 그린다(layout.tsx fontScript)
+    await ctx.addInitScript(() => { try { localStorage.setItem('fcd-fonts', '1'); } catch {} });
     const page = await ctx.newPage();
     if (login) {
       const r = await ctx.request.post(`${base}/api/demo-login?as=${login}`, { maxRedirects: 0 });

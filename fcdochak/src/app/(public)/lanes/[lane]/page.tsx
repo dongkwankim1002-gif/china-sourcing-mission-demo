@@ -135,7 +135,7 @@ export default async function LanePage({ params }: { params: Promise<{ lane: str
           )}
         </Panel>
         {related.length ? (
-          <section aria-labelledby="rel" className="lg:col-span-2">
+          <section aria-labelledby="rel" className="cv-auto lg:col-span-2">
             <h2 id="rel" className="text-md font-bold">비슷한 구간</h2>
             <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {related.map((l) => (

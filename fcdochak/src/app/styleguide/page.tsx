@@ -80,7 +80,7 @@ export default function Styleguide() {
             ))}
           </ul>
           <div>
-            <p className="mb-2 text-sm font-semibold">9구간 순서 단계(남색 한 색상, 밝음→짙음)</p>
+            <p className="mb-2 text-sm font-semibold">9구간 순서 단계(남색 한 색상 — 길의 순서대로 명도가 바뀜)</p>
             <div className="flex h-8 overflow-hidden rounded-xs">
               {SEGMENTS.map((s, i) => (
                 <span key={s} className="flex-1" style={{ background: `var(--seg-${i + 1})` }} title={s} />

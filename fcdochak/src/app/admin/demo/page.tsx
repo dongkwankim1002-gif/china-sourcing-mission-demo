@@ -1,4 +1,4 @@
-import { asUser } from '@/lib/db';
+import { asSystem } from '@/lib/db';
 import { env } from '@/lib/env';
 import { requireViewer } from '@/lib/server/viewer';
 import { demoCounts } from '@/lib/server/demo-status';
@@ -8,8 +8,9 @@ import { num } from '@/lib/format';
 export const metadata = { title: '데모 관리' };
 
 export default async function DemoAdmin() {
-  const v = await requireViewer('admin');
-  const counts = await asUser(v, (q) => demoCounts(q));
+  await requireViewer('admin');
+  // 운영자 확인 뒤 표 전체를 센다(npm run demo:status 와 같은 숫자)
+  const counts = await asSystem((q) => demoCounts(q));
   const total = counts.reduce((t, c) => t + c.demo, 0);
   return (
     <>

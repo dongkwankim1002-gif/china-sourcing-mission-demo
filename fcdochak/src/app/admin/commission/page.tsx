@@ -48,7 +48,7 @@ export default async function Commission() {
               <tbody>
                 {d.rows.map((r) => (
                   <tr key={r.booking_no} className="border-t border-line-2">
-                    <td className="px-3 py-2"><span className="font-semibold">{r.booking_no}</span><span className="block text-2xs text-muted">{dateKo(r.created_at, { dow: false })}</span></td>
+                    <td className="whitespace-nowrap px-3 py-2"><span className="font-semibold">{r.booking_no}</span><span className="block text-2xs text-muted">{dateKo(r.created_at, { dow: false })}</span></td>
                     <td className="px-3 py-2 text-xs"><span className="flex items-center gap-1">{r.shipper} → {r.partner}{r.is_demo ? <DemoChip /> : null}</span></td>
                     <td className="px-3 py-2 text-right">{num(r.total)}</td>
                     <td className="px-3 py-2 text-right text-muted">{r.amounts.broker == null ? '—' : `−${num(r.amounts.broker)}`}</td>

@@ -134,7 +134,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
                 ))}
               </dl>
             </Panel>
-            <Panel>
+            <Panel className="cv-auto">
               <PanelHead title="공개 요금" sub={`기준 화물 ${STANDARD_CARGO.cbm} CBM · ${num(STANDARD_CARGO.kg)} kg — 빈 구간은 참고치. 비공개 요금은 가입 후 비교에서`} />
               {priced.length ? (
                 <ul>
@@ -153,7 +153,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
                 <EmptyState title="공개한 요금이 없습니다" body="이 업체는 요금을 가입한 화주에게만 보여 줍니다." />
               )}
             </Panel>
-            <Panel>
+            <Panel className="cv-auto">
               <PanelHead title="화주 후기" sub="FC 입고까지 끝난 선적의 평가" />
               {reviews.length ? (
                 <ul>
@@ -169,7 +169,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
               )}
             </Panel>
           </div>
-          <aside className="grid content-start gap-6">
+          <aside className="cv-auto grid content-start gap-6">
             <Panel>
               <PanelHead title="회사 정보" />
               <div className="p-4">

@@ -4,7 +4,7 @@ import { LoginForm } from './login-form';
 import { env } from '@/lib/env';
 import { DemoMenu } from '@/components/public/header-client';
 
-export const metadata: Metadata = { title: '로그인', robots: { index: false } };
+export const metadata: Metadata = { title: '로그인', alternates: { canonical: '/login' } };
 
 const DEMO_MSG: Record<string, string> = {
   off: '예시 데이터를 걷어낸 뒤라 데모로 둘러볼 수 없습니다.',

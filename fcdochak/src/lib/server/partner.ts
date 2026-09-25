@@ -47,7 +47,11 @@ export async function inbox(q: Queryable, orgId: string, s: AppSettings, today: 
        from (${REQUEST_SELECT}) r
        left join lateral (select id, total, status from fcd.v_bids_current where request_id = r.id and org_id = $1 limit 1) b on true
       where ${opts.includeClosed ? 'true' : `r.display_status in ('waiting','bidding','closing_soon')`}
-      order by r.bid_deadline asc limit 300`,
+      -- 아직 응찰할 수 있는 요청을 마감 순으로 먼저, 지난 것은 최근 것부터
+      order by (r.display_status in ('waiting','bidding','closing_soon')) desc,
+               case when r.display_status in ('waiting','bidding','closing_soon') then r.bid_deadline end asc,
+               r.bid_deadline desc
+      limit 300`,
     [orgId],
   );
   const facts = await myOrgFacts(q, orgId);

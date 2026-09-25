@@ -14,7 +14,7 @@ frontend-design 스킬은 이 환경에 없었고(스킬·플러그인 검색 �
 |---|---|---|---|
 | `--ink` 남색 | `#0E2340` | `#060D18` | 머리 띠, 강한 글자, 사이드바 선택 |
 | `--label` 라벨 노랑 | `#F7C600` | `#FFD23F` | **주 행동 하나**, 강조, 초점 고리. 위 글자는 늘 남색 |
-| `--ok` 청록 | `#0E7C71` | `#2BB3A3` | 정상·완료·확정 |
+| `--ok` 청록 | `#0C7166` | `#2BB3A3` | 정상·완료·확정 |
 | `--stamp` 붉은 도장 | `#C0312A` | `#F0625A` | 예외·반려·만료 |
 | `--caution` 호박 | `#9A5800` | `#F4A93B` | 주의·추가비용 가능·곧 만료 |
 | `--paper` 종이 | `#EEF1F4` | `#0B1320` | 바탕. 크림·흙색 금지 |
@@ -51,8 +51,8 @@ frontend-design 스킬은 이 환경에 없었고(스킬·플러그인 검색 �
 
 | 글꼴 | 어디에 | 비고 |
 |---|---|---|
-| **Pretendard Variable** | 본문·UI 전부 | 저장소에 포함(`public/fonts/pretendard`, 동적 부분 집합 92조각). 숫자는 `tabular-nums` |
-| **Black Han Sans** | 큰 숫자, 브랜드 글자, 공개 마켓 제목 | 저장소에 포함(`public/fonts/black-han-sans`). **업무 화면 본문에는 쓰지 않는다** |
+| **Pretendard Variable** | 본문·UI 전부 | 저장소에 포함(`public/fonts/fcd`, KS X 1001 한글 2,350자+라틴·기호 한 파일 — `scripts/fonts/build.sh`). 숫자는 `tabular-nums` |
+| **Black Han Sans** | 큰 숫자, 브랜드 글자, 공개 마켓 제목 | 저장소에 포함(`public/fonts/fcd`, 같은 방식 한 파일). **업무 화면 본문에는 쓰지 않는다** |
 
 중국어(간체) 화면은 Pretendard 가 한자를 다 갖지 않으므로 `"PingFang SC","Noto Sans SC","Microsoft YaHei"` 로 떨어진다.
 

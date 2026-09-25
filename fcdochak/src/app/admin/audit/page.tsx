@@ -26,11 +26,11 @@ export default async function Audit() {
                 {rows.map((r) => (
                   <tr key={r.id} className="border-t border-line-2 align-top">
                     <td className="whitespace-nowrap px-3 py-2 text-xs text-muted tnum">{dateTimeKo(r.created_at)}</td>
-                    <td className="px-3 py-2 text-xs">{r.who ?? '시스템'}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-xs">{r.who ?? '시스템'}</td>
                     <td className="px-3 py-2 font-mono text-xs">{r.action}</td>
                     <td className="px-3 py-2 font-mono text-2xs text-muted">{r.target}</td>
-                    <td className="px-3 py-2 text-xs"><span className="flex items-center gap-1">{r.org}{r.is_demo ? <DemoChip /> : null}</span></td>
-                    <td className="max-w-72 truncate px-3 py-2 font-mono text-2xs text-muted" title={r.detail ? JSON.stringify(r.detail) : ''}>{r.detail ? JSON.stringify(r.detail) : ''}</td>
+                    <td className="px-3 py-2 text-xs"><span className="flex items-center gap-1 whitespace-nowrap">{r.org}{r.is_demo ? <DemoChip /> : null}</span></td>
+                    <td className="px-3 py-2 font-mono text-2xs text-muted"><span className="block max-w-72 truncate" title={r.detail ? JSON.stringify(r.detail) : ''}>{r.detail ? JSON.stringify(r.detail) : ''}</span></td>
                   </tr>
                 ))}
               </tbody>

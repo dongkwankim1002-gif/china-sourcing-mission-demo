@@ -1,6 +1,4 @@
 @import 'tailwindcss';
-@import '../../public/fonts/pretendard/pretendard.css';
-@import '../../public/fonts/black-han-sans/black-han-sans.css';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
@@ -12,7 +10,7 @@
   --label: #f7c600;
   --label-2: #ffe066;
   --on-label: #0e2340;
-  --ok: #0e7c71;
+  --ok: #0c7166;
   --ok-bg: #e3f3f0;
   --stamp: #c0312a;
   --stamp-bg: #fbe9e7;
@@ -300,4 +298,14 @@
   --caution: #f4a93b;
   --muted: #a9b7ca;
   --line: rgb(255 255 255 / 0.2);
+}
+
+/* 첫 화면 밖 구역은 보일 때 배치한다(모바일 첫 그리기). 높이 자리는 대략 잡아 둔다. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
+.cv-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 150px;
 }

@@ -26,7 +26,7 @@ export default async function LanesPage() {
           <EmptyState title="아직 올라온 요금표가 없습니다" body="첫 요금표가 올라오면 구간별 시세가 여기에 채워집니다." />
         </div>
       ) : (
-        <div className="grid gap-6">
+        <div className="grid min-w-0 gap-6 [&>*]:min-w-0">
           {hubs.map((h) => {
             const rows = lanes.filter((l) => l.hub === h);
             return (

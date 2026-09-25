@@ -21,8 +21,8 @@ export default async function Market({ searchParams }: { searchParams: Promise<{
   const t = await getTranslations('p.mkt');
   const zh = (await getLocale()) === 'zh';
   const today = todayKst();
-  const [ref, mk, lanes, mine] = await Promise.all([
-    getReference(),
+  const ref = await getReference();
+  const [mk, lanes, mine] = await Promise.all([
     marketData(v.org.id, days),
     laneStats(),
     asUser(v, async (q) => {

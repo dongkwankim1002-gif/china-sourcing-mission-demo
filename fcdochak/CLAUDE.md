@@ -16,3 +16,13 @@
 - 디자인 기준은 `docs/DESIGN.md`. 색은 역할 토큰으로만, 9구간 막대는 `NineBar` 하나만 쓴다.
 - 문구는 쓰는 사람 말로. 행동 이름은 `src/lib/terms.ts` 의 `ACTION` 과 같게.
 - 판단을 내렸으면 `docs/DECISIONS.md` 에 한 줄.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

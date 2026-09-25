@@ -105,7 +105,7 @@ export default async function ShipperDashboard({ searchParams }: { searchParams:
               <ul>
                 {d.shipments.map((s) => (
                   <li key={s.id} className="border-b border-line-2 last:border-0">
-                    <Link href={`/app/shipments/${s.id}`} className="grid gap-2 px-4 py-3 hover:bg-surface-2 md:grid-cols-[180px_1fr_220px_120px] md:items-center">
+                    <Link href={`/app/shipments/${s.id}`} className="grid gap-2 px-4 py-3 hover:bg-surface-2 lg:grid-cols-[160px_minmax(0,1fr)_200px_110px] lg:items-center">
                       <span>
                         <span className="block text-sm font-bold tnum">{s.shipment_no}</span>
                         <span className="block truncate text-xs text-muted">{s.partner_name}</span>

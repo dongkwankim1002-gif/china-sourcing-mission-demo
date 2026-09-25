@@ -46,7 +46,7 @@ export function BidForm({
     });
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 gap-4 [&>*]:min-w-0">
       <div className="rounded-md border border-line bg-surface p-4">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>

@@ -62,8 +62,8 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
       </div>
       {list.length ? (
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {list.map((p) => (
-            <li key={p.id}>
+          {list.map((p, i) => (
+            <li key={p.id} className={i >= 6 ? 'cv-card' : undefined}>
               <Link href={`/p/${p.slug}`} className="flex h-full flex-col gap-3 rounded-md border border-line bg-surface p-4 hover:border-muted/60">
                 <div className="flex items-center gap-3">
                   <LetterMark name={p.name} logo={p.logo_path} size={40} />

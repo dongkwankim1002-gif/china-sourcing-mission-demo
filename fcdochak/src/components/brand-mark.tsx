@@ -37,6 +37,8 @@ export function LetterMark({ name, logo, size = 36, className }: { name: string;
         alt={`${name} 로고`}
         width={size}
         height={size}
+        loading="lazy"
+        decoding="async"
         className={cn('shrink-0 rounded-sm border border-line bg-surface object-contain', className)}
         style={{ width: size, height: size }}
       />

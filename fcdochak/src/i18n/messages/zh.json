@@ -111,6 +111,21 @@
   },
   "notif": {
    "title": "通知"
+  },
+  "cols": {
+   "no": "编号",
+   "lane": "线路",
+   "state": "状态",
+   "valid": "有效期",
+   "segs": "包含段",
+   "traits": "货物特性",
+   "shipment": "货件",
+   "shipper": "货主",
+   "bid": "报价",
+   "invoice": "账单",
+   "dev": "偏差",
+   "issued": "开票日",
+   "result": "结果"
   }
  }
 }

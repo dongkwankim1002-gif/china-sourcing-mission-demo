@@ -111,6 +111,21 @@
   },
   "notif": {
    "title": "알림"
+  },
+  "cols": {
+   "no": "번호",
+   "lane": "구간",
+   "state": "상태",
+   "valid": "유효기간",
+   "segs": "맡는 구간",
+   "traits": "화물 특성",
+   "shipment": "선적",
+   "shipper": "화주",
+   "bid": "응찰",
+   "invoice": "청구",
+   "dev": "편차",
+   "issued": "발행일",
+   "result": "결과"
   }
  }
 }

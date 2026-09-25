@@ -110,19 +110,17 @@ export default async function Home() {
           ].map(([k, v, Icon]) => {
             const I = Icon as typeof Truck;
             return (
-              <div key={k as string} className="flex items-center gap-3 px-2 py-5 md:px-6">
-                <I className="size-5 shrink-0 text-muted" aria-hidden />
-                <div>
-                  <dt className="text-xs text-muted">{k as string}</dt>
-                  <dd className="display text-2xl text-text tnum">{v as string}</dd>
-                </div>
+              <div key={k as string} className="grid grid-cols-[20px_1fr] items-center gap-x-3 px-2 py-5 md:px-6">
+                <I className="row-span-2 size-5 shrink-0 text-muted" aria-hidden />
+                <dt className="text-xs text-muted">{k as string}</dt>
+                <dd className="display col-start-2 text-2xl text-text tnum">{v as string}</dd>
               </div>
             );
           })}
         </dl>
       </section>
 
-      <section aria-labelledby="nine" className="mx-auto max-w-[1280px] px-4 py-14">
+      <section aria-labelledby="nine" className="cv-auto mx-auto max-w-[1280px] px-4 py-14">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs font-bold text-muted">9구간 막대 읽는 법</p>
@@ -143,7 +141,7 @@ export default async function Home() {
         </ol>
       </section>
 
-      <section aria-labelledby="lanes" className="border-y border-line bg-surface">
+      <section aria-labelledby="lanes" className="cv-auto border-y border-line bg-surface">
         <div className="mx-auto max-w-[1280px] px-4 py-12">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -196,7 +194,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section aria-labelledby="partners" className="mx-auto max-w-[1280px] px-4 py-14">
+      <section aria-labelledby="partners" className="cv-auto mx-auto max-w-[1280px] px-4 py-14">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs font-bold text-muted">업체가 직접 올린 로고만 싣습니다</p>
@@ -227,7 +225,7 @@ export default async function Home() {
         )}
       </section>
 
-      <section aria-labelledby="reviews" className="border-y border-line bg-surface">
+      <section aria-labelledby="reviews" className="cv-auto border-y border-line bg-surface">
         <div className="mx-auto max-w-[1280px] px-4 py-14">
           <p className="text-xs font-bold text-muted">FC 입고까지 끝난 선적에서만 평가를 받습니다</p>
           <h2 id="reviews" className="display mt-1 text-[clamp(26px,3.4vw,40px)] leading-tight">화주 후기</h2>
@@ -257,7 +255,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section aria-labelledby="faq" className="mx-auto max-w-[1280px] px-4 py-14">
+      <section aria-labelledby="faq" className="cv-auto mx-auto max-w-[1280px] px-4 py-14">
         <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
           <div>
             <h2 id="faq" className="display text-[clamp(26px,3.4vw,40px)] leading-tight">자주 묻는 질문</h2>
@@ -279,7 +277,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section aria-labelledby="join" className="bg-label text-on-label">
+      <section aria-labelledby="join" className="cv-auto bg-label text-on-label">
         <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-6 px-4 py-10">
           <div>
             <h2 id="join" className="display text-[clamp(24px,3vw,36px)] leading-tight">물류사라면 요금표 한 장으로 시작하세요</h2>

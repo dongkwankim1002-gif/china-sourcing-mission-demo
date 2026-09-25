@@ -43,7 +43,7 @@ export function RateLinesEditor({
             <li
               key={l.segment}
               className={cn(
-                'grid gap-2 rounded-sm border bg-surface p-3 md:grid-cols-[150px_150px_1fr] md:items-center',
+                'grid gap-2 rounded-sm border bg-surface p-3 xl:grid-cols-[150px_150px_minmax(0,1fr)] xl:items-center',
                 err ? 'border-stamp bg-stamp-bg/30' : 'border-line',
               )}
             >
@@ -73,7 +73,7 @@ export function RateLinesEditor({
                   </button>
                 ))}
               </div>
-              <div className={cn('grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-[1.1fr_1fr_80px_1fr_1fr]', off && 'opacity-40')}>
+              <div className={cn('grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-[1.1fr_1fr_80px_1fr_1fr]', off && 'opacity-40')}>
                 <NativeSelect aria-label={zh ? '计费方式' : '기준'} value={l.basis} disabled={off} onChange={(e) => set(i, { basis: e.target.value as RateLineInputT['basis'] })} className="h-9 text-sm">
                   {BASES.map((b) => (
                     <option key={b} value={b}>
@@ -97,7 +97,7 @@ export function RateLinesEditor({
                 </NativeSelect>
               </div>
               {err ? (
-                <p role="alert" className="text-xs text-stamp md:col-span-3">
+                <p role="alert" className="text-xs text-stamp xl:col-span-3">
                   {err}
                 </p>
               ) : null}

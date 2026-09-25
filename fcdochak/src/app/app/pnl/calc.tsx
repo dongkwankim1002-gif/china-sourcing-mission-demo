@@ -131,7 +131,7 @@ export function PnlCalc({
           ].map(([k, v, c]) => (
             <div key={k} className="rounded-md border border-line bg-surface p-4">
               <p className="text-xs font-semibold text-muted">{k}</p>
-              <p className={cn('display mt-1.5 text-[24px] leading-none tnum', c)}>{v}</p>
+              <p className={cn('display mt-1.5 whitespace-nowrap text-[clamp(18px,2vw,24px)] leading-none tnum', c)}>{v}</p>
             </div>
           ))}
         </section>
