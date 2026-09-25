@@ -56,16 +56,16 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
         const refQ = computeQuote(s.referenceLines, STANDARD_CARGO, s.quoteParams);
         const reference = Object.fromEntries(refQ.segments.map((x) => [x.segment, x.amount])) as Partial<Record<Segment, number>>;
         const out: { lane: string; mode: string; validTo: string; total: number; segs: ReturnType<typeof computeQuote>['segments'] }[] = [];
-        const lanes = [...new Set(publicCards.map((c) => `${c.origin_hub}|${c.port}|${c.mode}`))];
-        for (const l of lanes) {
-          const [hub, port, mode] = l.split('|');
-          const { cards, lines, tiers } = await loadCards(q, { hub, port, mode, cardIds: publicCards.filter((c) => c.origin_hub === hub && c.port === port && c.mode === mode).map((c) => c.id) });
-          for (const c of cards) {
-            const ls = lines.get(c.id) ?? [];
-            if (!ls.length) continue;
-            const r = completeWithReference(computeQuote(ls, STANDARD_CARGO, s.quoteParams, tiers.get(c.id) ?? []), reference, STANDARD_CARGO.units);
-            out.push({ lane: `${nameOf(ref, 'hub', hub)} → ${nameOf(ref, 'port', port)}`, mode: nameOf(ref, 'mode', mode), validTo: c.valid_to, total: r.total, segs: r.segments });
-          }
+        // 요금표를 구간마다 따로 읽지 않고 한 번에 읽는다(DB 가 먼 빌드 서버에서 왕복을 줄인다). 순서는 공개 요금표 순서대로.
+        const { cards, lines, tiers } = publicCards.length
+          ? await loadCards(q, { hub: null, port: null, mode: null, cardIds: publicCards.map((c) => c.id) })
+          : { cards: [], lines: new Map(), tiers: new Map() };
+        const order = new Map(publicCards.map((c, i) => [c.id, i]));
+        for (const c of [...cards].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))) {
+          const ls = lines.get(c.id) ?? [];
+          if (!ls.length) continue;
+          const r = completeWithReference(computeQuote(ls, STANDARD_CARGO, s.quoteParams, tiers.get(c.id) ?? []), reference, STANDARD_CARGO.units);
+          out.push({ lane: `${nameOf(ref, 'hub', c.origin_hub)} → ${nameOf(ref, 'port', c.port)}`, mode: nameOf(ref, 'mode', c.mode), validTo: c.valid_to, total: r.total, segs: r.segments });
         }
         return out;
       })
