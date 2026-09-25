@@ -61,17 +61,26 @@ export function ExcelImport({
   onConfirm,
   templateName,
   locale = 'ko',
+  allowMapping = false,
+  mappingNote,
 }: {
   columns: ImportColumn[];
   validate: (row: ParsedRow) => string | null;
   onConfirm: (rows: ParsedRow[]) => Promise<{ ok: boolean; error?: string; created?: number }>;
   templateName: string;
   locale?: 'ko' | 'zh';
+  /** 칸 잇기 — 별칭으로 못 맞춘 칸을 사람이 파일 머리글에서 골라 잇는다(v2 wing). 끄면 예전 그대로 */
+  allowMapping?: boolean;
+  /** 칸 잇기 위에 붙는 설명(예: 「열 이름 확인 필요」) */
+  mappingNote?: React.ReactNode;
 }) {
   const zh = locale === 'zh';
   const [drag, setDrag] = React.useState(false);
   const [file, setFile] = React.useState<string | null>(null);
   const [rows, setRows] = React.useState<{ row: ParsedRow; error: string | null; line: number }[]>([]);
+  // 칸 잇기(allowMapping) — 읽은 표와 칸마다 고른 머리글 번호(-1 = 없음)
+  const [table, setTable] = React.useState<unknown[][] | null>(null);
+  const [map, setMap] = React.useState<number[]>([]);
   const [headerErr, setHeaderErr] = React.useState<string | null>(null);
   const [pending, start] = React.useTransition();
   const [done, setDone] = React.useState<string | null>(null);
@@ -95,6 +104,15 @@ export function ExcelImport({
     }
     const head = table[0].map((h) => norm(String(h ?? '')));
     const idx = columns.map((c) => head.findIndex((h) => [c.label, ...c.aliases].map(norm).includes(h)));
+    if (allowMapping) {
+      setTable(table);
+      setMap(idx);
+    }
+    apply(table, idx);
+  };
+
+  const apply = (table: unknown[][], idx: number[]) => {
+    setHeaderErr(null);
     const missing = columns.filter((c, i) => c.required && idx[i] < 0).map((c) => c.label);
     if (missing.length) {
       setRows([]);
@@ -136,7 +154,7 @@ export function ExcelImport({
   };
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 gap-4 [&>*]:min-w-0">
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -160,6 +178,39 @@ export function ExcelImport({
           <Button size="sm" variant="secondary" onClick={template}><FileSpreadsheet aria-hidden /> {zh ? '下载模板' : '양식 받기'}</Button>
         </div>
       </div>
+      {allowMapping && table ? (
+        <section aria-label="칸 잇기" className="grid gap-2 rounded-md border border-line bg-surface p-4" data-testid="column-mapping">
+          <p className="text-sm font-semibold">칸 잇기 — 우리 칸마다 파일의 머리글을 고르세요</p>
+          {mappingNote ? <div className="text-xs text-muted">{mappingNote}</div> : null}
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {columns.map((c, i) => (
+              <label key={c.key} className="flex min-w-0 flex-col gap-1 text-xs">
+                <span className="font-semibold text-text">
+                  {c.label}
+                  {c.required ? <span className="ml-0.5 text-stamp" aria-hidden>*</span> : null}
+                  {(map[i] ?? -1) < 0 ? <span className="ml-1 font-normal text-caution">못 맞춤</span> : null}
+                </span>
+                <select
+                  aria-label={`${c.label} 칸`}
+                  className="h-9 w-full min-w-0 rounded-sm border border-line bg-surface px-2 text-sm"
+                  value={map[i] ?? -1}
+                  onChange={(e) => {
+                    const next = columns.map((_, k) => map[k] ?? -1);
+                    next[i] = Number(e.target.value);
+                    setMap(next);
+                    apply(table, next);
+                  }}
+                >
+                  <option value={-1}>— 없음 —</option>
+                  {table[0].map((h, j) => (
+                    <option key={j} value={j}>{String(h ?? '').trim() || `(${j + 1}번째 칸)`}</option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+        </section>
+      ) : null}
       {headerErr ? <p role="alert" className="flex items-center gap-2 rounded-sm border border-stamp/40 bg-stamp-bg p-3 text-sm text-stamp"><AlertTriangle className="size-4" /> {headerErr}</p> : null}
       {rows.length ? (
         <section aria-label={zh ? '预览' : '미리보기'} className="rounded-md border border-line bg-surface">
@@ -178,6 +229,7 @@ export function ExcelImport({
                   if (r.ok) {
                     setDone(`${zh ? '已导入' : '올렸습니다'} ${r.created ?? good.length}${zh ? '条' : '건'}`);
                     setRows([]);
+                    setTable(null);
                   } else setHeaderErr(r.error ?? (zh ? '导入失败' : '올리지 못했습니다'));
                 })
               }

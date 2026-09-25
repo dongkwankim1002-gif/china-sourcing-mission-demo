@@ -51,3 +51,27 @@ export const V2_SETTING_LABEL: Record<string, string> = {
   'workspace.billing_flag_bp': '청구 「차이 큼」 기준(bp)',
   destination_leg: '쿠팡 FC 밖 목적지 마지막 구간 참고치',
 };
+
+// v2 2차 wing — 쿠팡 WING 연동 기준치(읽는 쪽: src/lib/server/wing.ts parseWingSettings)
+export const WING_SETTING_SCHEMAS = {
+  'wing.call_rule': z.object({
+    perSecond: z.number().int().min(1).max(5),
+    perMinute: z.number().int().min(1).max(300),
+    maxRetries: z.number().int().min(0).max(5),
+    baseBackoffMs: z.number().int().min(100).max(60_000),
+    maxBackoffMs: z.number().int().min(100).max(300_000),
+    timeoutMs: z.number().int().min(1000).max(60_000),
+  }),
+  'wing.match_rule': z.object({
+    dateWindowDays: z.number().int().min(1).max(90),
+    unitsToleranceBp: z.number().int().min(1).max(10_000),
+    minScore: z.number().int().min(0).max(100),
+  }),
+  'wing.key_valid_days': z.number().int().min(1).max(365),
+};
+Object.assign(V2_SETTING_SCHEMAS, WING_SETTING_SCHEMAS);
+Object.assign(V2_SETTING_LABEL, {
+  'wing.call_rule': '쿠팡 WING 호출 제한·재시도',
+  'wing.match_rule': '쿠팡 입고 요청 ↔ 선적 짝 제안 기준',
+  'wing.key_valid_days': '쿠팡 OPEN API 키 유효 일수',
+});

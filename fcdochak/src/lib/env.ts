@@ -58,6 +58,15 @@ export const env = {
     const v = process.env.PREVIEW_BANNER?.trim();
     return v ? v : null;
   },
+  /** 쿠팡 WING 오픈 API 호출. 기본 꺼짐 — 꺼져 있으면 쿠팡을 한 번도 부르지 않는다(docs/wing-plan.md) */
+  get wingEnabled() {
+    return flag(process.env.WING_ENABLED, false);
+  },
+  /** WING 키 암호화 키(32자 이상). 값은 서버 환경변수에만 — 없으면 키를 받지 않는다 */
+  get wingKeyEncryptionKey() {
+    const v = process.env.WING_KEY_ENCRYPTION_KEY;
+    return v && v.length >= 32 ? v : null;
+  },
   get usingSupabaseAuth() {
     return !!(this.supabaseUrl && this.supabaseAnonKey && this.supabaseServiceKey);
   },
