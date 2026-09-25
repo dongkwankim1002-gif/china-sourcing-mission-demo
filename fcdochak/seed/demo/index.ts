@@ -816,6 +816,73 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
   T.audit.add(demoIds.admin, hanbada.id, 'ad.created', 'lane:YIW-ICN', JSON.stringify({ days: 30 }), ts(now - 11 * DAY));
   T.audit.add(demoIds.admin, byKey.get('nuri')!.id, 'related_party.disclosed', 'org:nuri', JSON.stringify({ note: PARTNERS.find((p) => p.key === 'nuri')!.related }), ts(now - 40 * DAY));
 
+  // v2 trust — 회송·입고 반려·분실(미도착)로 끝난 선적과 그 후기, 업체 공개 답변 -------------------
+  // 앞 자료의 난수 순서를 흔들지 않게 따로 된 난수를 쓴다(요청·응찰·선적 번호만 이어서 매긴다).
+  // 회송(9단계 + 회송 수량)으로 끝난 선적의 후기는 위에서 이미 생긴다 — outcome 을 비워 두면 읽을 때 선적 기록으로 채운다.
+  {
+    const tr = new Rng(DEMO_SEED ^ 0x7e57);
+    const trustReviews = new Table('reviews', ['id', 'shipment_id', 'shipper_org_id', 'partner_org_id', 'rating', 'on_time_ok', 'billing_ok', 'body', 'author_label', 'created_by', 'created_at::timestamptz', 'outcome']);
+    const replies = new Table('review_replies', ['id', 'review_id', 'partner_org_id', 'version', 'supersedes_id', 'body', 'created_by', 'created_at::timestamptz']);
+    const LOST_TEXT = [
+      '출항했다는 연락 뒤로 FC 도착 예정일이 한참 지났는데 화물 위치를 아무도 모릅니다. 분실 신고 절차만 안내받았습니다.',
+      '도착 예정일에서 3주가 지나도록 입고가 안 됐습니다. 중간 창고에서 박스가 사라졌다고 하는데 보상 기준 안내가 늦었습니다.',
+    ];
+    const REJECT_TEXT = [
+      'FC 에서 바코드 라벨 위치 때문에 반려됐습니다. 재작업 비용을 누가 낼지 정리가 안 돼 입고가 일주일 넘게 늦어지고 있습니다.',
+      '박스 중량 초과로 입고 반려가 났습니다. 출고 전 계근을 해 달라고 부탁했는데 확인이 안 됐던 것 같습니다.',
+    ];
+    const REPLY_TEXT: Record<string, string[]> = {
+      lost: [
+        '불편을 드려 죄송합니다. 중간 창고 CCTV 와 인수 기록을 확인하고 있으며, 적하보험 청구 서류는 담당자가 오늘 안에 보내 드리겠습니다.',
+        '현지 창고 출고 기록까지는 확인됐고 이후 구간을 운송사와 함께 추적 중입니다. 결과와 보상 절차를 이번 주 안에 문서로 드리겠습니다.',
+      ],
+      fc_rejected: [
+        '반려 원인은 저희 재포장 조의 라벨 위치 실수였습니다. 재작업 비용은 저희가 부담하고 재입고 예약을 잡았습니다.',
+        '출고 전 계근 기록을 다시 보니 두 박스가 기준을 넘었습니다. 나눠 담는 비용은 받지 않고 재입고까지 맡겠습니다.',
+      ],
+    };
+    const REPLY_V2 = '재입고 예약이 확정됐습니다(내일 오전). 재작업·재입고 비용은 청구서에서 빼고 새 판으로 다시 보내 드렸습니다.';
+    const plan: { kind: 'lost' | 'fc_rejected'; stage: number; ago: number; hanbada: boolean; shipper: S; review: boolean }[] = [
+      { kind: 'lost', stage: 6, ago: 46, hanbada: true, shipper: tr.weighted(shippers, shipperWeights), review: true },
+      { kind: 'fc_rejected', stage: 8, ago: 27, hanbada: true, shipper: tr.weighted(shippers, shipperWeights), review: true },
+      { kind: 'lost', stage: 5, ago: 52, hanbada: false, shipper: tr.weighted(shippers, shipperWeights), review: true },
+      { kind: 'fc_rejected', stage: 8, ago: 25, hanbada: false, shipper: tr.weighted(shippers, shipperWeights), review: true },
+      // 데모 화주가 직접 평가해 볼 수 있게 — 평가를 남기지 않은 분실·미도착 선적
+      { kind: 'lost', stage: 6, ago: 44, hanbada: true, shipper: livingmoa, review: false },
+    ];
+    const used: Record<string, number> = {};
+    for (const it of plan) {
+      const bookedAt = now - it.ago * DAY;
+      const r = newRequest(it.shipper, bookedAt - 3 * DAY, 60, { hub: it.hanbada ? tr.pick(['YIW', 'QDG']) : undefined, mode: 'LCL' });
+      if (!r) continue;
+      const bids = makeBids(r, 3, r.deadline, it.hanbada ? hanbada : undefined);
+      if (bids.length === 0) continue;
+      writeRequest(r, 'selected');
+      const chosen = (it.hanbada && bids.find((b) => b.card.partner.id === hanbada.id)) || choose(bids, r);
+      const ship = book(r, chosen, Math.min(r.deadline + 6 * HOUR, bookedAt), it.stage);
+      const partnerPerson = ship.p.people[0]?.id ?? null;
+      if (it.kind === 'fc_rejected') {
+        const opened = Math.min((ship.stageTimes[ship.stage] ?? now) + 2 * HOUR, now - 2 * DAY);
+        T.exceptions.add(ship.shipId, 'fc_rejected', tr.pick(EXCEPTION_NOTES.fc_rejected), ts(opened), null, null, partnerPerson);
+      }
+      if (!it.review) continue;
+      const at = Math.min(now - tr.int(30, 60) * HOUR, reviewCeil);
+      const reviewId = tr.uuid();
+      const hubName = HUBS.find((h) => h.code === r.hub)!.name_ko;
+      const texts = it.kind === 'lost' ? LOST_TEXT : REJECT_TEXT;
+      const body = texts[(used[it.kind] = (used[it.kind] ?? -1) + 1) % texts.length];
+      trustReviews.add(reviewId, ship.shipId, r.shipper.id, ship.p.id, it.kind === 'lost' ? 1 : 2, false, true, body, `${r.shipper.category} 셀러 · ${hubName}→${r.port === 'ICN' ? '인천' : '평택'}`, r.shipper.people[0].id, ts(at), it.kind);
+      // 업체 공개 답변 — 한바다는 반려 건 답변을 한 번 고쳤다(새 판)
+      const v1 = tr.uuid();
+      const v1At = Math.min(at + 5 * HOUR, now - 12 * HOUR);
+      replies.add(v1, reviewId, ship.p.id, 1, null, REPLY_TEXT[it.kind][used[it.kind] % REPLY_TEXT[it.kind].length], partnerPerson, ts(v1At));
+      if (it.hanbada && it.kind === 'fc_rejected') {
+        replies.add(tr.uuid(), reviewId, ship.p.id, 2, v1, REPLY_V2, partnerPerson, ts(Math.min(v1At + 8 * HOUR, now - 2 * HOUR)));
+      }
+    }
+    Object.assign(T, { trustReviews, replies });
+  }
+
   // 계정 자격 --------------------------------------------------------------
   const pw = opts.password ?? null;
   if (pw && opts.localCredentials !== false) {

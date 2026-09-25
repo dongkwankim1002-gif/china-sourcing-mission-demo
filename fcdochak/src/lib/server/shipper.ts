@@ -295,7 +295,7 @@ export async function shipmentDetail(q: Queryable, id: string) {
     [id],
   ))[0];
   if (!s) return null;
-  const [events, exceptions, docs, invoices, bid, review] = await Promise.all([
+  const [events, exceptions, docs, invoices, bid, review, outcomeRow] = await Promise.all([
     q.query<{ id: string; stage: number; raw_status: string | null; note: string | null; occurred_at: string; who: string | null }>(
       `select e.id, e.stage, e.raw_status, e.note, e.occurred_at, p.name who from fcd.shipment_events e left join fcd.profiles p on p.id = e.created_by where e.shipment_id = $1 order by e.occurred_at desc`,
       [id],
@@ -318,10 +318,14 @@ export async function shipmentDetail(q: Queryable, id: string) {
       `select amounts, certainties, total, transit_days_min, transit_days_max from fcd.bids where id = $1`,
       [s.bid_id],
     ),
-    q.query<{ rating: number; body: string; on_time_ok: boolean; billing_ok: boolean; created_at: string }>(
-      `select rating, body, on_time_ok, billing_ok, created_at from fcd.reviews where shipment_id = $1`,
+    q.query<{ id: string; rating: number; body: string; on_time_ok: boolean; billing_ok: boolean; created_at: string; outcome: string | null; reply_body: string | null; reply_version: number | null; reply_at: string | null; reply_id: string | null }>(
+      `select r.id, r.rating, r.body, r.on_time_ok, r.billing_ok, r.created_at, fcd.review_outcome(r.id) outcome,
+              a.id reply_id, a.body reply_body, a.version reply_version, a.created_at reply_at
+         from fcd.reviews r left join fcd.v_review_replies_current a on a.review_id = r.id where r.shipment_id = $1`,
       [id],
     ),
+    // v2 trust — 이 선적이 평가할 수 있는 끝에 닿았는가(입고·회송·반려·미도착)
+    q.query<{ o: string | null }>('select fcd.shipment_outcome($1::uuid) o', [id]),
   ]);
-  return { s, events, exceptions, docs, invoices, bid: bid[0], review: review[0] ?? null };
+  return { s, events, exceptions, docs, invoices, bid: bid[0], review: review[0] ?? null, outcome: outcomeRow[0]?.o ?? null };
 }

@@ -120,3 +120,24 @@ export const NOTIF_KIND_LABEL: Record<string, string> = {
   status: '상태 갱신',
   system: '안내',
 };
+
+/** 후기가 어떤 끝으로 끝난 선적에 대한 것인가(v2 trust) — 선적 기록에서 읽는다, 화주가 고르지 않는다 */
+export const REVIEW_OUTCOME_LABEL: Record<string, string> = {
+  delivered: 'FC 입고 완료',
+  fc_returned: 'FC 회송 있음',
+  fc_rejected: 'FC 입고 반려',
+  lost: '분실·미도착',
+};
+
+export const REVIEW_OUTCOME_LABEL_ZH: Record<string, string> = {
+  delivered: 'FC入库完成',
+  fc_returned: '有FC退回',
+  fc_rejected: 'FC拒收',
+  lost: '丢失·未到',
+};
+
+/** 후기 답변 행동 이름(v2 trust) */
+export const TRUST_ACTION = {
+  reply: '공개 답변 남기기',
+  editReply: '답변 고치기',
+} as const;

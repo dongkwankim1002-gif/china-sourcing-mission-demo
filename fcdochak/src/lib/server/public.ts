@@ -7,6 +7,7 @@ import { STANDARD_CARGO } from '../standard-cargo';
 import { queryPublicReviews, type PublicReview } from '../reviews-query';
 import { loadCards } from './compare';
 import { loadSettings } from './settings';
+import { emptyTrust, loadTrustFacts, loadTrustRule } from './trust';
 
 /** 구간 시세의 기준 화물 — 화면에 그대로 적는다. 값은 src/lib/standard-cargo.ts 한 곳에만 있다(계산기 첫 값과 같다). */
 export { STANDARD_CARGO };
@@ -188,6 +189,22 @@ export async function publicReviews(limit = 6, partnerId?: string): Promise<Publ
   return asPublic((q) => queryPublicReviews(q, { limit, partnerId, today }));
 }
 
+/**
+ * 업체 화면 후기 — 최근 후기에 더해, 회송·입고 반려·분실(미도착)로 끝난 선적의 최근 후기를 함께 싣는다(v2 trust).
+ * 나쁜 끝의 후기가 좋은 후기 여러 건에 밀려 첫 화면에서 사라지지 않게 한다. 날짜 순으로 합친다.
+ */
+export async function partnerPageReviews(partnerId: string, recent = 6, hard = 4): Promise<PublicReview[]> {
+  const today = todayKst();
+  return asPublic(async (q) => {
+    const [a, b] = await Promise.all([
+      queryPublicReviews(q, { limit: recent, partnerId, today }),
+      queryPublicReviews(q, { limit: hard, partnerId, today, outcomes: ['fc_returned', 'fc_rejected', 'lost'] }),
+    ]);
+    const seen = new Set<string>();
+    return [...a, ...b].filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true))).sort((x, y) => new Date(y.created_at).getTime() - new Date(x.created_at).getTime());
+  });
+}
+
 export async function partnerBySlug(slug: string) {
   return asPublic(async (q) => {
     const p = (
@@ -229,7 +246,11 @@ export async function partnerBySlug(slug: string) {
         where org_id = $1 and status = 'active' and valid_to >= (now() at time zone 'Asia/Seoul')::date order by origin_hub, port, mode`,
       [p.id],
     );
-    return { partner: p, caps, metrics, fcReady: grade?.granted ?? false, gradeAt: grade?.created_at ?? null, publicCards: cards };
+    // v2 trust — 표본·끝별 건수·청구 편차 분포(숫자만)
+    const trustRule = await loadTrustRule(q);
+    const trust = (await loadTrustFacts(q, [p.id], trustRule)).get(p.id) ?? emptyTrust(trustRule);
+    const scoreCaps = (await loadSettings(q)).scoreCaps;
+    return { partner: p, caps, metrics, fcReady: grade?.granted ?? false, gradeAt: grade?.created_at ?? null, publicCards: cards, trust, scoreCaps };
   });
 }
 

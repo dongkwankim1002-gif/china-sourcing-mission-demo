@@ -16,6 +16,7 @@ import { getReference } from '@/lib/server/reference';
 import { loadSettings } from '@/lib/server/settings';
 import { dateKo, notFuture, num, wonShort } from '@/lib/format';
 import { ACTION, BIZ_TYPE_LABEL } from '@/lib/terms';
+import { OutcomeChip, ReplyBlock } from '@/components/trust/review-item';
 import { SEGMENTS, SEGMENT_LABEL_KO } from '@/lib/money/segments';
 
 export const revalidate = 600;
@@ -223,7 +224,7 @@ export default async function Home() {
 
       <section aria-labelledby="reviews" className="cv-auto border-y border-line bg-surface">
         <div className="mx-auto max-w-[1280px] px-4 py-14">
-          <p className="text-xs font-bold text-muted">FC 입고까지 끝난 선적에서만 평가를 받습니다</p>
+          <p className="text-xs font-bold text-muted">끝난 선적에서만 평가를 받습니다 — 회송·입고 반려·분실(미도착)로 끝난 선적도 싣습니다</p>
           <h2 id="reviews" className="display mt-1 text-[clamp(26px,3.4vw,40px)] leading-tight">화주 후기</h2>
           {reviews.length ? (
             <ul className="mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -241,7 +242,9 @@ export default async function Home() {
                     </Link>
                     {r.on_time_ok ? <Chip tone="ok" className="h-5">정시 입고</Chip> : null}
                     {r.billing_ok ? <Chip tone="ok" className="h-5">견적대로 청구</Chip> : <Chip tone="caution" className="h-5">청구 차이</Chip>}
+                    <OutcomeChip outcome={r.outcome} />
                   </div>
+                  {r.reply_body ? <ReplyBlock partnerName={r.partner_name} body={r.reply_body} version={r.reply_version} at={r.reply_at} /> : null}
                 </li>
               ))}
             </ul>

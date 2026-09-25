@@ -23,6 +23,9 @@ export interface QuoteTop {
   relatedNote: string | null;
   score: number;
   totals: TotalsBreakdown;
+  /** v2 trust — 표본이 기준 미만이면 점수 대신 「표본 부족(N건)」 */
+  sampleEnough: boolean;
+  sampleN: number;
 }
 
 export interface QuoteResponse {
@@ -70,6 +73,8 @@ export function buildQuoteResponse(
       relatedNote: isRelated(o) ? o.partner.related_party_note : null,
       score: o.score,
       totals: totalsBreakdown(o.quote.segments),
+      sampleEnough: o.trust?.sample.enough ?? true,
+      sampleN: o.trust?.sample.n ?? 0,
     })),
     bar: best
       ? best.quote.segments.map((s) => ({

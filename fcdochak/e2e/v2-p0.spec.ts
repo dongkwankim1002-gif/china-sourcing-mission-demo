@@ -78,7 +78,11 @@ test('⑧⑨ 정렬 기준 토글과 특수관계 포함 — 현재 기준이 �
   await expect(now).toContainText('현재 기준: 추천 점수순');
   await expect(page.getByText('FC 도착 총액(참고치 포함 합계) · 추천 점수 1위')).toBeVisible();
   const scores = await page.getByTestId('calc-top').locator('li').allInnerTexts();
-  const nums = scores.map((t) => Number(/추천 ([\d.]+)점/.exec(t)?.[1] ?? 'NaN'));
+  // v2 trust: 표본이 모자란 업체는 점수 대신 「표본 부족(N건)」, 추천순에서 점수 있는 업체 뒤에 온다
+  const lacking = scores.map((t) => /표본 부족\(\d+건\)/.test(t));
+  const firstLacking = lacking.indexOf(true);
+  if (firstLacking >= 0) expect(lacking.slice(firstLacking).every(Boolean)).toBe(true);
+  const nums = scores.filter((_, i) => !lacking[i]).map((t) => Number(/추천 ([\d.]+)점/.exec(t)?.[1] ?? 'NaN'));
   expect(nums.every((x) => Number.isFinite(x))).toBe(true);
   for (let i = 1; i < nums.length; i++) expect(nums[i - 1]).toBeGreaterThanOrEqual(nums[i]);
 

@@ -11,6 +11,7 @@ const LABEL: Record<string, string> = {
   fx: '환율', commission_rate_bp: '성사 수수료 요율(bp)', fc_ready_rule: 'FC 입고 준비 인증 기준', score_caps: '추천 점수 상한(편차·회송률)',
   quote_params: '청구 수량 환산', vat_rate_bp: '부가세율(bp)', insurance_bp: '보험료 산입(bp)', sale_fee_bp: '판매 수수료 기본값(bp)',
   fulfillment_per_unit: '개당 풀필먼트 기본값(원)', reference_lines: '비교 참고 요금(빈 구간 채움)', expiring_days: '「곧 만료」 기준(일)',
+  score_min_sample: '추천 점수 최소 표본(최근 일수·건수)', review_lost_after_days: '「분실·미도착」으로 보는 도착 예정일 뒤 일수',
 };
 
 export default async function Settings() {

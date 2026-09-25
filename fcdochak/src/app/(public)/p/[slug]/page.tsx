@@ -2,12 +2,14 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ExternalLink, Info } from 'lucide-react';
-import { listPartners, partnerBySlug, publicReviews, STANDARD_CARGO } from '@/lib/server/public';
+import { listPartners, partnerBySlug, partnerPageReviews, STANDARD_CARGO } from '@/lib/server/public';
 import { getReference, nameOf } from '@/lib/server/reference';
 import { loadCards } from '@/lib/server/compare';
 import { loadSettings } from '@/lib/server/settings';
 import { asPublic, todayKst } from '@/lib/db';
-import { completeWithReference, computeQuote, type Segment } from '@/lib/money';
+import { completeWithReference, computeQuote, recommendScore, scoreParts, type Segment } from '@/lib/money';
+import { ScoreBreakdown } from '@/components/trust/score-breakdown';
+import { ReviewItem } from '@/components/trust/review-item';
 import { LetterMark } from '@/components/brand-mark';
 import { FcReadyChip, PartnerStatusChip, RelatedChip } from '@/components/badges';
 import { NineBar } from '@/components/nine-bar';
@@ -45,9 +47,9 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const [d, ref] = await Promise.all([partnerBySlug(slug), getReference()]);
   if (!d) notFound();
-  const { partner: p, caps, metrics, fcReady, publicCards } = d;
+  const { partner: p, caps, metrics, fcReady, publicCards, trust, scoreCaps } = d;
   const official = p.status === 'official' || p.status === 'pending_verification';
-  const reviews = official ? await publicReviews(6, p.id) : [];
+  const reviews = official ? await partnerPageReviews(p.id) : [];
 
   // 공개가 요금표 — 기준 화물로 계산(비로그인이 볼 수 있는 것만)
   const priced = official
@@ -74,6 +76,17 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
   const hubs = (p.hubs ?? []).map((h) => nameOf(ref, 'hub', h));
   const modes = (p.modes ?? []).map((m) => nameOf(ref, 'mode', m));
   const m = metrics as Record<string, number | null> | null;
+  // 추천 점수 항목별 — 비교 화면과 같은 함수. 가격 확실성은 요금표마다 다르므로 여기서는 최근 180일 응찰의 확정 구간 비중
+  const certainty = m?.price_certainty ?? null;
+  const scoreInput = {
+    onTimeRate: m?.shipments_done ? (m.on_time_rate ?? null) : null,
+    avgDeviation: m?.invoiced_count ? (m.avg_deviation ?? null) : null,
+    fcReturnRate: m?.done_30d ? (m.return_rate_30d ?? null) : null,
+    priceCertainty: certainty ?? 0,
+  };
+  const parts = scoreParts(scoreInput, scoreCaps);
+  const score = recommendScore(scoreInput, scoreCaps);
+  const metricsView = m ? { shipments_done: m.shipments_done, on_time_rate: m.on_time_rate, return_rate_30d: m.return_rate_30d, done_30d: m.done_30d, invoiced_count: m.invoiced_count } : null;
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-10">
@@ -115,7 +128,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
       ) : null}
 
       {official ? (
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="grid min-w-0 gap-6">
             <Panel>
               <PanelHead title="실측 점수" sub="손으로 넣는 칸이 아닙니다 — 선적·청구 기록에서 계산합니다" />
@@ -133,6 +146,10 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
                   </div>
                 ))}
               </dl>
+            </Panel>
+            <Panel>
+              <PanelHead title="추천 점수 항목" sub="비교 화면의 추천 점수가 어디서 나오는지 — 항목별 점수와 잰 값" />
+              <ScoreBreakdown parts={parts} score={score} trust={trust} metrics={metricsView} certainty={certainty} certaintyNote="최근 180일 응찰 기준(비교 화면은 요금표마다 다름)" />
             </Panel>
             <Panel className="cv-auto">
               <PanelHead title="공개 요금" sub={`기준 화물 ${STANDARD_CARGO.cbm} CBM · ${num(STANDARD_CARGO.kg)} kg — 빈 구간은 참고치. 비공개 요금은 가입 후 비교에서`} />
@@ -154,14 +171,11 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
               )}
             </Panel>
             <Panel className="cv-auto">
-              <PanelHead title="화주 후기" sub="FC 입고까지 끝난 선적의 평가" />
+              <PanelHead title="화주 후기" sub="끝난 선적의 평가 — FC 입고뿐 아니라 회송·입고 반려·분실(미도착)으로 끝난 선적도 싣습니다" />
               {reviews.length ? (
-                <ul>
+                <ul data-testid="partner-reviews">
                   {notFuture(reviews, todayKst()).map((r) => (
-                    <li key={r.id} className="border-b border-line-2 px-4 py-3 last:border-0">
-                      <p className="text-sm">“{r.body}”</p>
-                      <p className="mt-1 text-2xs text-muted">{r.rating}/5 · {r.author_label} · {dateKo(r.created_at, { dow: false })}</p>
-                    </li>
+                    <ReviewItem key={r.id} r={r} partnerName={p.name} />
                   ))}
                 </ul>
               ) : (
@@ -191,7 +205,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
           </aside>
         </div>
       ) : (
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <Panel>
             <PanelHead title="공개정보 기준" sub={`확인일 ${ymdDots(p.public_checked_on)} · 출처: ${p.public_source ?? '공개 자료'}`} />
             <div className="p-4">
