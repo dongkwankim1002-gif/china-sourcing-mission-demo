@@ -3,16 +3,17 @@
  * 스위치가 꺼져 있으면 참고 확정가와 「관심 등록」만. 켜져 있어도 실제 계약·결제는 없고, 사람이 정할 일을 적는다.
  */
 import type { ReactNode } from 'react';
-import { AlertTriangle, Info, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Handshake, Info, ShieldCheck } from 'lucide-react';
 import { Chip } from '@/components/ui/core';
 import { ASSURE_HUMAN_TODO, ASSURE_KIND_LABEL, type AssureKind } from '@/lib/assure-settings';
 import type { AssureView, FirmQuoteRow } from '@/lib/server/assure';
+import type { ContractParty } from '@/lib/server/alliance';
 import { dateKo, num, pct } from '@/lib/format';
 import { FirmQuoteButton, InterestButton, type AssureCtx } from './buttons';
 
 const bpPct = (bp: number, digits = 1) => pct(bp / 10000, digits);
 
-export function AssurePanel({ view, mine, ctx, current, sampleLabel, modeLabel }: { view: AssureView; mine: AssureKind[]; ctx: AssureCtx; current: FirmQuoteRow | null; sampleLabel: string; modeLabel?: string | null }) {
+export function AssurePanel({ view, mine, ctx, current, sampleLabel, modeLabel, party }: { view: AssureView; mine: AssureKind[]; ctx: AssureCtx; current: FirmQuoteRow | null; sampleLabel: string; modeLabel?: string | null; /** v2 alliance — 확정가 계약 상대(없으면 「제휴 주선사 확정 전」) */ party?: ContractParty | null }) {
   const { config, firm, coverage, deferred } = view;
   const on = config.on;
   const anyOn = Object.values(on).some(Boolean);
@@ -70,6 +71,7 @@ export function AssurePanel({ view, mine, ctx, current, sampleLabel, modeLabel }
               ) : null}
             </>
           )}
+          <PartyLine party={party ?? null} />
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {on.firm && firm?.ok && firm.offerable ? <FirmQuoteButton ctx={ctx} again={!!current} /> : null}
             <InterestButton kind="firm" label={ASSURE_KIND_LABEL.firm} ctx={ctx} shown={firm?.ok ? firm.firmPrice : null} done={has('firm')} pilot={on.firm} />
@@ -142,5 +144,24 @@ function AssureRow({ kind, on, body, ctx, shown, done }: { kind: AssureKind; on:
       </div>
       <InterestButton kind={kind} label={ASSURE_KIND_LABEL[kind]} ctx={ctx} shown={shown ?? null} done={done} pilot={on} />
     </li>
+  );
+}
+
+/** 확정가 계약 상대 — 등록된 제휴 주선사 이름과 등록번호 끝 4자리만(docs/alliance-plan.md) */
+function PartyLine({ party }: { party: ContractParty | null }) {
+  return (
+    <p className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 text-xs" data-testid="assure-party">
+      <Handshake className="size-3.5 shrink-0 text-muted" aria-hidden />
+      <span className="text-muted">계약 상대:</span>{' '}
+      {party ? (
+        <>
+          <b>{party.partnerName}</b>{' '}
+          <span className="text-muted tnum">(등록번호 끝 {party.regTail ?? '—'})</span>{' '}
+          <span className="text-2xs text-muted">· 제휴 주선사 명의 계약{party.preferred ? '' : ' · 비교 1위 업체와 다를 수 있음'}</span>
+        </>
+      ) : (
+        <span className="font-semibold">제휴 주선사 확정 전</span>
+      )}
+    </p>
   );
 }
