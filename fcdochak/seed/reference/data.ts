@@ -140,4 +140,6 @@ export const SETTINGS: { key: string; value: unknown; note: string }[] = [
   { key: 'fulfillment_per_unit', value: 2800, note: '판매손익 기본 개당 풀필먼트 비용(원)' },
   { key: 'reference_lines', value: REFERENCE_LINES, note: '비교 때 빈 구간을 채우는 참고 요금' },
   { key: 'expiring_days', value: 10, note: '「곧 만료」로 표시할 남은 날' },
+  { key: 'workspace.invite_days', value: 14, note: '거래처 초대 링크 유효 일수(1~90)' },
+  { key: 'workspace.billing_flag_bp', value: 300, note: '청구가 견적보다 이 비율(bp) 이상 다르면 승인 화면에 「차이 큼」 표시' },
 ];

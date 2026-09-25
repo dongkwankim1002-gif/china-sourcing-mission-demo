@@ -41,10 +41,10 @@ function Toggles({ label, options, value, onChange, error }: { label: string; op
   );
 }
 
-export function PartnerJoin({ today, hubs, ports, modes, traits }: { today: string; hubs: Opt[]; ports: Opt[]; modes: Opt[]; traits: { code: string; name: string; req: string; needs: boolean }[] }) {
+export function PartnerJoin({ today, hubs, ports, modes, traits, invite }: { today: string; hubs: Opt[]; ports: Opt[]; modes: Opt[]; traits: { code: string; name: string; req: string; needs: boolean }[]; invite?: { token: string; partnerName: string } | null }) {
   const router = useRouter();
   const init: PartnerSignupT = {
-    company: '', companyZh: '', businessType: 'forwarder', bizRegNo: '', licenseNo: '', city: '', address: '', phone: '', locale: 'ko',
+    company: invite?.partnerName ?? '', companyZh: '', businessType: 'forwarder', bizRegNo: '', licenseNo: '', city: '', address: '', phone: '', locale: 'ko',
     hubs: [], ports: [], modes: [], caps: [], insurance: '', card: blankCard(today), name: '', email: '', password: '', agree: false as unknown as true,
   };
   const { value: v, setValue, step, setStep, save, clear, restored } = useDraft<PartnerSignupT>('fcd-join-partner', init, ['password']);
@@ -83,7 +83,7 @@ export function PartnerJoin({ today, hubs, ports, modes, traits }: { today: stri
     if (!check(3)) return;
     setServerErr(null);
     start(async () => {
-      const r = await signupPartner(v);
+      const r = await signupPartner(v, invite?.token ?? null);
       if (r.ok && r.redirect) {
         clear();
         router.push(r.redirect);

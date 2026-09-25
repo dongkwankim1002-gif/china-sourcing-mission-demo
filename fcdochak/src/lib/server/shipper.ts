@@ -304,8 +304,8 @@ export async function shipmentDetail(q: Queryable, id: string) {
       `select id, kind, note, opened_at, resolved_at, resolution from fcd.exceptions where shipment_id = $1 order by opened_at desc`,
       [id],
     ),
-    q.query<{ id: string; kind: string; file_name: string; size_bytes: number | null; created_at: string; storage_path: string | null; org_name: string }>(
-      `select d.id, d.kind, d.file_name, d.size_bytes, d.created_at, d.storage_path, o.name org_name from fcd.documents d join fcd.orgs o on o.id = d.org_id where d.shipment_id = $1 order by d.created_at desc`,
+    q.query<{ id: string; kind: string; shelf: string | null; file_name: string; size_bytes: number | null; created_at: string; storage_path: string | null; org_name: string }>(
+      `select d.id, d.kind, d.shelf, d.file_name, d.size_bytes, d.created_at, d.storage_path, o.name org_name from fcd.documents d join fcd.orgs o on o.id = d.org_id where d.shipment_id = $1 order by d.created_at desc`,
       [id],
     ),
     q.query<{ id: string; invoice_no: string; version: number; supersedes_id: string | null; amounts: Record<string, number | null>; total: number; note: string | null; issued_on: string; created_at: string; current: boolean }>(

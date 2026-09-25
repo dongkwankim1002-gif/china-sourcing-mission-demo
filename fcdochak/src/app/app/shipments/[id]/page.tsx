@@ -10,7 +10,12 @@ import { UrlTabs } from '@/components/url-tabs';
 import { ExceptionChip, StageChip, StageTrack, Won } from '@/components/badges';
 import { BillingCompare } from '@/components/shipment/billing';
 import { DocsPanel } from '@/components/shipment/docs';
-import { ReportBilling, ReviewForm } from '@/components/shipment/review-form';
+import { ReviewForm } from '@/components/shipment/review-form';
+import { ShipmentTimeline } from '@/components/workspace/timeline';
+import { InvoiceDecisionPanel } from '@/components/workspace/invoice-decision';
+import { currentDecision, shipmentDecisions, shipmentTimelineFacts, workspaceSettings } from '@/lib/server/workspace';
+import { buildTimeline } from '@/lib/workspace/timeline';
+import { billingDiff } from '@/lib/money/billing-diff';
 import { Button, Chip, DefList, EmptyState, Panel } from '@/components/ui/core';
 import { dateKo, dateTimeKo, num, pct } from '@/lib/format';
 import { EXCEPTION_LABEL, STAGES } from '@/lib/terms';
@@ -20,10 +25,30 @@ export const metadata = { title: '선적' };
 export default async function ShipmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const v = await requireViewer('app');
-  const [d, ref] = await Promise.all([asUser(v, (q) => shipmentDetail(q, id)), getReference()]);
+  const [d, ref] = await Promise.all([
+    asUser(v, async (q) => {
+      const base = await shipmentDetail(q, id);
+      if (!base) return null;
+      const [facts, decisions, ws] = await Promise.all([shipmentTimelineFacts(q, id), shipmentDecisions(q, id), workspaceSettings(q)]);
+      return { ...base, facts, decisions, ws };
+    }),
+    getReference(),
+  ]);
   if (!d || d.s.shipper_org_id !== v.org.id) notFound();
-  const { s, events, exceptions, docs, invoices, bid, review } = d;
+  const { s, events, exceptions, docs, invoices, bid, review, facts, decisions, ws } = d;
   const inv = invoices.find((i) => i.current) ?? null;
+  const decision = currentDecision(decisions, inv?.id ?? null);
+  const diff = inv ? billingDiff(bid.amounts, inv.amounts, ws.billingFlagBp) : null;
+  const timeline = buildTimeline({
+    requestAt: facts?.request_at ?? s.created_at,
+    bidCount: facts?.bid_count,
+    bookedAt: facts?.booked_at ?? s.created_at,
+    stage: s.stage,
+    events,
+    invoice: inv ? { created_at: inv.created_at, total: inv.total, version: inv.version } : null,
+    decision: decision ? { decision: decision.decision, created_at: decision.created_at } : null,
+    exceptionOpen: exceptions.some((e) => !e.resolved_at && e.kind !== 'billing_deviation'),
+  });
   const open = exceptions.filter((e) => !e.resolved_at);
   const late = s.delivered_at && s.eta_fc ? new Date(s.delivered_at).getTime() > Date.parse(s.eta_fc + 'T23:59:59+09:00') : false;
   const dev = inv ? (inv.total - bid.total) / bid.total : null;
@@ -33,6 +58,7 @@ export default async function ShipmentPage({ params }: { params: Promise<{ id: s
     ...exceptions.map((e) => ({ at: e.opened_at, text: `예외: ${EXCEPTION_LABEL[e.kind]} — ${e.note}`, tone: 'stamp' as const })),
     ...exceptions.filter((e) => e.resolved_at).map((e) => ({ at: e.resolved_at!, text: `해결: ${EXCEPTION_LABEL[e.kind]}${e.resolution ? ` — ${e.resolution}` : ''}`, tone: 'ok' as const })),
     ...invoices.map((i) => ({ at: i.created_at, text: `청구서 ${i.invoice_no} v${i.version} · ${num(i.total)}원${i.note ? ` — ${i.note}` : ''}`, tone: 'caution' as const })),
+    ...decisions.map((x) => ({ at: x.created_at, text: `청구 ${x.decision === 'approved' ? '승인' : '이의'}${x.reason ? ` — ${x.reason}` : ''}`, who: x.who, tone: x.decision === 'approved' ? ('ok' as const) : ('stamp' as const) })),
   ].sort((a, b) => b.at.localeCompare(a.at));
 
   return (
@@ -49,8 +75,12 @@ export default async function ShipmentPage({ params }: { params: Promise<{ id: s
           </>
         }
       />
-      <Panel className="mb-4 p-4">
-        <StageTrack stage={s.stage} events={[...events].reverse()} />
+      <Panel className="mb-4 grid gap-4 p-4">
+        <ShipmentTimeline items={timeline} />
+        <details className="border-t border-line-2 pt-3">
+          <summary className="cursor-pointer text-xs font-semibold text-muted">표준 9단계 자세히</summary>
+          <div className="mt-3"><StageTrack stage={s.stage} events={[...events].reverse()} /></div>
+        </details>
       </Panel>
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <div className="min-w-0">
@@ -101,14 +131,21 @@ export default async function ShipmentPage({ params }: { params: Promise<{ id: s
                 { value: 'docs', label: `서류 (${docs.length})`, content: <DocsPanel shipmentId={s.id} docs={docs} /> },
                 {
                   value: 'billing',
-                  label: '청구 대조',
+                  label: decision ? '청구 대조' : inv ? '청구 대조 · 결정 기다림' : '청구 대조',
                   content: inv ? (
                     <div className="grid gap-4">
+                      <InvoiceDecisionPanel
+                        shipmentId={s.id}
+                        invoice={{ id: inv.id, invoice_no: inv.invoice_no, version: inv.version }}
+                        diff={diff!}
+                        flagBp={ws.billingFlagBp}
+                        current={decision}
+                        history={decisions.filter((x) => x.invoice_id === inv.id)}
+                      />
                       <BillingCompare bid={bid} invoice={inv} />
                       {invoices.length > 1 ? (
                         <p className="text-xs text-muted">청구서는 고치지 않고 새 판으로 쌓입니다: {invoices.map((i) => `v${i.version} ${num(i.total)}원${i.current ? '(현재)' : ''}`).join(' → ')}</p>
                       ) : null}
-                      <ReportBilling shipmentId={s.id} />
                     </div>
                   ) : (
                     <Panel><EmptyState title="아직 청구서가 오지 않았습니다" body="물류사가 청구서를 등록하면 응찰과 구간별로 견주어 보여 드립니다." /></Panel>

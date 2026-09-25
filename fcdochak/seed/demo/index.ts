@@ -22,6 +22,7 @@ import { FC_CENTERS, HUBS, MODES, REFERENCE_LINES, SETTINGS } from '../reference
 import { EXCEPTION_NOTES, RAW_STATUS_KO, RAW_STATUS_ZH, reviewText } from './text';
 import { PARTNERS, PEOPLE_KO, PEOPLE_ZH, PRESETS, SHIPPERS, type PartnerDef, type PresetDef } from './orgs';
 import { Rng } from './rng';
+import { seedWorkspaceDemo } from './workspace';
 
 export const DEMO_SEED = 0x0fcd0c4a;
 export const DEMO_ACCOUNTS = {
@@ -827,6 +828,8 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
   await db.transaction(async (q) => {
     for (const t of Object.values(T)) await flush(q, t);
   });
+  // v2 셀러 공간(서류함 칸·청구 결정·거래처 초대) — 위 자료 위에 덧붙인다
+  await db.transaction((q) => seedWorkspaceDemo(q, { now, shipperEmail: DEMO_ACCOUNTS.shipper.email }));
   if (pw && opts.createAuthUser) {
     for (const [k, id] of Object.entries(demoIds)) {
       const a = DEMO_ACCOUNTS[k as keyof typeof DEMO_ACCOUNTS];

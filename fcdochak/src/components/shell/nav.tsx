@@ -8,6 +8,7 @@ import {
   Coins,
   FileSpreadsheet,
   FileText,
+  FolderOpen,
   Gauge,
   Handshake,
   Inbox,
@@ -22,6 +23,7 @@ import {
   Ship,
   Sparkles,
   Tags,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -41,6 +43,8 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
       { href: '/app/compare', label: '비교', icon: Scale, tab: true },
       { href: '/app/requests', label: '견적 요청', icon: FileText, tab: true },
       { href: '/app/shipments', label: '선적', icon: Ship, tab: true },
+      { href: '/app/docs', label: '서류함', icon: FolderOpen },
+      { href: '/app/partners', label: '거래처', icon: Users },
       { href: '/app/pnl', label: '판매손익', icon: Calculator },
       { href: '/app/skus', label: '저장한 SKU', icon: Package },
       { href: '/app/notifications', label: '알림', icon: Bell },

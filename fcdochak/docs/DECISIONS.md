@@ -55,3 +55,9 @@
 - v2 p0 — 홈 H1 은 보이는 글과 같은 문장을 `aria-label` 로 준다(색 강조 조각이 읽히는 이름에서 빠지지 않게).
 - v2 p0 — 미래 날짜 후기: 데모 시드가 청구일 뒤 1~5일로 후기를 찍으며 오늘 뒤로 넘어간 것(시험으로 재현). 시드는 「지금 − 1시간·오늘 KST 끝」을 넘지 않게 자르고, 공개 후기 쿼리(`reviews-query.ts`)와 화면(`notFuture`)에서도 오늘(KST) 이후를 뺀다. 저장된 자료는 고치지 않았다(읽을 때 거른다).
 - v2 p0 — 미리보기 띠는 서버 환경변수 `PREVIEW_BANNER` 가 있을 때만 루트 레이아웃 맨 위(모든 화면). 공개 쪽은 미리 그리므로 값은 빌드 때 정해진다 — 바꾸면 다시 배포.
+- v2 workspace — 서류함 칸은 `documents.kind` 의 check 를 넓히지 않고(DROP CONSTRAINT 를 쓰지 않으려고) `documents.shelf` 칸을 덧붙였다. 비어 있으면 kind 로 가른다(SQL `fcd.doc_shelf` = TS `shelfOf`, 시험으로 같음을 본다). 쿠팡 바코드 PDF 는 kind `other` + shelf `coupang_barcode`.
+- v2 workspace — 한눈 타임라인은 표준 9단계를 셀러 일곱 마디로 접는다: 예약=1 · 출항=5 · 입항=6 · 통관=7 · FC 입고=9 단계, 청구=현재 판 청구서 + 화주 결정. 사이 단계(2~4·8)는 다음 마디의 「지금」 설명. 9단계 띠는 그 아래 접어 둔다.
+- v2 workspace — 청구 승인/이의는 덧붙이는 표 `invoice_decisions`(UPDATE·DELETE 권한 없음). 결정을 바꾸면 `supersedes_id` 새 판, 청구서 한 장에 첫 판 하나. 정정된 옛 판 청구서에는 못 남긴다. 이의는 사유 5자 이상이고 물류사 쪽 예외(청구 편차)로도 연다 — 화주 선적 화면의 예전 「청구 확인 요청」 폼은 이것으로 바꿨다. 「차이 큼」 기준은 설정 `workspace.billing_flag_bp`(첫 판 300bp), 차이 계산은 `money/billing-diff.ts`.
+- v2 workspace — 거래처 초대 토큰은 32바이트 난수, DB 에는 sha-256 만(`partner_invites.token_hash`, fcd_user 는 이 칸을 읽을 권한이 없다). 링크는 만들 때 한 번만 화면에 보이고 발송은 하지 않는다(OUTBOUND 꺼짐). 유효 일수는 설정 `workspace.invite_days`(14). 한 번 쓰면 끝, 화주는 거두기(revoked_at)만 고칠 수 있다.
+- v2 workspace — 초대 받기는 security definer 함수 `fcd.accept_partner_invite` 하나로만(연결 표 `shipper_partners` 에는 INSERT 권한이 없다). 가입 때는 `asSystem(fn, 새 사용자 id)` 로 같은 트랜잭션에서 소속을 만든 뒤 이 함수를 부른다. 이미 가입한 물류사 관리자는 링크 화면에서 「거래처로 연결」. 링크 열람은 `fcd.invite_lookup`(상태·화주 이름·받는 곳 이름·만료만).
+- v2 workspace — 거래처로 연결돼도 물류사가 화주 조직 이름을 보는 규칙(orgs RLS: 예약 뒤에만)은 넓히지 않았다. 물류사는 초대 화면·알림에서만 누가 불렀는지 본다. 데모 시드는 알림을 더하지 않는다(데모 알림 200건 기준 시험).
