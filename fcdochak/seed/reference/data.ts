@@ -140,4 +140,9 @@ export const SETTINGS: { key: string; value: unknown; note: string }[] = [
   { key: 'fulfillment_per_unit', value: 2800, note: '판매손익 기본 개당 풀필먼트 비용(원)' },
   { key: 'reference_lines', value: REFERENCE_LINES, note: '비교 때 빈 구간을 채우는 참고 요금' },
   { key: 'expiring_days', value: 10, note: '「곧 만료」로 표시할 남은 날' },
+  {
+    key: 'invoice_check_rule',
+    value: { minSamples: 3, highOverMedianBp: 2000, lowUnderMedianBp: 3000, missingCoverageBp: 5000, publicPerMinute: 20 },
+    note: '청구서 점검 — 구간 표본 최소 요금표 수 · 과함(중간값 +bp, 비싼 쪽 25% 초과) · 낮음(중간값 −bp) · 빠짐(그 구간을 맡는 요금표 비율 bp 이상) · 비로그인 분당 횟수',
+  },
 ];

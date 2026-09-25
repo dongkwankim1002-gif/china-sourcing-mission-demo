@@ -42,6 +42,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
       { href: '/app/requests', label: '견적 요청', icon: FileText, tab: true },
       { href: '/app/shipments', label: '선적', icon: Ship, tab: true },
       { href: '/app/pnl', label: '판매손익', icon: Calculator },
+      { href: '/app/checks', label: '청구서 점검', icon: ClipboardCheck },
       { href: '/app/skus', label: '저장한 SKU', icon: Package },
       { href: '/app/notifications', label: '알림', icon: Bell },
       { href: '/app/settings', label: '설정', icon: Settings },

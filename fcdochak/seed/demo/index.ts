@@ -22,6 +22,7 @@ import { FC_CENTERS, HUBS, MODES, REFERENCE_LINES, SETTINGS } from '../reference
 import { EXCEPTION_NOTES, RAW_STATUS_KO, RAW_STATUS_ZH, reviewText } from './text';
 import { PARTNERS, PEOPLE_KO, PEOPLE_ZH, PRESETS, SHIPPERS, type PartnerDef, type PresetDef } from './orgs';
 import { Rng } from './rng';
+import { seedDemoInvoiceChecks } from './invoice-checks';
 
 export const DEMO_SEED = 0x0fcd0c4a;
 export const DEMO_ACCOUNTS = {
@@ -833,6 +834,8 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
       await opts.createAuthUser({ id, email: a.email, password: pw, name: a.name });
     }
   }
+  // v2 check — 데모 화주가 보관한 청구서 점검(방금 넣은 요금표로 계산)
+  await seedDemoInvoiceChecks(db, { today: opts.today, now });
   const counts = Object.fromEntries(Object.values(T).map((t) => [t.name, t.rows.length]));
   log(`데모 시드를 넣었습니다: ${JSON.stringify(counts)}`);
   return { inserted: true, counts, demoIds };

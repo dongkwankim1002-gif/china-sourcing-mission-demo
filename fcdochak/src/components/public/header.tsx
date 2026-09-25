@@ -4,6 +4,7 @@ import { env } from '@/lib/env';
 import { AccountSlot, MobileNav } from './header-client';
 
 export const PUBLIC_NAV = [
+  { href: '/check', label: '청구서 점검' },
   { href: '/lanes', label: '구간 시세' },
   { href: '/partners', label: '업체 찾기' },
   { href: '/faq', label: '자주 묻는 질문' },

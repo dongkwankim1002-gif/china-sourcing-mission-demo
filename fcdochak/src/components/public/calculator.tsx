@@ -381,7 +381,7 @@ export function Calculator({
               </p>
             )}
             <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-4 py-3">
-              <Button asChild variant="primary" size="md">
+              <Button asChild variant="secondary" size="md">
                 <Link href="/join/shipper">
                   9구간 상세·견적 요청은 가입 후 <ArrowRight aria-hidden />
                 </Link>
