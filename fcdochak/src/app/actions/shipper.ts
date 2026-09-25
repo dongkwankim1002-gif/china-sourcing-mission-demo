@@ -179,13 +179,14 @@ export async function submitReview(input: z.infer<typeof ReviewInput>): Promise<
   if (!p.success) return { ok: false, error: p.error.issues[0].message };
   const d = p.data;
   const r = await asUser(v, async (q) => {
-    const s = (await q.query<{ stage: number; partner_org_id: string; origin_hub: string; port: string }>(`select stage, partner_org_id, origin_hub, port from fcd.shipments where id = $1 and shipper_org_id = $2`, [d.shipmentId, v.org.id]))[0];
+    const s = (await q.query<{ stage: number; partner_org_id: string; origin_hub: string; port: string; outcome: string | null }>(`select stage, partner_org_id, origin_hub, port, fcd.shipment_outcome(id) outcome from fcd.shipments where id = $1 and shipper_org_id = $2`, [d.shipmentId, v.org.id]))[0];
     if (!s) return { error: '선적을 찾을 수 없습니다' };
-    if (s.stage < 9) return { error: 'FC 입고가 끝난 뒤에 평가할 수 있습니다' };
+    // v2 trust — FC 입고(회송 포함)뿐 아니라 입고 반려·분실(미도착)로 끝난 선적도 평가한다. 끝은 선적 기록에서 읽는다.
+    if (!s.outcome) return { error: 'FC 입고가 끝나거나, 입고 반려·분실(미도착)로 끝난 선적만 평가할 수 있습니다' };
     const hub = (await q.query<{ name_ko: string }>('select name_ko from fcd.hubs where code = $1', [s.origin_hub]))[0]?.name_ko ?? s.origin_hub;
     await q.query(
-      `insert into fcd.reviews (shipment_id, shipper_org_id, partner_org_id, rating, on_time_ok, billing_ok, body, author_label, created_by) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [d.shipmentId, v.org.id, s.partner_org_id, d.rating, d.onTimeOk, d.billingOk, d.body, `화주 · ${hub}→${s.port === 'ICN' ? '인천' : '평택'}`, v.id],
+      `insert into fcd.reviews (shipment_id, shipper_org_id, partner_org_id, rating, on_time_ok, billing_ok, body, author_label, created_by, outcome) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [d.shipmentId, v.org.id, s.partner_org_id, d.rating, d.onTimeOk, d.billingOk, d.body, `화주 · ${hub}→${s.port === 'ICN' ? '인천' : '평택'}`, v.id, s.outcome],
     );
     return { partner: s.partner_org_id };
   }).catch(() => ({ error: '이미 평가한 선적입니다' }));

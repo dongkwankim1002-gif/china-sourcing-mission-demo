@@ -173,4 +173,6 @@ export const SETTINGS: { key: string; value: unknown; note: string }[] = [
     value: { minSamples: 3, highOverMedianBp: 2000, lowUnderMedianBp: 3000, missingCoverageBp: 5000, publicPerMinute: 20 },
     note: '청구서 점검 — 구간 표본 최소 요금표 수 · 과함(중간값 +bp, 비싼 쪽 25% 초과) · 낮음(중간값 −bp) · 빠짐(그 구간을 맡는 요금표 비율 bp 이상) · 비로그인 분당 횟수',
   },
+  { key: 'score_min_sample', value: { days: 30, count: 20 }, note: '추천 점수를 내는 최소 표본 — 최근 days 일 안에 끝난 선적(입고·회송·반려·미도착)이 count 건 미만이면 「표본 부족」' },
+  { key: 'review_lost_after_days', value: 14, note: 'FC 도착 예정일에서 이만큼 지나도 입고되지 않은 선적은 「분실·미도착」으로 보고 평가를 받는다' },
 ];

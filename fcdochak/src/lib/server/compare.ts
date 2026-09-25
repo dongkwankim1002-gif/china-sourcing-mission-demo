@@ -22,6 +22,7 @@ import {
   type TraitRule,
 } from '../money';
 import type { AppSettings } from './settings';
+import { emptyTrust, loadTrustFacts, loadTrustRule, type TrustFacts } from './trust';
 
 export interface CompareInput {
   hub: string;
@@ -79,6 +80,10 @@ export interface Offer {
   daysLeft: number;
   exclusions: ExclusionReason[];
   status: string;
+  /** v2 trust — 표본·끝별 건수·청구 편차 분포 */
+  trust: TrustFacts;
+  /** 표본이 기준 이상인가(모자라면 점수 대신 「표본 부족」, 추천순에서 뒤로) */
+  sampleEnough: boolean;
 }
 
 export interface CompareResult {
@@ -184,7 +189,8 @@ export async function loadTraitRules(q: Queryable) {
 export async function compare(q: Queryable, input: CompareInput, s: AppSettings, today: string): Promise<CompareResult> {
   const { cards, lines, tiers } = await loadCards(q, { hub: input.hub, port: input.port, mode: input.mode });
   const orgIds = [...new Set(cards.map((c) => c.org_id))];
-  const [facts, traits] = await Promise.all([loadPartnerFacts(q, orgIds, today), loadTraitRules(q)]);
+  const [facts, traits, trustRule] = await Promise.all([loadPartnerFacts(q, orgIds, today), loadTraitRules(q), loadTrustRule(q)]);
+  const trustFacts = await loadTrustFacts(q, orgIds, trustRule);
   const refQuote = computeQuote(s.referenceLines, input.cargo, s.quoteParams);
   const reference = Object.fromEntries(refQuote.segments.map((x) => [x.segment, x.amount])) as Partial<Record<Segment, number>>;
 
@@ -237,6 +243,8 @@ export async function compare(q: Queryable, input: CompareInput, s: AppSettings,
       daysLeft: daysUntil(c.valid_to, today),
       exclusions,
       status: c.status,
+      trust: trustFacts.get(c.org_id) ?? emptyTrust(trustRule),
+      sampleEnough: (trustFacts.get(c.org_id) ?? emptyTrust(trustRule)).sample.enough,
     });
   }
   const expired = all.filter((o) => o.exclusions.some((e) => e.kind === 'expired'));

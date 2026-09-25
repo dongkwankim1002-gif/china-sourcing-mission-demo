@@ -20,6 +20,7 @@ import { cn } from '@/lib/cn';
 import { dateKo, num, pct, won } from '@/lib/format';
 import { ACTION, SEGMENTS_SHORT } from './labels';
 import { SEGMENTS, SEGMENT_LABEL_KO } from '@/lib/money/segments';
+import { ScoreBreakdown } from '@/components/trust/score-breakdown';
 
 export const metadata = { title: '같은 조건 비교' };
 
@@ -146,6 +147,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
       <p className="mt-3 text-xs text-muted" data-testid="compare-sort-now">
         현재 기준: <b className="text-text">{SORT_LABEL[sort]}</b> · 비교 {offers.length}곳 · 제외 {result.excluded.length}곳 · 만료 요금표 {result.expired.length}장
         {ranked.relatedHidden ? ` · 특수관계 업체 ${ranked.relatedHidden}곳은 순위에서 뺐습니다(「특수관계 포함」으로 보기)` : ''} · 추천 점수 = 정시 입고 30 · 청구 편차 25 · FC 회송률 25 · 가격확정도 20 (광고·특수관계는 점수 밖)
+        {offers.some((o) => !o.sampleEnough) ? ` · 최근 ${offers[0].trust.sample.days}일 끝난 선적이 ${offers[0].trust.sample.min}건 미만인 업체는 점수 대신 「표본 부족」으로 적고${sort === 'recommend' ? ' 추천순에서 뒤에 둡니다' : ''}` : ''}
       </p>
       {ranked.relatedTop && offers[0] ? (
         <p role="alert" className="mt-3 flex items-start gap-2 rounded-md border border-caution/40 bg-caution-bg px-4 py-2.5 text-sm font-semibold text-caution">
@@ -295,6 +297,7 @@ function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName }: { o: 
             {o.quote.filled.length ? ` · 참고치 ${o.quote.filled.length}칸` : ''}
             {o.fuelSeparate ? ' · 유류할증 별도' : ''} · {dateKo(o.validTo, { dow: false })}까지{o.daysLeft <= 10 ? <span className="font-semibold text-caution">(곧 만료)</span> : null} · 제공 {dateKo(o.createdAt, { dow: false })} · {o.cardNo} v{o.version}
           </p>
+          <ScoreBreakdown variant="inline" className="mt-1" parts={o.parts} score={o.score} trust={o.trust} metrics={m} certainty={certainty} />
         </div>
         <div className={cn('flex items-end justify-between gap-3', !card && 'lg:flex-col lg:items-end')}>
           <div className={cn(!card && 'lg:text-right')}>
@@ -308,15 +311,21 @@ function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName }: { o: 
             <Tooltip
               content={
                 <span className="grid gap-0.5 tnum">
-                  <b>추천 {o.score}점</b>
+                  <b>{o.sampleEnough ? `추천 ${o.score}점` : `표본 부족(${o.trust.sample.n}건) — 점수를 내지 않습니다`}</b>
+                  {o.sampleEnough ? (
+                    <>
                   <span>정시 입고 {o.parts.onTime.toFixed(1)} / 30 {m?.shipments_done ? `(${pct(m.on_time_rate, 0)})` : '(실측 없음)'}</span>
                   <span>청구 편차 {o.parts.deviation.toFixed(1)} / 25 {m?.invoiced_count ? `(${pct(m.avg_deviation, 1)})` : '(실측 없음)'}</span>
                   <span>FC 회송률 {o.parts.fcReturn.toFixed(1)} / 25 {m?.done_30d ? `(${pct(m.return_rate_30d, 1)})` : '(실측 없음)'}</span>
                   <span>가격확정도 {o.parts.certainty.toFixed(1)} / 20</span>
+                    </>
+                  ) : (
+                    <span>최근 {o.trust.sample.days}일 끝난 선적 {o.trust.sample.n}건 · 기준 {o.trust.sample.min}건</span>
+                  )}
                 </span>
               }
             >
-              <button type="button" className="h-8 rounded-xs border border-line px-2 text-xs font-bold tnum hover:border-muted/60">추천 {o.score}</button>
+              <button type="button" className="h-8 rounded-xs border border-line px-2 text-xs font-bold tnum hover:border-muted/60">{o.sampleEnough ? `추천 ${o.score}` : `표본 부족(${o.trust.sample.n}건)`}</button>
             </Tooltip>
             <Button asChild size="sm" variant="primary">
               <a href={requestHref}>견적 요청</a>

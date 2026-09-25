@@ -6,9 +6,9 @@ import { reportBilling, submitReview } from '@/app/actions/shipper';
 import { Button, Field, Textarea } from '@/components/ui/core';
 import { Switch } from '@/components/ui/radix';
 import { cn } from '@/lib/cn';
-import { ACTION } from '@/lib/terms';
+import { ACTION, REVIEW_OUTCOME_LABEL } from '@/lib/terms';
 
-export function ReviewForm({ shipmentId, defaultOnTime, defaultBilling }: { shipmentId: string; defaultOnTime: boolean; defaultBilling: boolean }) {
+export function ReviewForm({ shipmentId, defaultOnTime, defaultBilling, outcome }: { shipmentId: string; defaultOnTime: boolean; defaultBilling: boolean; outcome?: string | null }) {
   const router = useRouter();
   const [rating, setRating] = React.useState(0);
   const [onTime, setOnTime] = React.useState(defaultOnTime);
@@ -30,6 +30,11 @@ export function ReviewForm({ shipmentId, defaultOnTime, defaultBilling }: { ship
         });
       }}
     >
+      {outcome && outcome !== 'delivered' ? (
+        <p className="rounded-sm bg-surface-2 p-3 text-xs" data-testid="review-outcome-note">
+          이 선적은 <b>{REVIEW_OUTCOME_LABEL[outcome] ?? outcome}</b>(으)로 끝났습니다. 후기에 그대로 표시됩니다 — 선적 기록에서 읽은 값이라 고를 수 없습니다.
+        </p>
+      ) : null}
       <fieldset>
         <legend className="mb-2 text-sm font-semibold">점수</legend>
         <div className="flex gap-1.5" role="radiogroup" aria-label="점수">

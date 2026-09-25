@@ -19,7 +19,12 @@ export interface Rankable {
   transit: [number, number];
   metrics: { avg_deviation: number | null } | null;
   partner: { related_party_note: string | null };
+  /** v2 trust — 표본이 기준 미만이면 false. 없으면(옛 호출) 모자라지 않은 것으로 본다 */
+  sampleEnough?: boolean;
 }
+
+/** 추천순에서 표본이 모자란 업체는 뒤로 — 점수를 보이지 않는 업체를 점수로 앞세우지 않는다 */
+const sampleRank = (o: Pick<Rankable, 'sampleEnough'>) => (o.sampleEnough === false ? 1 : 0);
 
 export function isRelated(o: Pick<Rankable, 'partner'>): boolean {
   return !!o.partner.related_party_note?.trim();
@@ -39,7 +44,7 @@ export function sortOffers<T extends Rankable>(list: T[], key: SortKey): T[] {
     case 'deviation':
       return a.sort((x, y) => (x.metrics?.avg_deviation ?? 9) - (y.metrics?.avg_deviation ?? 9) || x.quote.total - y.quote.total);
     default:
-      return a.sort((x, y) => y.score - x.score || x.quote.total - y.quote.total);
+      return a.sort((x, y) => sampleRank(x) - sampleRank(y) || y.score - x.score || x.quote.total - y.quote.total);
   }
 }
 

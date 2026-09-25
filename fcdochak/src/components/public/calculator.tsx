@@ -387,7 +387,7 @@ export function Calculator({
                         {o.filled ? ` · 빈 구간 ${o.filled}개 참고치` : ''}
                         {` · 확정 합계 ${num(o.totals.confirmed)}원`}
                         {o.related ? ' · 특수관계' : ''}
-                        {shownSort === 'recommend' ? ` · 추천 ${o.score}점` : ''}
+                        {shownSort === 'recommend' ? (o.sampleEnough === false ? ` · 표본 부족(${o.sampleN}건)` : ` · 추천 ${o.score}점`) : ''}
                       </span>
                     </span>
                     <span className="text-right">

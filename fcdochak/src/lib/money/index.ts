@@ -8,3 +8,4 @@ export * from './eligibility';
 export * from './totals';
 export * from './seller';
 export * from './invoice-check';
+export * from './trust';

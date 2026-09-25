@@ -149,6 +149,8 @@ const SETTING_SCHEMAS: Record<string, z.ZodTypeAny> = {
   sale_fee_bp: z.number().int().min(0).max(5000),
   fulfillment_per_unit: z.number().int().min(0).max(100000),
   expiring_days: z.number().int().min(1).max(60),
+  score_min_sample: z.object({ days: z.number().int().min(7).max(365), count: z.number().int().min(1).max(1000) }),
+  review_lost_after_days: z.number().int().min(1).max(120),
   reference_lines: z.array(z.object({ segment: z.string(), included: z.boolean(), basis: z.string(), unitPrice: z.number().min(0), currency: z.enum(['KRW', 'RMB', 'USD']), minCharge: z.number().nullable().optional(), certainty: z.string() })).length(9),
 };
 

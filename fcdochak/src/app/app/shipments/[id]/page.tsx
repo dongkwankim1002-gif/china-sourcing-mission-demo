@@ -11,6 +11,7 @@ import { ExceptionChip, StageChip, StageTrack, Won } from '@/components/badges';
 import { BillingCompare } from '@/components/shipment/billing';
 import { DocsPanel } from '@/components/shipment/docs';
 import { ReportBilling, ReviewForm } from '@/components/shipment/review-form';
+import { OutcomeChip, ReplyBlock } from '@/components/trust/review-item';
 import { Button, Chip, DefList, EmptyState, Panel } from '@/components/ui/core';
 import { dateKo, dateTimeKo, num, pct } from '@/lib/format';
 import { EXCEPTION_LABEL, STAGES } from '@/lib/terms';
@@ -22,7 +23,7 @@ export default async function ShipmentPage({ params }: { params: Promise<{ id: s
   const v = await requireViewer('app');
   const [d, ref] = await Promise.all([asUser(v, (q) => shipmentDetail(q, id)), getReference()]);
   if (!d || d.s.shipper_org_id !== v.org.id) notFound();
-  const { s, events, exceptions, docs, invoices, bid, review } = d;
+  const { s, events, exceptions, docs, invoices, bid, review, outcome } = d;
   const inv = invoices.find((i) => i.current) ?? null;
   const open = exceptions.filter((e) => !e.resolved_at);
   const late = s.delivered_at && s.eta_fc ? new Date(s.delivered_at).getTime() > Date.parse(s.eta_fc + 'T23:59:59+09:00') : false;
@@ -45,7 +46,7 @@ export default async function ShipmentPage({ params }: { params: Promise<{ id: s
         actions={
           <>
             <Button asChild variant="secondary"><Link href={`/app/requests/${s.req_id}`}>견적 요청 {s.req_no}</Link></Button>
-            {s.stage === 9 && !review ? <Button asChild variant="primary"><Link href="?tab=review">평가 남기기</Link></Button> : null}
+            {outcome && !review ? <Button asChild variant="primary"><Link href="?tab=review">평가 남기기</Link></Button> : null}
           </>
         }
       />
@@ -125,12 +126,14 @@ export default async function ShipmentPage({ params }: { params: Promise<{ id: s
                         <Chip tone={review.on_time_ok ? 'ok' : 'caution'}>{review.on_time_ok ? '정시 입고' : '늦은 입고'}</Chip>
                         <Chip tone={review.billing_ok ? 'ok' : 'caution'}>{review.billing_ok ? '견적대로 청구' : '청구 차이'}</Chip>
                       </div>
+                      <div className="mt-2"><OutcomeChip outcome={review.outcome} /></div>
                       <p className="mt-2 text-xs text-muted">{dateKo(review.created_at)}에 남겼습니다. 평가는 고칠 수 없습니다.</p>
+                      {review.reply_body ? <ReplyBlock partnerName={s.partner_name} body={review.reply_body} version={review.reply_version} at={review.reply_at} /> : null}
                     </Panel>
-                  ) : s.stage === 9 ? (
-                    <ReviewForm shipmentId={s.id} defaultOnTime={!late} defaultBilling={dev == null || Math.abs(dev) < 0.03} />
+                  ) : outcome ? (
+                    <ReviewForm shipmentId={s.id} outcome={outcome} defaultOnTime={outcome === 'delivered' || outcome === 'fc_returned' ? !late : false} defaultBilling={dev == null || Math.abs(dev) < 0.03} />
                   ) : (
-                    <Panel><EmptyState title="FC 입고가 끝나면 평가할 수 있습니다" /></Panel>
+                    <Panel><EmptyState title="선적이 끝나면 평가할 수 있습니다" body={`FC 입고가 끝나거나(회송 포함), 입고 반려가 나거나, 도착 예정일에서 오래 지나도 입고되지 않으면(분실·미도착) 평가를 남길 수 있습니다.`} /></Panel>
                   ),
                 },
               ]}
