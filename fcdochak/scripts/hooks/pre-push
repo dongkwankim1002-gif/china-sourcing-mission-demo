@@ -1,0 +1,13 @@
+#!/bin/sh
+# FC도착 — push 전에 fcdochak/ 을 검사한다. 켜는 법은 docs/DEPLOY.md(기본은 꺼져 있음).
+# main · fcdochak 가지로 직접 push 하는 것을 막는다.
+while read local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main|refs/heads/fcdochak)
+      echo "✖ $remote_ref 로 직접 push 하지 않습니다. 작업 가지 → PR 로 올려 주세요."
+      exit 1 ;;
+  esac
+done
+if git diff --name-only @{push}.. 2>/dev/null | grep -q '^fcdochak/' || [ -z "$(git rev-parse --verify -q @{push} 2>/dev/null)" ]; then
+  cd "$(git rev-parse --show-toplevel)/fcdochak" && npm run -s verify
+fi

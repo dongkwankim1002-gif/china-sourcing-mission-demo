@@ -1,0 +1,50 @@
+import Link from 'next/link';
+import { BrandMark } from '@/components/brand-mark';
+import { env } from '@/lib/env';
+import { AccountSlot, MobileNav } from './header-client';
+
+export const PUBLIC_NAV = [
+  { href: '/lanes', label: '구간 시세' },
+  { href: '/partners', label: '업체 찾기' },
+  { href: '/faq', label: '자주 묻는 질문' },
+  { href: '/join/partner', label: '입점 안내' },
+];
+
+export function DemoBand() {
+  if (!env.demoMode) return null;
+  return (
+    <div className="flex min-h-7 items-center justify-center gap-2 bg-label px-3 py-1 text-center text-xs font-bold text-on-label">
+      <span className="rounded-[2px] bg-ink px-1.5 text-2xs text-label">예시 데이터</span>
+      <span>업체·요금·후기는 모두 가상의 예시입니다.<span className="hidden sm:inline"> 실제 서비스 시작 전에 걷어냅니다.</span></span>
+    </div>
+  );
+}
+
+export function PublicHeader() {
+  return (
+    <>
+      <DemoBand />
+      <header className="sticky top-0 z-40 bg-ink text-on-ink">
+        <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-4 px-4">
+          <Link href="/" className="shrink-0 rounded-sm">
+            <BrandMark />
+          </Link>
+          <nav aria-label="공개 메뉴" className="hidden md:block">
+            <ul className="flex items-center gap-1">
+              {PUBLIC_NAV.map((n) => (
+                <li key={n.href}>
+                  <Link href={n.href} className="rounded-sm px-3 py-2 text-sm font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink">
+                    {n.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <div className="flex-1" />
+          <AccountSlot demo={env.demoMode} />
+          <MobileNav items={PUBLIC_NAV} demo={env.demoMode} />
+        </div>
+      </header>
+    </>
+  );
+}

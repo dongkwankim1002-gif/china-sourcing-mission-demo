@@ -1,0 +1,15 @@
+/* Pretendard Variable · Black Han Sans — layout.tsx 의 fontScript 가 붙인다(첫 방문은 캐시에만 받고, 다음 쪽부터 적용). KS X 1001 한글 + 라틴·기호 한 파일씩(scripts/fonts/build.sh). SIL OFL 1.1, LICENSE-*.txt */
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-style: normal;
+  font-weight: 45 920;
+  font-display: swap;
+  src: url('/fonts/fcd/PretendardVariable.ks.woff2') format('woff2-variations'), url('/fonts/fcd/PretendardVariable.ks.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Black Han Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/fcd/BlackHanSans.ks.woff2') format('woff2');
+}
