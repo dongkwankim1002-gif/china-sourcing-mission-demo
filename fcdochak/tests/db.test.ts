@@ -117,6 +117,14 @@ describe('RLS — 누가 무엇을 보는가', () => {
     expect(r.shippers).toBe(0);
     await expect(asRole(db, 'fcd_public', null, true, (q) => q.query('select * from fcd.quote_requests'))).rejects.toThrow();
   });
+  it('물류사는 다른 물류사의 비공개 요금표를 못 본다', async () => {
+    const r = await asRole(db, 'fcd_user', ids.partner, true, (q) =>
+      q.query<{ n: number }>(`select count(*)::int n from fcd.rate_cards c join fcd.orgs o on o.id = c.org_id where o.slug <> 'hanbada' and not c.is_public_price`),
+    );
+    expect(r[0].n).toBe(0);
+    const shipper = await asRole(db, 'fcd_user', ids.shipper, true, (q) => q.query<{ n: number }>(`select count(*)::int n from fcd.rate_cards where not is_public_price`));
+    expect(shipper[0].n).toBeGreaterThan(0);
+  });
   it('요금표는 수정할 수 없다(권한 없음)', async () => {
     await expect(
       asRole(db, 'fcd_user', ids.partner, true, (q) => q.query(`update fcd.rate_cards set valid_to = valid_to + 30`)),

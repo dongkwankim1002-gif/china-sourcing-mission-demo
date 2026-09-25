@@ -110,13 +110,22 @@ language sql stable security definer set search_path = fcd, pg_temp as $$
   select exists (select 1 from fcd.shipments x where x.id = s and fcd.is_member(x.shipper_org_id))
 $$;
 
+-- 화주 조직 소속인가(요금표 전체는 화주만 본다 — 물류사끼리는 서로의 비공개 요금을 못 본다)
+create or replace function fcd.i_am_shipper() returns boolean
+language sql stable security definer set search_path = fcd, pg_temp as $$
+  select exists (
+    select 1 from fcd.memberships m join fcd.orgs o on o.id = m.org_id
+    where m.user_id = fcd.uid() and o.kind = 'shipper' and fcd.org_visible(o.id)
+  )
+$$;
+
 create or replace function fcd.can_see_rate_card(c uuid) returns boolean
 language sql stable security definer set search_path = fcd, pg_temp as $$
   select exists (
     select 1 from fcd.rate_cards r
     where r.id = c and fcd.org_visible(r.org_id) and (
       fcd.is_member(r.org_id) or fcd.is_platform()
-      or (fcd.uid() is not null and fcd.partner_priced(r.org_id))
+      or (fcd.i_am_shipper() and fcd.partner_priced(r.org_id))
       or (r.is_public_price and fcd.partner_priced(r.org_id) and r.status = 'active')
     )
   )
@@ -129,7 +138,7 @@ begin
     'my_org_ids()', 'is_member(uuid)', 'is_org_admin(uuid)', 'is_platform()', 'org_visible(uuid)',
     'org_kind(uuid)', 'org_status(uuid)', 'partner_listed(uuid)', 'partner_priced(uuid)',
     'has_booking_with(uuid)', 'can_see_request(uuid)', 'can_see_shipment(uuid)',
-    'is_shipment_partner(uuid)', 'is_shipment_shipper(uuid)', 'can_see_rate_card(uuid)'
+    'is_shipment_partner(uuid)', 'is_shipment_shipper(uuid)', 'can_see_rate_card(uuid)', 'i_am_shipper()'
   ] loop
     execute format('revoke all on function fcd.%s from public', f);
     execute format('grant execute on function fcd.%s to fcd_public, fcd_user', f);

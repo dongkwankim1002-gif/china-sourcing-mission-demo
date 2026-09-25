@@ -1,0 +1,33 @@
+import type { Queryable } from '../db';
+
+/** 표별 데모 건수 — 모든 표가 조직에 매달려 있으므로 조직의 is_demo 로 가른다 */
+export const DEMO_TABLES: { table: string; sql: string }[] = [
+  { table: 'orgs', sql: `select count(*) filter (where is_demo)::int demo, count(*) filter (where not is_demo)::int real from fcd.orgs` },
+  { table: 'profiles', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.profiles x join fcd.orgs o on o.id = x.home_org_id` },
+  { table: 'memberships', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.memberships x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'rate_cards', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.rate_cards x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'rate_card_lines', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.rate_card_lines l join fcd.rate_cards x on x.id = l.rate_card_id join fcd.orgs o on o.id = x.org_id` },
+  { table: 'skus', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.skus x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'quote_requests', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.quote_requests x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'bids', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.bids x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'bookings', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.bookings x join fcd.orgs o on o.id = x.shipper_org_id` },
+  { table: 'shipments', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.shipments x join fcd.orgs o on o.id = x.shipper_org_id` },
+  { table: 'shipment_events', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.shipment_events e join fcd.shipments x on x.id = e.shipment_id join fcd.orgs o on o.id = x.shipper_org_id` },
+  { table: 'exceptions', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.exceptions e join fcd.shipments x on x.id = e.shipment_id join fcd.orgs o on o.id = x.shipper_org_id` },
+  { table: 'invoices', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.invoices x join fcd.orgs o on o.id = x.partner_org_id` },
+  { table: 'reviews', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.reviews x join fcd.orgs o on o.id = x.shipper_org_id` },
+  { table: 'notifications', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.notifications x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'grade_records', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.grade_records x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'ad_slots', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.ad_slots x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'verification_requests', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.verification_requests x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'audit_log', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where o.is_demo is not true)::int real from fcd.audit_log x left join fcd.orgs o on o.id = x.org_id` },
+];
+
+export async function demoCounts(q: Queryable) {
+  const out: { table: string; demo: number; real: number }[] = [];
+  for (const t of DEMO_TABLES) {
+    const r = (await q.query<{ demo: number; real: number }>(t.sql))[0];
+    out.push({ table: t.table, demo: r.demo, real: r.real });
+  }
+  return out;
+}

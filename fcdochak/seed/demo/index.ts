@@ -325,7 +325,7 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
           if (mode === 'FERRY' && !SHANDONG.has(hub)) continue;
           lanes.push({ hub, port, mode });
         }
-    const maxLanes = freightTypes.has(p.type) ? (p.weight >= 8 ? 7 : p.weight >= 4 ? 5 : 3) : 3;
+    const maxLanes = freightTypes.has(p.type) ? (p.weight >= 11 ? 14 : p.weight >= 8 ? 8 : p.weight >= 4 ? 5 : 3) : 3;
     const chosen = rng.shuffle(lanes).slice(0, maxLanes);
     chosen.forEach((lane, li) => {
       const cardNo = `RC-${pad(p.idx + 1, 2)}${pad(li + 1, 2)}`;
