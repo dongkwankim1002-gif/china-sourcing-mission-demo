@@ -23,6 +23,12 @@ function ChartTip({ active, payload, label, f, name }: { active?: boolean; paylo
 }
 
 const axis = { fontSize: 11, fill: 'var(--muted)' };
+/** 축 눈금 — 10만 원 밑의 만 원 단위는 소수 한 자리까지(4.5만이 「5만」으로 뭉개지지 않게) */
+function axisTick(v: number, f: Fmt) {
+  const a = Math.abs(v);
+  if (f === 'won' && a >= 10_000 && a < 100_000) return `${v < 0 ? '−' : ''}${Math.round(a / 1_000) / 10}만`;
+  return fmt(v, f).replace(' 원', '');
+}
 
 export function DailyBars({ data, f = 'num', name, height = 200 }: { data: { d: string; v: number }[]; f?: Fmt; name: string; height?: number }) {
   return (
@@ -31,7 +37,7 @@ export function DailyBars({ data, f = 'num', name, height = 200 }: { data: { d: 
         <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--grid)" strokeWidth={1} />
           <XAxis dataKey="d" tick={axis} tickLine={false} axisLine={{ stroke: 'var(--line)' }} interval="preserveStartEnd" minTickGap={28} />
-          <YAxis tick={axis} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => fmt(v, f).replace(' 원', '')} />
+          <YAxis tick={axis} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => axisTick(v, f)} />
           <Tooltip cursor={{ fill: 'var(--surface-2)' }} content={<ChartTip f={f} name={name} />} />
           <Bar dataKey="v" fill="var(--chart-1)" radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false} />
         </BarChart>
@@ -48,7 +54,7 @@ export function DailyLine({ data, f = 'num', name, height = 200, area = false }:
         <C data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--grid)" strokeWidth={1} />
           <XAxis dataKey="d" tick={axis} tickLine={false} axisLine={{ stroke: 'var(--line)' }} interval="preserveStartEnd" minTickGap={28} />
-          <YAxis tick={axis} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => fmt(v, f).replace(' 원', '')} />
+          <YAxis tick={axis} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => axisTick(v, f)} />
           <Tooltip cursor={{ stroke: 'var(--muted)', strokeWidth: 1 }} content={<ChartTip f={f} name={name} />} />
           {area ? (
             <Area type="monotone" dataKey="v" stroke="var(--chart-1)" strokeWidth={2} fill="var(--chart-1)" fillOpacity={0.1} dot={false} activeDot={{ r: 4, stroke: 'var(--surface)', strokeWidth: 2 }} isAnimationActive={false} connectNulls />

@@ -118,7 +118,7 @@ export function ScoreBreakdown({
   }
 
   return (
-    <div data-testid="score-breakdown" data-enough={enough ? 'yes' : 'no'} className={cn('grid gap-3 p-4', className)}>
+    <div data-testid="score-breakdown" data-enough={enough ? 'yes' : 'no'} className={cn('@container grid gap-3 p-4', className)}>
       <div className="flex flex-wrap items-end justify-between gap-2">
         {enough ? (
           <p className="display text-3xl tnum">
@@ -137,7 +137,7 @@ export function ScoreBreakdown({
       ) : null}
       <ul className="grid gap-2.5">
         {items.map((it) => (
-          <li key={it.key} className="grid gap-1 sm:grid-cols-[112px_minmax(0,1fr)_76px] sm:items-center sm:gap-3">
+          <li key={it.key} className="grid gap-1 @md:grid-cols-[112px_minmax(0,1fr)_76px] @md:items-center @md:gap-3">
             <span className="text-sm font-semibold">{label(it.key, it.label)}</span>
             <span className="min-w-0">
               {enough ? (
@@ -150,7 +150,7 @@ export function ScoreBreakdown({
                 {it.key === 'certainty' && certaintyNote ? ` · ${certaintyNote}` : ''}
               </span>
             </span>
-            <span className="text-sm font-bold tnum sm:text-right">{enough ? `${it.points.toFixed(1)} / ${it.max}` : `— / ${it.max}`}</span>
+            <span className="text-sm font-bold tnum @md:text-right">{enough ? `${it.points.toFixed(1)} / ${it.max}` : `— / ${it.max}`}</span>
           </li>
         ))}
       </ul>

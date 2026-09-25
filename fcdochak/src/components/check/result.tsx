@@ -110,7 +110,7 @@ export function CheckResultView({ outcome, heading = 'h2' }: { outcome: CheckOut
       <Panel aria-labelledby="check-table">
         <PanelHead id="check-table" title="구간별 비교" sub="중간값·싼 쪽 25%·최저는 이 화물로 계산한 요금표 기준. 표본이 적은 구간은 싼 쪽 25%·최저를 싣지 않습니다(좁은 화면에서는 두 칸을 접습니다)." />
         <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="구간별 비교 표(옆으로 밀어 더 보기)">
-          <table className="w-full min-w-[420px] text-sm tnum md:min-w-[720px]">
+          <table className="w-full min-w-[340px] text-sm tnum md:min-w-[720px]">
             <caption className="sr-only">9구간별 청구 금액과 구간 시세</caption>
             <thead className="bg-surface-2 text-xs text-muted">
               <tr>

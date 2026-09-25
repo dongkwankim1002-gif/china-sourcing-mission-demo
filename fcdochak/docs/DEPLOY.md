@@ -22,6 +22,15 @@
 - 빌드는 미국(iad1)에서 돌아 서울 DB 와 멀다 — 빌드 중 DB 읽기는 한 번에 모아서(DECISIONS.md)
 - 알아 둘 것: 첫 Supabase 시드의 jsonb 값 일부가 글자로 한 겹 더 감싸여 저장돼 있다. 읽을 때 드라이버가 벗기므로 화면은 맞다. 고치는 SQL 은 사람이 판단해 돌린다(여기서 돌리지 않음)
 
+## v2 미리보기 (fcdochak-v2 가지)
+
+- 주소 **https://fcdochak-v2.vercel.app** — `fcdochak-v2` 가지에 push 할 때마다 미리보기 배포. **Vercel 로그인이 있어야 열린다**(미리보기 배포 보호).
+- **임시 DB**: Supabase 연결값은 Production 에만 있어 v2 미리보기는 PGlite(프로세스 안 Postgres)로 뜬다. 스키마·참조 첫 판·데모를 뜰 때마다 새로 세우므로, 화면에서 넣은 자료는 인스턴스가 바뀌면 사라진다. v2 의 새 표(0006~0012)는 운영 DB 에 들어가지 않는다.
+- **`PREVIEW_BANNER=v2`**(v2 미리보기 환경에만): 모든 화면 맨 위에 「v2 미리보기 — 운영 아님 · 임시 자료라 바뀌거나 사라질 수 있습니다」. 공개 화면은 빌드 때 그려지므로 값을 바꾸면 다시 배포한다. 운영에는 이 값을 넣지 않는다.
+- v2 시범 스위치(`v2.*`)는 참조 시드에서 모두 꺼짐. 켜도 계약·결제·보장·발송은 없다(`docs/V2.md`).
+- 로컬에서 같은 모양 보기: `PREVIEW_BANNER=v2 npm run build && PREVIEW_BANNER=v2 npm start` (DATABASE_URL 없이 → PGlite). 캡처는 `node scripts/shots-all.mjs http://localhost:3000`.
+- v2 를 운영으로 옮길지는 사람이 정한다. 옮길 때는 `fcdochak-v2` → `fcdochak` PR, 운영 DB 에는 빌드 앞단 `vercel:prepare` 가 0006~0012 를 덧붙인다(지우거나 덮지 않음) — 먼저 Supabase 백업.
+
 ## 로컬
 
 ```bash

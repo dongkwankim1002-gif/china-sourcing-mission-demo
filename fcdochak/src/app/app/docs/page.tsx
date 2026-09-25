@@ -28,7 +28,7 @@ export default async function DocsPage() {
         <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
           <div className="grid min-w-0 content-start gap-4">
             <DocUploader shipments={ships.map((s) => ({ id: s.id, label: `${s.shipment_no} · ${s.title}` }))} defaultShelf="coupang_barcode" />
-            <ShelfList docs={docs} showShipment max={40} />
+            <ShelfList docs={docs} showShipment max={12} />
           </div>
           <Panel className="content-start self-start" aria-labelledby="gaps-h">
             <PanelHead id="gaps-h" title="진행 선적의 빠진 서류" sub="쿠팡 입고에 늘 필요한 인보이스·패킹리스트·쿠팡 바코드 PDF 기준" />

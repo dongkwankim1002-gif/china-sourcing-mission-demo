@@ -114,7 +114,7 @@ export default async function LanePage({ params }: { params: Promise<{ lane: str
       </section>
       <div className="mx-auto grid max-w-[1280px] gap-6 px-4 py-10 lg:grid-cols-[1fr_380px]">
         <OpenGate className="lg:col-span-2" toolHref={toolHref} />
-        <Panel>
+        <Panel className="lg:self-start">
           <PanelHead
             title="9구간 중간값 · 공개"
             sub="업체가 맡지 않은 구간은 플랫폼 참고치로 채워 계산"
@@ -129,7 +129,7 @@ export default async function LanePage({ params }: { params: Promise<{ lane: str
             <NineBarLegend className="mt-3" />
           </div>
         </Panel>
-        <Panel>
+        <Panel className="lg:self-start">
           <PanelHead title={`이 구간 업체 ${partners.length}곳`} sub="이름은 공개 · 업체별 가격과 견적 요청은 가입 후" />
           {partners.length ? (
             <ul>

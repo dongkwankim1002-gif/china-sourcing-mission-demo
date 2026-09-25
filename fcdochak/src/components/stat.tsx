@@ -42,10 +42,10 @@ export function StatTile({
       </p>
       <div className="mt-2 flex items-center justify-between gap-2">
         {delta != null ? (
-          <span className={cn('inline-flex items-center gap-0.5 text-xs font-semibold tnum', tone)}>
+          <span className={cn('inline-flex flex-wrap items-center gap-x-0.5 text-xs font-semibold tnum', tone)}>
             <Icon className="size-3.5" aria-hidden />
             {format === 'pct' ? `${(delta * 100).toFixed(1)}%p` : `${(Math.abs(delta) * 100).toFixed(0)}%`}
-            <span className="font-normal text-muted">지난 기간 대비</span>
+            <span className="whitespace-nowrap font-normal text-muted">지난 기간 대비</span>
           </span>
         ) : (
           <span className="text-xs text-muted">{hint ?? ' '}</span>
