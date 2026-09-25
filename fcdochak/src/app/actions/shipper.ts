@@ -5,6 +5,7 @@ import { asSystem, asUser } from '@/lib/db';
 import { requireViewer } from '@/lib/server/viewer';
 import { newNo } from '@/lib/server/rate-cards';
 import { notifyMany } from '@/lib/server/notify';
+import { recordEvent } from '@/lib/server/events';
 
 export interface ActionResult<T = undefined> {
   ok: boolean;
@@ -13,12 +14,13 @@ export interface ActionResult<T = undefined> {
   path?: string;
 }
 
+const DEST_CODE = /^(FC|TP|MK)-[A-Z0-9]{3}$/; // 쿠팡 FC · 예시 3PL · 쇼핑몰 창고(0011)
 const RequestInput = z.object({
   title: z.string().trim().max(80).optional(),
   hub: z.string().regex(/^[A-Z]{3}$/),
   port: z.enum(['ICN', 'PTK']),
   mode: z.enum(['ANY', 'LCL', 'FERRY', 'FCL', 'AIR']),
-  fc: z.string().regex(/^FC-[A-Z]{3}$/),
+  fc: z.string().regex(DEST_CODE, '목적지를 고르세요'),
   units: z.number({ invalid_type_error: '수량을 넣으세요' }).int().min(1, '수량은 1 이상'),
   cartons: z.number({ invalid_type_error: '박스 수를 넣으세요' }).int().min(1, '박스는 1 이상'),
   kg: z.number({ invalid_type_error: '무게를 넣으세요' }).min(0.1, '무게를 넣으세요'),
@@ -54,6 +56,7 @@ export async function createRequest(input: RequestInputT): Promise<ActionResult<
     await q.query(`insert into fcd.audit_log (actor_id, org_id, action, target) values ($1,$2,'request.created',$3)`, [v.id, v.org.id, r[0].id]);
     return r[0].id;
   });
+  await recordEvent(v.id, { orgId: v.org.id, sellerOrgId: v.org.id, kind: 'quote_requested', targetKind: 'quote_request', targetId: id });
   // 이 거점을 맡는 물류사(공식·인증 대기)에 새 요청 알림
   const partners = await asSystem((q) =>
     q.query<{ org_id: string }>(
@@ -77,6 +80,7 @@ export async function cancelRequest(id: string): Promise<ActionResult> {
     return r.length;
   });
   if (!n) return { ok: false, error: '이미 마감됐거나 선택한 요청은 취소할 수 없습니다' };
+  await recordEvent(v.id, { orgId: v.org.id, sellerOrgId: v.org.id, kind: 'request_cancelled', targetKind: 'quote_request', targetId: id });
   revalidatePath(`/app/requests/${id}`);
   return { ok: true };
 }
@@ -113,6 +117,8 @@ export async function selectBid(requestId: string, bidId: string): Promise<Actio
     return { shipmentId: sh[0].id, shipmentNo: sh[0].shipment_no, partner: b.org_id, reqNo: r.req_no };
   });
   if ('error' in res) return { ok: false, error: res.error };
+  await recordEvent(v.id, { orgId: v.org.id, sellerOrgId: v.org.id, kind: 'bid_selected', targetKind: 'quote_request', targetId: requestId, detail: { bidId } });
+  await recordEvent(v.id, { orgId: v.org.id, sellerOrgId: v.org.id, kind: 'booked', targetKind: 'shipment', targetId: res.shipmentId, detail: { bidId, partnerOrgId: res.partner } });
   await notifyMany([{ orgId: res.partner, kind: 'booking', title: `예약 확정 — ${res.reqNo}`, body: `${v.org.name} · 선적 ${res.shipmentNo}`, link: `/partner/shipments/${res.shipmentId}` }]);
   revalidatePath(`/app/requests/${requestId}`);
   return { ok: true, data: { shipmentId: res.shipmentId } };
@@ -191,6 +197,7 @@ export async function submitReview(input: z.infer<typeof ReviewInput>): Promise<
     return { partner: s.partner_org_id };
   }).catch(() => ({ error: '이미 평가한 선적입니다' }));
   if ('error' in r) return { ok: false, error: r.error };
+  await recordEvent(v.id, { orgId: v.org.id, sellerOrgId: v.org.id, kind: 'reviewed', targetKind: 'shipment', targetId: d.shipmentId, detail: { rating: d.rating } });
   await notifyMany([{ orgId: r.partner, kind: 'status', title: '새 평가가 올라왔습니다', body: `${d.rating}/5`, link: `/partner/shipments/${d.shipmentId}` }]);
   revalidatePath(`/app/shipments/${d.shipmentId}`);
   return { ok: true };

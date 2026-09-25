@@ -8,6 +8,7 @@ import { autoQuote } from '@/lib/server/partner';
 import { REQUEST_SELECT, type RequestRow } from '@/lib/server/shipper';
 import { insertRateCard, newNo, reviseRateCard } from '@/lib/server/rate-cards';
 import { notifyMany } from '@/lib/server/notify';
+import { recordEvent } from '@/lib/server/events';
 import { RateCardInput, type RateCardInputT } from '@/lib/schemas';
 import { SEGMENTS, sumAmounts, type Certainty } from '@/lib/money';
 import { STAGES } from '@/lib/terms';
@@ -75,6 +76,7 @@ export async function submitBid(input: z.infer<typeof BidInput>): Promise<Result
     return { id: row[0].id, shipperOrg: r.org_id, reqNo: r.req_no, total };
   });
   if ('error' in res) return { ok: false, error: res.error };
+  await recordEvent(v.id, { orgId: v.org.id, sellerOrgId: res.shipperOrg, kind: 'bid_submitted', targetKind: 'quote_request', targetId: d.requestId, detail: { bidId: res.id } });
   await notifyMany([{ orgId: res.shipperOrg, kind: 'bid_arrived', title: `응찰 도착 — ${res.reqNo}`, body: `${v.org.name}: ${res.total.toLocaleString('ko-KR')}원`, link: `/app/requests/${input.requestId}` }]);
   revalidatePath(`/partner/inbox/${input.requestId}`);
   return { ok: true, data: { id: res.id } };
@@ -190,6 +192,10 @@ export async function updateStage(input: z.infer<typeof StageInput>): Promise<Re
     return s;
   });
   if ('error' in r) return { ok: false, error: r.error };
+  const ev = { orgId: v.org.id, sellerOrgId: r.shipper_org_id, targetKind: 'shipment' as const, targetId: d.shipmentId };
+  if (r.stage < 5 && d.stage >= 5) await recordEvent(v.id, { ...ev, kind: 'shipped' });
+  if (r.stage < 9 && d.stage === 9) await recordEvent(v.id, { ...ev, kind: 'fc_inbound' });
+  if (d.stage === 9 && d.returned) await recordEvent(v.id, { ...ev, kind: 'returned', detail: { units: d.returned } });
   await notifyMany([{ orgId: r.shipper_org_id, kind: d.returned ? 'exception' : 'status', title: `${d.stage === 9 ? 'FC 입고 완료' : '상태 갱신'} — ${r.shipment_no}`, body: `${d.stage}. ${STAGES[d.stage]}${d.raw ? ` (${d.raw})` : ''}`, link: `/app/shipments/${d.shipmentId}` }]);
   revalidatePath(`/partner/shipments/${d.shipmentId}`);
   return { ok: true };
@@ -266,6 +272,7 @@ export async function addInvoice(input: z.infer<typeof InvInput>): Promise<Resul
     return { ...s, dev };
   });
   if ('error' in r) return { ok: false, error: r.error };
+  await recordEvent(v.id, { orgId: v.org.id, sellerOrgId: r.shipper_org_id, kind: 'invoiced', targetKind: 'shipment', targetId: d.shipmentId, detail: { total } });
   await notifyMany([{ orgId: r.shipper_org_id, kind: 'invoice_arrived', title: `청구서 도착 — ${r.shipment_no}`, body: `${v.org.name} · ${total.toLocaleString('ko-KR')}원 (응찰 대비 ${(r.dev * 100).toFixed(1)}%)`, link: `/app/shipments/${d.shipmentId}?tab=billing` }]);
   revalidatePath(`/partner/shipments/${d.shipmentId}`);
   return { ok: true };

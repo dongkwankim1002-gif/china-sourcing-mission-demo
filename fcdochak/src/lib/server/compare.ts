@@ -5,6 +5,7 @@ import 'server-only';
  */
 import type { Queryable } from '../db';
 import {
+  applyDestination,
   completeWithReference,
   computeQuote,
   daysUntil,
@@ -20,6 +21,7 @@ import {
   type RateTier,
   type Segment,
   type TraitRule,
+  type DestinationRef,
 } from '../money';
 import type { AppSettings } from './settings';
 import { emptyTrust, loadTrustFacts, loadTrustRule, type TrustFacts } from './trust';
@@ -30,6 +32,8 @@ export interface CompareInput {
   mode: string | null;
   cargo: Cargo;
   traits: string[];
+  /** 목적지 코드(쿠팡 FC·예시 3PL·쇼핑몰 창고). 없거나 쿠팡 FC 면 예전과 같다. */
+  fc?: string | null;
 }
 
 export interface PartnerBrief {
@@ -93,6 +97,15 @@ export interface CompareResult {
   ad: Offer | null;
   verdicts: { code: string; name_ko: string; verdict_ko: string; requirement_ko: string }[];
   referenceUsed: boolean;
+  /** 쿠팡 FC 밖 목적지라 「FC 운송」을 거리 기준 참고치로 바꿨으면 그 목적지 */
+  destination?: (DestinationRef & { name: string }) | null;
+}
+
+/** 목적지 한 줄(참조표) — 없으면 null */
+export async function loadDestination(q: Queryable, code: string | null | undefined): Promise<(DestinationRef & { name: string }) | null> {
+  if (!code) return null;
+  const r = await q.query<DestinationRef & { name: string }>(`select code, name, kind, km_incheon, km_pyeongtaek from fcd.fc_centers where code = $1`, [code]);
+  return r[0] ?? null;
 }
 
 interface CardRow {
@@ -192,6 +205,8 @@ export async function compare(q: Queryable, input: CompareInput, s: AppSettings,
   const [facts, traits, trustRule] = await Promise.all([loadPartnerFacts(q, orgIds, today), loadTraitRules(q), loadTrustRule(q)]);
   const trustFacts = await loadTrustFacts(q, orgIds, trustRule);
   const refQuote = computeQuote(s.referenceLines, input.cargo, s.quoteParams);
+  const dest = await loadDestination(q, input.fc);
+  const destApplied = !!dest && dest.kind !== 'coupang_fc' && !!s.destinationLeg;
   const reference = Object.fromEntries(refQuote.segments.map((x) => [x.segment, x.amount])) as Partial<Record<Segment, number>>;
 
   const all: Offer[] = [];
@@ -202,7 +217,7 @@ export async function compare(q: Queryable, input: CompareInput, s: AppSettings,
     const partner = facts.partners.get(c.org_id);
     if (!partner) continue;
     const raw = computeQuote(ls, input.cargo, s.quoteParams, tiers.get(c.id) ?? []);
-    const quote = completeWithReference(raw, reference, input.cargo.units);
+    const quote = applyDestination(completeWithReference(raw, reference, input.cargo.units), input.cargo, dest, input.port, s.destinationLeg, s.quoteParams);
     const metrics = facts.metrics.get(c.org_id) ?? null;
     const certainty = priceCertaintyOf(raw.confirmedTotal, quote.total);
     const scoreInput = {
@@ -254,7 +269,7 @@ export async function compare(q: Queryable, input: CompareInput, s: AppSettings,
   offers.sort((a, b) => b.score - a.score || a.quote.total - b.quote.total);
   const adCand = offers.filter((o) => o.isAd).sort((a, b) => a.quote.total - b.quote.total)[0] ?? null;
   const verdicts = traits.rows.filter((t) => input.traits.includes(t.code));
-  return { offers, excluded, expired, ad: adCand, verdicts, referenceUsed: offers.some((o) => o.quote.filled.length > 0) };
+  return { offers, excluded, expired, ad: adCand, verdicts, referenceUsed: offers.some((o) => o.quote.filled.length > 0), destination: destApplied ? dest : null };
 }
 
 // 정렬·특수관계 처리는 순수 함수(src/lib/ranking.ts) — 공개 계산기와 비교 화면이 같이 쓴다.

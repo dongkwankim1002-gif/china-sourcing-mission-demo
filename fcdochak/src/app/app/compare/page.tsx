@@ -16,6 +16,7 @@ import { AdChip, FcReadyChip, PartnerStatusChip, RelatedChip, Won } from '@/comp
 import { Button, Chip, EmptyState, PageTitle, Panel } from '@/components/ui/core';
 import { Tooltip } from '@/components/ui/radix';
 import { CompareEditor } from './editor';
+import { DestinationNote } from '@/components/destination-note';
 import { cn } from '@/lib/cn';
 import { dateKo, num, pct, won } from '@/lib/format';
 import { ACTION, SEGMENTS_SHORT } from './labels';
@@ -47,7 +48,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   const { result, skus, traitNotes, assure } = await asUser(v, async (q) => {
     const s = await loadSettings(q);
     const [result, skus, traitNotes] = await Promise.all([
-      compare(q, { hub: cq.hub, port: cq.port, mode: cq.mode, cargo: toCargo(cq), traits: cq.traits }, s, today),
+      compare(q, { hub: cq.hub, port: cq.port, mode: cq.mode, cargo: toCargo(cq), traits: cq.traits, fc: cq.fc }, s, today),
       listSkus(q, v.org.id),
       loadTraitNotes(q),
     ]);
@@ -96,6 +97,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
         />
       </Suspense>
 
+      {result.destination ? <DestinationNote name={result.destination.name} kind={result.destination.kind} className="mt-4" /> : null}
       {result.verdicts.length ? (
         <section aria-labelledby="verdict" className="mt-4 rounded-md border border-caution/40 bg-caution-bg p-4">
           <h2 id="verdict" className="flex items-center gap-2 text-sm font-bold text-caution">

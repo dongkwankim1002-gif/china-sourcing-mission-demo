@@ -20,7 +20,8 @@ export const CargoQuery = z.object({
     .string()
     .default('')
     .transform((s) => s.split(',').map((x) => x.trim()).filter((x) => /^[a-z_]{2,20}$/.test(x))),
-  fc: z.string().regex(/^FC-[A-Z]{3}$/).default(R.fc),
+  // 목적지 — 쿠팡 FC(FC-) · 예시 3PL(TP-) · 쇼핑몰 창고(MK-). 없으면 기준 FC
+  fc: z.string().regex(/^(FC|TP|MK)-[A-Z0-9]{3}$/).default(R.fc),
 });
 export type CargoQueryT = z.infer<typeof CargoQuery>;
 

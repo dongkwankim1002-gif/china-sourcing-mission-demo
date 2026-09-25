@@ -9,6 +9,7 @@ import { createAuthUser, storeLocalPassword } from '@/lib/auth/provider';
 import { createSession } from '@/lib/auth/session';
 import { PartnerSignup, ShipperSignup, slugify, type PartnerSignupT, type ShipperSignupT } from '@/lib/schemas';
 import { insertRateCard } from '@/lib/server/rate-cards';
+import { recordSignup } from '@/lib/server/events';
 
 export interface SignupResult {
   ok?: boolean;
@@ -55,6 +56,7 @@ export async function signupShipper(input: ShipperSignupT): Promise<SignupResult
       JSON.stringify({ hubs: d.hubs, category: d.category ?? null }),
     ]);
   });
+  await recordSignup(userId, 'shipper');
   await createSession(userId);
   return { ok: true, redirect: '/app?welcome=1' };
 }
@@ -96,6 +98,7 @@ export async function signupPartner(input: PartnerSignupT): Promise<SignupResult
     ]);
     await q.query(`insert into fcd.audit_log (actor_id, org_id, action, target) values ($1,$2,'org.signup','partner')`, [userId, orgId]);
   });
+  await recordSignup(userId, 'partner');
   await createSession(userId);
   return { ok: true, redirect: '/partner?welcome=1' };
 }

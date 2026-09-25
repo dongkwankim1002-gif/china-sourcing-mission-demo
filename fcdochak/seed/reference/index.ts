@@ -1,5 +1,6 @@
 import type { Queryable } from '@/lib/db/driver';
 import { CARGO_TRAITS, DUTY_RATES, FC_CENTERS, HUBS, MODES, PORTS, SEGMENT_ROWS, SETTINGS } from './data';
+import { DESTINATIONS, METRICS_SETTINGS } from './data';
 
 /** 플랫폼 운영 조직 — 본게임 조직. 데모가 아니다. */
 export const PLATFORM_ORG_ID = '00000000-0000-4000-8000-000000000001';
@@ -74,4 +75,24 @@ export async function seedReference(q: Queryable) {
      on conflict (id) do nothing`,
     [PLATFORM_ORG_ID],
   );
+  await seedDestinations(q);
+}
+
+/** v2 metrics — 쿠팡 FC 밖 목적지(예시 3PL·쇼핑몰 창고)와 그 설정. 멱등. */
+export async function seedDestinations(q: Queryable) {
+  for (const d of DESTINATIONS) {
+    await q.query(
+      `insert into fcd.fc_centers (code,name,region,km_incheon,km_pyeongtaek,kind,is_example,ord) values ($1,$2,$3,$4,$5,$6,true,$7)
+       on conflict (code) do update set name=excluded.name, region=excluded.region, km_incheon=excluded.km_incheon,
+         km_pyeongtaek=excluded.km_pyeongtaek, kind=excluded.kind, is_example=true, ord=excluded.ord`,
+      [d.code, d.name, d.region, d.km_incheon, d.km_pyeongtaek, d.kind, d.ord],
+    );
+  }
+  for (const s of METRICS_SETTINGS) {
+    await q.query(
+      `insert into fcd.settings (key, value, note)
+       select $1, $2::jsonb, $3 where not exists (select 1 from fcd.settings where key = $1)`,
+      [s.key, JSON.stringify(s.value), s.note],
+    );
+  }
 }

@@ -196,3 +196,25 @@ export const V2_ASSURE_SETTINGS: { key: string; value: unknown; note: string }[]
   { key: 'v2.deferred_rates', value: { monthlyFeeBp: 150, termDays: 30, maxAmount: 30000000 }, note: '물류비 후불 참고 수수료(30일당 bp)·기간·한도' },
 ];
 SETTINGS.push(...V2_ASSURE_SETTINGS);
+// v2 metrics — 목적지 넓히기 ------------------------------------------------------
+/**
+ * 쿠팡 FC 밖의 목적지 — 국내 3PL 창고·다른 쇼핑몰 물류센터. 실제 회사가 아니라 지역만 적은 「예시」다.
+ * 같은 참조표(fcd.fc_centers)에 kind 로 갈라 둔다. 쿠팡 FC 는 kind = 'coupang_fc'(기본값).
+ */
+export const DESTINATIONS = [
+  { code: 'TP-ICN', name: '예시 3PL 창고 · 인천 서구', region: '인천', kind: '3pl', km_incheon: 15, km_pyeongtaek: 95, ord: 1 },
+  { code: 'TP-YIN', name: '예시 3PL 창고 · 경기 용인', region: '경기 남부', kind: '3pl', km_incheon: 70, km_pyeongtaek: 45, ord: 2 },
+  { code: 'TP-BSN', name: '예시 3PL 창고 · 부산', region: '경상', kind: '3pl', km_incheon: 420, km_pyeongtaek: 360, ord: 3 },
+  { code: 'MK-GMP', name: '예시 쇼핑몰 물류센터 · 경기 김포', region: '경기 북부', kind: 'mall_wh', km_incheon: 30, km_pyeongtaek: 100, ord: 1 },
+  { code: 'MK-ICH', name: '예시 쇼핑몰 물류센터 · 경기 이천', region: '경기 동부', kind: 'mall_wh', km_incheon: 88, km_pyeongtaek: 62, ord: 2 },
+  { code: 'MK-CAN', name: '예시 쇼핑몰 물류센터 · 충남 천안', region: '충청', kind: 'mall_wh', km_incheon: 110, km_pyeongtaek: 38, ord: 3 },
+] as const;
+
+/** 목적지·지표 설정 — 키가 한 번도 없을 때만 첫 판을 넣는다(SETTINGS 와 같은 규칙) */
+export const METRICS_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  {
+    key: 'destination_leg',
+    value: { perPalletBase: 25000, perPalletPerKm: 220, minCharge: 50000 },
+    note: '쿠팡 FC 밖 목적지(3PL·쇼핑몰 창고)의 마지막 구간 참고치 — 팔레트당 기본 + km당(원). 업체 요금표의 「FC 운송」은 쿠팡 FC 기준이라 이 값으로 바꿔 계산한다.',
+  },
+];

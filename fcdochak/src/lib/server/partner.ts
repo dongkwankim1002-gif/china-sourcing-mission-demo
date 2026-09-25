@@ -2,8 +2,8 @@ import 'server-only';
 /** 물류사 콘솔 조회 — asUser(RLS). 화주 이름은 예약 뒤에만 보인다(orgs RLS). */
 import { asSystem, type Queryable } from '../db';
 import { env } from '../env';
-import { computeQuote, exclusionReasons, type Cargo, type ExclusionReason, type QuoteResult } from '../money';
-import { loadCards, loadTraitRules } from './compare';
+import { applyDestination, computeQuote, exclusionReasons, type Cargo, type ExclusionReason, type QuoteResult } from '../money';
+import { loadCards, loadDestination, loadTraitRules } from './compare';
 import type { AppSettings } from './settings';
 import { REQUEST_SELECT, type RequestRow } from './shipper';
 
@@ -31,10 +31,12 @@ export async function autoQuote(q: Queryable, orgId: string, r: RequestRow, s: A
   const cargo: Cargo = { units: r.units, cartons: r.cartons, kg: r.kg, cbm: r.cbm, goodsValue: r.goods_value, goodsCurrency: r.goods_currency as 'RMB' };
   const mine = cards.filter((c) => c.org_id === orgId && c.status === 'active' && c.valid_from <= today && c.valid_to >= today);
   let best: InboxItem['auto'] = null;
+  // 쿠팡 FC 밖 목적지면 「FC 운송」을 거리 기준 참고치로(0011) — 쿠팡 FC 는 예전 그대로
+  const dest = r.fc_code && !r.fc_code.startsWith('FC-') ? await loadDestination(q, r.fc_code) : null;
   for (const c of mine) {
     const ls = lines.get(c.id) ?? [];
     if (!ls.some((l) => l.included)) continue;
-    const quote = computeQuote(ls, cargo, s.quoteParams, tiers.get(c.id) ?? []);
+    const quote = applyDestination(computeQuote(ls, cargo, s.quoteParams, tiers.get(c.id) ?? []), cargo, dest, r.port, s.destinationLeg, s.quoteParams);
     if (!best || quote.total < best.quote.total) best = { cardId: c.id, mode: c.mode, quote, transit: [c.transit_days_min, c.transit_days_max] };
   }
   return best;
