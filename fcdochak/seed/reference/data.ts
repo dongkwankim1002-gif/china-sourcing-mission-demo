@@ -175,6 +175,8 @@ export const SETTINGS: { key: string; value: unknown; note: string }[] = [
   },
   { key: 'score_min_sample', value: { days: 30, count: 20 }, note: '추천 점수를 내는 최소 표본 — 최근 days 일 안에 끝난 선적(입고·회송·반려·미도착)이 count 건 미만이면 「표본 부족」' },
   { key: 'review_lost_after_days', value: 14, note: 'FC 도착 예정일에서 이만큼 지나도 입고되지 않은 선적은 「분실·미도착」으로 보고 평가를 받는다' },
+  { key: 'workspace.invite_days', value: 14, note: '거래처 초대 링크 유효 일수(1~90)' },
+  { key: 'workspace.billing_flag_bp', value: 300, note: '청구가 견적보다 이 비율(bp) 이상 다르면 승인 화면에 「차이 큼」 표시' },
 ];
 
 // v2 assure — 확정가·보장 자리. 스위치는 모두 꺼짐으로 시작한다(켜도 실제 계약·결제는 없다).

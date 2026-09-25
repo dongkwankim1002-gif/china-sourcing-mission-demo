@@ -28,6 +28,14 @@ export const ACTION = {
   exportCsv: 'CSV 내보내기',
   markAllRead: '모두 읽음',
   undo: '되돌리기',
+  approveInvoice: '청구 승인',
+  disputeInvoice: '이의 남기기',
+  changeDecision: '결정 바꾸기',
+  uploadDoc: '서류 올리기',
+  invitePartner: '초대 링크 만들기',
+  copyLink: '링크 복사',
+  revokeInvite: '초대 거두기',
+  acceptInvite: '거래처로 연결',
 } as const;
 
 export const REQUEST_STATUS: Record<string, { label: string; tone: 'neutral' | 'info' | 'caution' | 'ok' | 'stamp' | 'label' }> = {

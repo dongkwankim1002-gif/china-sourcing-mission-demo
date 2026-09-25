@@ -8,6 +8,7 @@ import { randomBytes } from 'node:crypto';
 import { asUser } from '@/lib/db';
 import { env } from '@/lib/env';
 import { getViewer } from '@/lib/server/viewer';
+import { parseUploadOption, type Shelf } from '@/lib/workspace/shelves';
 
 const KINDS = ['commercial_invoice', 'packing_list', 'bl', 'co', 'import_declaration', 'photo', 'other'] as const;
 const MAX = 15 * 1024 * 1024;
@@ -16,7 +17,12 @@ export async function uploadDocument(form: FormData): Promise<{ ok: boolean; err
   const v = await getViewer();
   if (!v) return { ok: false, error: '로그인이 풀렸습니다' };
   const shipmentId = String(form.get('shipmentId') ?? '');
-  const kind = String(form.get('kind') ?? 'other') as (typeof KINDS)[number];
+  // 서류함 칸까지 고른 경우 「칸:종류」(option), 예전 방식은 kind 만
+  const opt = form.get('option') ? parseUploadOption(String(form.get('option'))) : null;
+  if (form.get('option') && !opt) return { ok: false, error: '서류 종류를 고르세요' };
+  const kind = (opt?.kind ?? String(form.get('kind') ?? 'other')) as (typeof KINDS)[number];
+  const shelf: Shelf | null = opt?.shelf ?? null;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(shipmentId)) return { ok: false, error: '선적을 고르세요' };
   const file = form.get('file');
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: '파일을 고르세요' };
   if (file.size > MAX) return { ok: false, error: '15MB 보다 큰 파일은 올릴 수 없습니다' };
@@ -34,10 +40,11 @@ export async function uploadDocument(form: FormData): Promise<{ ok: boolean; err
   }
   try {
     await asUser(v, (q) =>
-      q.query(`insert into fcd.documents (shipment_id, org_id, kind, file_name, storage_path, size_bytes, created_by) values ($1,$2,$3,$4,$5,$6,$7)`, [
+      q.query(`insert into fcd.documents (shipment_id, org_id, kind, shelf, file_name, storage_path, size_bytes, created_by) values ($1,$2,$3,$4,$5,$6,$7,$8)`, [
         shipmentId,
         v.org.id,
         kind,
+        shelf,
         safe,
         storagePath,
         file.size,
@@ -48,6 +55,7 @@ export async function uploadDocument(form: FormData): Promise<{ ok: boolean; err
     return { ok: false, error: '이 선적에 서류를 올릴 권한이 없습니다' };
   }
   revalidatePath(`/app/shipments/${shipmentId}`);
+  revalidatePath('/app/docs');
   revalidatePath(`/partner/shipments/${shipmentId}`);
   return { ok: true };
 }

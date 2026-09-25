@@ -13,6 +13,7 @@ import { BillingCompare } from '@/components/shipment/billing';
 import { DocsPanel } from '@/components/shipment/docs';
 import { DefList, EmptyState, Panel, PanelHead } from '@/components/ui/core';
 import { ExceptionForm, InvoiceForm, ResolveButton, StageForm } from './forms';
+import { currentDecision, shipmentDecisions } from '@/lib/server/workspace';
 import { dateKo, dateTimeKo, num } from '@/lib/format';
 import { EXCEPTION_LABEL, STAGES, STAGES_ZH } from '@/lib/terms';
 
@@ -23,10 +24,17 @@ export default async function PartnerShipment({ params }: { params: Promise<{ id
   const v = await requireViewer('partner');
   const t = await getTranslations('p.ship');
   const zh = (await getLocale()) === 'zh';
-  const [d, ref] = await Promise.all([asUser(v, (q) => shipmentDetail(q, id)), getReference()]);
+  const [d, ref] = await Promise.all([
+    asUser(v, async (q) => {
+      const base = await shipmentDetail(q, id);
+      return base ? { ...base, decisions: await shipmentDecisions(q, id) } : null;
+    }),
+    getReference(),
+  ]);
   if (!d || d.s.partner_org_id !== v.org.id) notFound();
-  const { s, events, exceptions, docs, invoices, bid, review } = d;
+  const { s, events, exceptions, docs, invoices, bid, review, decisions } = d;
   const inv = invoices.find((i) => i.current) ?? null;
+  const decision = currentDecision(decisions, inv?.id ?? null);
   const names = zh ? STAGES_ZH : STAGES;
   const activity = [
     ...events.map((e) => ({ at: e.occurred_at, text: `${e.stage}. ${names[e.stage]}${e.raw_status ? ` · 「${e.raw_status}」` : ''}${e.note ? ` — ${e.note}` : ''}`, who: e.who, tone: e.stage === 9 ? ('ok' as const) : undefined })),
@@ -70,6 +78,15 @@ export default async function PartnerShipment({ params }: { params: Promise<{ id
                   label: t('invoice'),
                   content: (
                     <div className="grid gap-4">
+                      {inv ? (
+                        <p data-testid="partner-invoice-decision" className={`rounded-sm border p-3 text-sm ${decision?.decision === 'disputed' ? 'border-stamp/40 bg-stamp-bg text-stamp' : decision ? 'border-ok/40 bg-ok-bg text-ok' : 'border-line bg-surface text-muted'}`}>
+                          {decision
+                            ? decision.decision === 'approved'
+                              ? `${zh ? '货主已确认账单' : '화주가 이 청구서를 승인했습니다'} · ${dateTimeKo(decision.created_at)}`
+                              : `${zh ? '货主提出异议' : '화주가 이의를 남겼습니다'} · ${dateTimeKo(decision.created_at)} — ${decision.reason ?? ''}`
+                            : zh ? '等待货主确认账单' : '화주의 승인·이의를 기다리는 중입니다'}
+                        </p>
+                      ) : null}
                       {inv ? <BillingCompare bid={bid} invoice={inv} zh={zh} /> : null}
                       <Panel><PanelHead title={inv ? t('invoiceNew') : t('invoice')} /><div className="p-4"><InvoiceForm shipmentId={s.id} bid={bid.amounts} prev={inv?.amounts ?? null} today={todayKst()} zh={zh} /></div></Panel>
                     </div>

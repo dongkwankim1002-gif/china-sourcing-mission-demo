@@ -10,6 +10,8 @@ import { createSession } from '@/lib/auth/session';
 import { PartnerSignup, ShipperSignup, slugify, type PartnerSignupT, type ShipperSignupT } from '@/lib/schemas';
 import { insertRateCard } from '@/lib/server/rate-cards';
 import { recordSignup } from '@/lib/server/events';
+import { notifyInviteAccepted } from '@/lib/server/workspace';
+import { hashInviteToken, isInviteToken } from '@/lib/workspace/invite';
 
 export interface SignupResult {
   ok?: boolean;
@@ -61,7 +63,8 @@ export async function signupShipper(input: ShipperSignupT): Promise<SignupResult
   return { ok: true, redirect: '/app?welcome=1' };
 }
 
-export async function signupPartner(input: PartnerSignupT): Promise<SignupResult> {
+/** inviteToken — 화주가 보낸 거래처 초대 링크로 들어왔을 때. 가입과 같은 트랜잭션에서 그 화주의 거래처로 연결한다. */
+export async function signupPartner(input: PartnerSignupT, inviteToken?: string | null): Promise<SignupResult> {
   const p = PartnerSignup.safeParse(input);
   if (!p.success) return { error: p.error.issues[0].message, path: p.error.issues[0].path.join('.') };
   const d = p.data;
@@ -72,6 +75,8 @@ export async function signupPartner(input: PartnerSignupT): Promise<SignupResult
   } catch (e) {
     return { error: (e as Error).message, path: 'email' };
   }
+  const inviteHash = isInviteToken(inviteToken) ? hashInviteToken(inviteToken) : null;
+  let invited = false;
   await asSystem(async (q) => {
     const org = await q.query<{ id: string }>(
       `insert into fcd.orgs (kind, name, name_zh, slug, status, business_type, biz_reg_no, license_no, cargo_insurance, hq_city, address, phone, default_locale)
@@ -97,8 +102,17 @@ export async function signupPartner(input: PartnerSignupT): Promise<SignupResult
       d.locale === 'zh' ? '运营方确认营业执照后将改为「正式入驻」。在此之前运价表也会参与比较（显示为认证中）。' : '운영자가 사업자 정보를 확인하면 「공식 등록」으로 바뀝니다. 그 전에도 요금표는 「인증 대기」 표시로 비교에 나옵니다.',
     ]);
     await q.query(`insert into fcd.audit_log (actor_id, org_id, action, target) values ($1,$2,'org.signup','partner')`, [userId, orgId]);
-  });
-  await recordSignup(userId, 'partner');
+    if (inviteHash) {
+      // 방금 만든 소속으로 받는다(app.user_id = 새 사용자). 초대가 만료·사용됨이면 가입만 된다.
+      const r = await q.query<{ r: string }>(`select fcd.accept_partner_invite($1, $2) r`, [inviteHash, orgId]);
+      invited = r[0]?.r === 'ok';
+      if (invited) {
+        await q.query(`insert into fcd.audit_log (actor_id, org_id, action, target) values ($1,$2,'partner_invite.accepted','signup')`, [userId, orgId]);
+      }
+    }
+  }, userId);
+  if (invited && inviteHash) await notifyInviteAccepted(inviteHash, d.company);
+  await recordSignup(userId, 'partner', invited ? 'invite' : 'direct');
   await createSession(userId);
-  return { ok: true, redirect: '/partner?welcome=1' };
+  return { ok: true, redirect: invited ? '/partner?welcome=1&invited=1' : '/partner?welcome=1' };
 }
