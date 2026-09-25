@@ -249,21 +249,8 @@ export async function compare(q: Queryable, input: CompareInput, s: AppSettings,
   return { offers, excluded, expired, ad: adCand, verdicts, referenceUsed: offers.some((o) => o.quote.filled.length > 0) };
 }
 
-export type SortKey = 'recommend' | 'cheapest' | 'fastest' | 'deviation';
-
-export function sortOffers(list: Offer[], key: SortKey): Offer[] {
-  const a = [...list];
-  switch (key) {
-    case 'cheapest':
-      return a.sort((x, y) => x.quote.total - y.quote.total);
-    case 'fastest':
-      return a.sort((x, y) => x.transit[0] - y.transit[0] || x.transit[1] - y.transit[1] || x.quote.total - y.quote.total);
-    case 'deviation':
-      return a.sort((x, y) => (x.metrics?.avg_deviation ?? 9) - (y.metrics?.avg_deviation ?? 9) || x.quote.total - y.quote.total);
-    default:
-      return a.sort((x, y) => y.score - x.score || x.quote.total - y.quote.total);
-  }
-}
+// 정렬·특수관계 처리는 순수 함수(src/lib/ranking.ts) — 공개 계산기와 비교 화면이 같이 쓴다.
+export { rankOffers, sortOffers, SORT_LABEL, type SortKey } from '../ranking';
 
 export function filterOffers(list: Offer[], f: { confirmedOnly?: boolean; fcReadyOnly?: boolean; officialOnly?: boolean }) {
   return list.filter(

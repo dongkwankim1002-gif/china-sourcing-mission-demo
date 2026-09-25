@@ -53,6 +53,11 @@ export const env = {
   get today() {
     return process.env.FCD_TODAY || null;
   },
+  /** 미리보기 띠 — 값이 있으면(v2 가지 미리보기에만 `v2`) 모든 화면 맨 위에 「v2 미리보기 — 운영 아님」. 운영에는 두지 않는다. */
+  get previewBanner() {
+    const v = process.env.PREVIEW_BANNER?.trim();
+    return v ? v : null;
+  },
   get usingSupabaseAuth() {
     return !!(this.supabaseUrl && this.supabaseAnonKey && this.supabaseServiceKey);
   },

@@ -3,7 +3,7 @@ import { asUser, todayKst } from '@/lib/db';
 import { requireViewer } from '@/lib/server/viewer';
 import { listSkus } from '@/lib/server/shipper';
 import { loadSettings } from '@/lib/server/settings';
-import { compare, sortOffers } from '@/lib/server/compare';
+import { compare, rankOffers, sortOffers } from '@/lib/server/compare';
 import { SEGMENTS_TO_KR_PORT } from '@/lib/money/segments';
 import { Button, EmptyState, PageTitle, Panel } from '@/components/ui/core';
 import { PnlCalc } from './calc';
@@ -20,7 +20,8 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
     let offer = null;
     if (sku) {
       const r = await compare(q, { hub: sp.hub ?? 'YIW', port: sp.port ?? 'ICN', mode: null, cargo: { units: sku.units, cartons: sku.cartons, kg: sku.kg, cbm: sku.cbm, goodsValue: sku.goods_value, goodsCurrency: sku.goods_currency as 'RMB' }, traits: sku.traits }, s, todayKst());
-      const best = sortOffers(r.offers, 'recommend')[0];
+      // 특수관계 업체는 기본으로 순위에서 뺀다(비교 화면과 같다) — 그 밖에 없을 때만 넣는다
+      const best = rankOffers(r.offers, { sort: 'recommend', includeRelated: false }).list[0] ?? sortOffers(r.offers, 'recommend')[0];
       if (best) offer = { partner: best.partner.name, total: best.quote.total, units: sku.units, toPort: best.quote.segments.filter((x) => SEGMENTS_TO_KR_PORT.includes(x.segment)).reduce((a, x) => a + (x.amount ?? 0), 0) };
     }
     return { s, skus, sku, offer };

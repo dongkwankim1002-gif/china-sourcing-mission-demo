@@ -91,7 +91,7 @@ export default async function LanePage({ params }: { params: Promise<{ lane: str
             </div>
           </dl>
           <div className="on-ink mt-6">
-            <NineBar segments={segs} size="hero" ticks label={`${lane.hubName}→${lane.portName} ${lane.modeName} 구간별 중간값`} />
+            <NineBar segments={segs} size="hero" ticks table="none" label={`${lane.hubName}→${lane.portName} ${lane.modeName} 구간별 중간값`} />
           </div>
           <p className="mt-3 text-2xs text-on-ink-muted">최근 갱신 {ago(lane.updatedAt)} · 구간별 값은 각 구간의 중간값이라 합이 총액 중간값과 조금 다를 수 있습니다.</p>
           <div className="mt-6 flex flex-wrap gap-2">

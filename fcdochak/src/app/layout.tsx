@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Toaster } from '@/components/toaster';
+import { PreviewBanner } from '@/components/preview-banner';
 import { TooltipProvider } from '@/components/ui/radix';
 import { BRAND } from '@/lib/brand';
 import { env } from '@/lib/env';
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           본문으로 건너뛰기
         </a>
+        <PreviewBanner />
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster />
       </body>

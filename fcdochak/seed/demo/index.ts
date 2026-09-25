@@ -97,6 +97,7 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
   const ts = (ms: number) => new Date(ms).toISOString();
   const kstYmd = (ms: number) => new Date(ms + 9 * HOUR).toISOString().slice(0, 10);
   const yymm = (ms: number) => new Date(ms + 9 * HOUR).toISOString().slice(2, 7).replace('-', '');
+  const reviewCeil = Math.min(now - HOUR, todayUtc + 15 * HOUR - 1); // 오늘 KST 23:59:59.999 = todayUtc + 15h − 1ms
 
   // 표 --------------------------------------------------------------------
   const T = {
@@ -614,6 +615,7 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
   }
 
   function review(ship: ReturnType<typeof book>, r: ReqCtx, dev: number, at: number) {
+    at = Math.min(at, reviewCeil); // 후기는 오늘(KST) 이후 날짜가 되지 않게 — 지금보다 한 시간 앞, 오늘 KST 끝을 넘지 않게
     const p = ship.p;
     const late = ship.delivered != null && ship.delivered > ship.eta + DAY;
     let score = 5 - (late ? 1.2 : 0) - Math.abs(dev) * 14 - (ship.returned > 0 ? 1 : 0) + rng.normal(0, 0.5);
