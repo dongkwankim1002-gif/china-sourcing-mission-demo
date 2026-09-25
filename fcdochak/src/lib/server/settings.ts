@@ -1,7 +1,7 @@
 import 'server-only';
 /** 설정 표에서 읽는다 — 요율·기준값·환율·관세율을 코드에 박지 않는다. */
 import type { Queryable } from '../db';
-import type { QuoteParams, RateLine } from '../money';
+import type { LastLegRule, QuoteParams, RateLine } from '../money';
 
 export interface AppSettings {
   fx: QuoteParams['fx'];
@@ -16,6 +16,8 @@ export interface AppSettings {
   referenceLines: RateLine[];
   expiringDays: number;
   dutyRates: { category: string; name_ko: string; rate_bp: number }[];
+  /** v2 metrics — 쿠팡 FC 밖 목적지의 마지막 구간 기준(없으면 null: 목적지 반영 없이 예전처럼) */
+  destinationLeg: LastLegRule | null;
 }
 
 export async function loadSettings(q: Queryable): Promise<AppSettings> {
@@ -43,5 +45,6 @@ export async function loadSettings(q: Queryable): Promise<AppSettings> {
     referenceLines: get<RateLine[]>('reference_lines'),
     expiringDays: get<number>('expiring_days'),
     dutyRates: duty,
+    destinationLeg: (m.get('destination_leg') as LastLegRule | undefined) ?? null,
   };
 }

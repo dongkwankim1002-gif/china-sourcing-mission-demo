@@ -36,6 +36,8 @@ export interface QuoteResponse {
   bar: { segment: Segment; amount: number | null; certainty: 'confirmed' | 'estimated' | 'extra_possible' | null; filled: boolean }[] | null;
   barUnit: 'won' | 'permille';
   verdicts: { code: string; name: string; text: string }[];
+  /** 쿠팡 FC 밖 목적지 — 「FC 운송」 칸을 거리 기준 참고치로 바꿔 계산했을 때만 */
+  destination?: { code: string; name: string; kind: string } | null;
 }
 
 export function parsePublicSort(v: string | null | undefined): PublicSort {
@@ -43,7 +45,7 @@ export function parsePublicSort(v: string | null | undefined): PublicSort {
 }
 
 export function buildQuoteResponse(
-  result: Pick<CompareResult, 'offers' | 'excluded' | 'verdicts'>,
+  result: Pick<CompareResult, 'offers' | 'excluded' | 'verdicts'> & Partial<Pick<CompareResult, 'destination'>>,
   opts: { sort: PublicSort; includeRelated: boolean; detail: boolean; limit?: number },
 ): QuoteResponse {
   const ranked = rankOffers(result.offers as Offer[], { sort: opts.sort, includeRelated: opts.includeRelated });
@@ -81,5 +83,6 @@ export function buildQuoteResponse(
       : null,
     barUnit: opts.detail ? 'won' : 'permille',
     verdicts: result.verdicts.map((v) => ({ code: v.code, name: v.name_ko, text: v.verdict_ko })),
+    destination: result.destination ? { code: result.destination.code, name: result.destination.name, kind: result.destination.kind } : null,
   };
 }

@@ -15,6 +15,7 @@ import { DEFAULT_INPUT, type CalcInput } from '@/lib/calc-defaults';
 import type { PublicSort, QuoteResponse } from '@/lib/public-quote';
 import { SORT_LABEL, topTitle } from '@/lib/ranking';
 import { cargoSummaryText } from '@/lib/standard-cargo';
+import { DestinationNote, destinationGroups } from '@/components/destination-note';
 
 export type { QuoteResponse };
 
@@ -60,7 +61,7 @@ export function Calculator({
   demo,
 }: {
   hubs: { code: string; name_ko: string; province_ko: string }[];
-  fcs: { code: string; name: string }[];
+  fcs: { code: string; name: string; kind?: string }[];
   traits: { code: string; name_ko: string }[];
   initial: QuoteResponse | null;
   demo: boolean;
@@ -173,12 +174,16 @@ export function Calculator({
               <option value="PTK">평택항</option>
             </NativeSelect>
           </OnInkField>
-          <OnInkField label="도착 FC" htmlFor="c-fc">
+          <OnInkField label="목적지" htmlFor="c-fc">
             <NativeSelect id="c-fc" value={input.fc} onChange={(e) => set('fc', e.target.value)} className={onInkSelect}>
-              {fcs.map((f) => (
-                <option key={f.code} value={f.code}>
-                  {f.name}
-                </option>
+              {destinationGroups(fcs).map((g) => (
+                <optgroup key={g.kind} label={g.label}>
+                  {g.items.map((f) => (
+                    <option key={f.code} value={f.code}>
+                      {f.name}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </NativeSelect>
           </OnInkField>
@@ -265,6 +270,7 @@ export function Calculator({
             <b className="mr-1 rounded-[2px] border border-white/25 px-1 py-px text-2xs font-bold text-on-ink">이 조건 기준</b>
             <span className="break-keep">{conditionText}</span>
           </p>
+          {data?.destination ? <DestinationNote name={data.destination.name} kind={data.destination.kind} onInk className="mt-2" /> : null}
           {bestTotals ? (
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:flex sm:flex-wrap sm:items-baseline" data-testid="calc-totals">
               <div className="flex items-baseline gap-1.5">

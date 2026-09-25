@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Field, NativeSelect } from '@/components/ui/core';
 import { NumberField } from '@/components/number-field';
 import { cn } from '@/lib/cn';
+import { destinationGroups } from '@/components/destination-note';
 
 export interface CargoValue {
   hub: string;
@@ -47,7 +48,7 @@ export function CargoFields({
   value: CargoValue;
   onChange: (v: CargoValue) => void;
   hubs: { code: string; name_ko: string }[];
-  fcs: { code: string; name: string }[];
+  fcs: { code: string; name: string; kind?: string }[];
   traits: { code: string; name_ko: string }[];
   skus?: SkuOption[];
   errors?: Record<string, string>;
@@ -108,12 +109,16 @@ export function CargoFields({
           <option value="AIR">항공</option>
         </NativeSelect>
       </Field>
-      <Field label="도착 FC" htmlFor="cf-fc">
+      <Field label="목적지" htmlFor="cf-fc">
         <NativeSelect id="cf-fc" value={value.fc} onChange={(e) => set('fc', e.target.value)}>
-          {fcs.map((f) => (
-            <option key={f.code} value={f.code}>
-              {f.name}
-            </option>
+          {destinationGroups(fcs).map((g) => (
+            <optgroup key={g.kind} label={g.label}>
+              {g.items.map((f) => (
+                <option key={f.code} value={f.code}>
+                  {f.name}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </NativeSelect>
       </Field>

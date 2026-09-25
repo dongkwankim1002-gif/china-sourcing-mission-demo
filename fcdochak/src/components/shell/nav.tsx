@@ -24,6 +24,7 @@ import {
   Tags,
   type LucideIcon,
 } from 'lucide-react';
+import { TrendingUp } from 'lucide-react'; // v2 metrics
 
 export type AreaKey = 'app' | 'partner' | 'admin';
 export interface NavItem {
@@ -61,6 +62,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
   }
   return [
     { href: '/admin', label: '대시보드', icon: Gauge, tab: true, exact: true },
+    { href: '/admin/metrics', label: '운영 지표', icon: TrendingUp },
     { href: '/admin/queues', label: '처리 대기', icon: ClipboardCheck, tab: true },
     { href: '/admin/data', label: '업체·자료', icon: Building2, tab: true },
     { href: '/admin/grades', label: '등급 기록', icon: Tags },

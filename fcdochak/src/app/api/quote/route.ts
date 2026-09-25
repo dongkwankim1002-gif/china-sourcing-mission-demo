@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const today = todayKst();
   const result = await asViewer(actor, async (db) => {
     const s = await loadSettings(db);
-    return compare(db, { hub: q.hub, port: q.port, mode: q.mode, cargo: toCargo(q), traits: q.traits }, s, today);
+    return compare(db, { hub: q.hub, port: q.port, mode: q.mode, cargo: toCargo(q), traits: q.traits, fc: q.fc }, s, today);
   });
   const sp = req.nextUrl.searchParams;
   const body = buildQuoteResponse(result, { sort: parsePublicSort(sp.get('sort')), includeRelated: sp.get('related') === '1', detail: !!actor });

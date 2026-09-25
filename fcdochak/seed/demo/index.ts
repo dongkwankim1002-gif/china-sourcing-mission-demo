@@ -22,6 +22,7 @@ import { FC_CENTERS, HUBS, MODES, REFERENCE_LINES, SETTINGS } from '../reference
 import { EXCEPTION_NOTES, RAW_STATUS_KO, RAW_STATUS_ZH, reviewText } from './text';
 import { PARTNERS, PEOPLE_KO, PEOPLE_ZH, PRESETS, SHIPPERS, type PartnerDef, type PresetDef } from './orgs';
 import { Rng } from './rng';
+import { seedDemoEvents } from './events';
 
 export const DEMO_SEED = 0x0fcd0c4a;
 export const DEMO_ACCOUNTS = {
@@ -88,6 +89,8 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
   const existing = await db.query<{ n: number }>('select count(*)::int as n from fcd.orgs where is_demo');
   if (existing[0].n > 0) {
     log(`데모 조직 ${existing[0].n}곳이 이미 있어 넣지 않았습니다.`);
+    const ev = await db.transaction((q) => seedDemoEvents(q)); // v2 metrics — 이벤트가 없던 데모에만 채운다
+    if (ev) log(`데모 이벤트 ${ev}줄을 기존 데모 자료에서 만들었습니다.`);
     return { inserted: false };
   }
   const rng = new Rng(DEMO_SEED);
@@ -827,6 +830,7 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
   await db.transaction(async (q) => {
     for (const t of Object.values(T)) await flush(q, t);
   });
+  const demoEvents = await db.transaction((q) => seedDemoEvents(q)); // v2 metrics — 방금 넣은 자료에서 이벤트
   if (pw && opts.createAuthUser) {
     for (const [k, id] of Object.entries(demoIds)) {
       const a = DEMO_ACCOUNTS[k as keyof typeof DEMO_ACCOUNTS];
@@ -834,6 +838,6 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
     }
   }
   const counts = Object.fromEntries(Object.values(T).map((t) => [t.name, t.rows.length]));
-  log(`데모 시드를 넣었습니다: ${JSON.stringify(counts)}`);
+  log(`데모 시드를 넣었습니다: ${JSON.stringify({ ...counts, events: demoEvents })}`);
   return { inserted: true, counts, demoIds };
 }
