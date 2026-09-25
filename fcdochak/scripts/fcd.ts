@@ -27,17 +27,18 @@ for (const f of ['.env.local', '.env']) {
 }
 
 const E = (k: string) => process.env[k] || null;
+const dbUrl = () => E('DATABASE_URL_DIRECT') ?? E('DATABASE_URL') ?? E('POSTGRES_URL');
 const supabase = () => {
-  const url = E('NEXT_PUBLIC_SUPABASE_URL');
+  const url = E('NEXT_PUBLIC_SUPABASE_URL') ?? E('SUPABASE_URL');
   const key = E('SUPABASE_SERVICE_ROLE_KEY');
   return url && key ? { url, key } : null;
 };
 const todayKst = () => E('FCD_TODAY') ?? new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
 
 async function open(): Promise<Driver> {
-  const url = E('DATABASE_URL');
+  const url = dbUrl();
   const dir = url ? null : path.resolve(root, E('PGLITE_DIR') ?? '.pglite');
-  console.log(url ? '대상: DATABASE_URL 의 Postgres' : `대상: 로컬 PGlite (${path.relative(root, dir!) || '.'})`);
+  console.log(url ? '대상: 환경변수의 Postgres' : `대상: 로컬 PGlite (${path.relative(root, dir!) || '.'})`);
   return createDriver({ url, dataDir: dir });
 }
 
@@ -112,6 +113,25 @@ const commands: Record<string, (db: Driver, args: string[]) => Promise<void>> = 
     console.log('파일을 읽어 본 뒤 Supabase SQL 편집기에서 사람이 직접 실행하세요 — 순서는 docs/DEMO.md.');
   },
 
+  /**
+   * Vercel 빌드 앞단 — DB 가 연결돼 있으면 스키마(만들기만)·참조 첫 판을 올리고, DEMO_MODE 가 켜져 있으면
+   * 데모를 한 번 넣는다(이미 있으면 건너뜀), 서류 버킷이 없으면 만든다. DB 가 없으면 아무것도 하지 않는다(PGlite 미리보기).
+   */
+  async 'vercel:prepare'(db) {
+    await commands['db:migrate'](db, []);
+    const demoOn = !['off', '0', 'false', 'no'].includes((E('DEMO_MODE') ?? 'on').toLowerCase());
+    if (demoOn) await commands['demo:seed'](db, []);
+    const sb = supabase();
+    if (sb) {
+      const r = await fetch(`${sb.url}/storage/v1/bucket`, {
+        method: 'POST',
+        headers: { apikey: sb.key, authorization: `Bearer ${sb.key}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ id: 'fcd-docs', name: 'fcd-docs', public: false, file_size_limit: 20 * 1024 * 1024 }),
+      });
+      console.log(r.ok ? '서류 버킷 fcd-docs 를 만들었습니다(비공개).' : r.status === 409 || r.status === 400 ? '서류 버킷 fcd-docs 가 이미 있습니다.' : `서류 버킷을 만들지 못했습니다(${r.status}) — 나중에 대시보드에서 만드세요.`);
+    }
+  },
+
   /** 첫 운영자 계정 — ADMIN_EMAIL · ADMIN_PASSWORD · ADMIN_NAME */
   async 'admin:create'(db) {
     await schemaReady(db);
@@ -140,6 +160,10 @@ const commands: Record<string, (db: Driver, args: string[]) => Promise<void>> = 
 
 const [cmd, ...args] = process.argv.slice(2);
 const run = commands[cmd ?? ''];
+if (cmd === 'vercel:prepare' && !dbUrl()) {
+  console.log('DB 연결값이 없어 건너뜁니다 — PGlite 데모 미리보기로 빌드합니다.');
+  process.exit(0);
+}
 if (!run) {
   console.log(`쓸 수 있는 명령: ${Object.keys(commands).join(' · ')}`);
   process.exit(cmd ? 1 : 0);

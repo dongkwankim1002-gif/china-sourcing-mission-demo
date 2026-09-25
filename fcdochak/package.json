@@ -17,7 +17,8 @@
     "admin:create": "tsx scripts/fcd.ts admin:create",
     "shots": "node scripts/shots.mjs",
     "verify:no-demo": "node scripts/verify.mjs --no-demo",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "vercel-build": "tsx scripts/fcd.ts vercel:prepare && next build"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

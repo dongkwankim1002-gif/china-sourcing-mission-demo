@@ -8,8 +8,13 @@ function flag(v: string | undefined, dflt: boolean): boolean {
 }
 
 export const env = {
+  /** 앱이 쓰는 DB — DATABASE_URL, 없으면 Vercel 의 Supabase 연동이 넣는 POSTGRES_URL(트랜잭션 풀러) */
   get databaseUrl() {
-    return process.env.DATABASE_URL || null;
+    return process.env.DATABASE_URL || process.env.POSTGRES_URL || null;
+  },
+  /** 마이그레이션용 — DATABASE_URL_DIRECT 를 따로 주면 그쪽. Supabase 직접 연결(POSTGRES_URL_NON_POOLING)은 IPv6 전용이라 쓰지 않는다 */
+  get migrationUrl() {
+    return process.env.DATABASE_URL_DIRECT || this.databaseUrl;
   },
   get pgliteDir() {
     return process.env.PGLITE_DIR || null;
@@ -33,10 +38,10 @@ export const env = {
     return process.env.DEMO_PASSWORD || null;
   },
   get supabaseUrl() {
-    return process.env.NEXT_PUBLIC_SUPABASE_URL || null;
+    return process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || null;
   },
   get supabaseAnonKey() {
-    return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || null;
+    return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || null;
   },
   get supabaseServiceKey() {
     return process.env.SUPABASE_SERVICE_ROLE_KEY || null;
