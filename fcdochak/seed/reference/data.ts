@@ -225,3 +225,20 @@ export const METRICS_SETTINGS: { key: string; value: unknown; note: string }[] =
     note: '쿠팡 FC 밖 목적지(3PL·쇼핑몰 창고)의 마지막 구간 참고치 — 팔레트당 기본 + km당(원). 업체 요금표의 「FC 운송」은 쿠팡 FC 기준이라 이 값으로 바꿔 계산한다.',
   },
 ];
+
+// v2 2차 wing — 쿠팡 WING 연동 기준치 -------------------------------------------------
+/** 키가 한 번도 없을 때만 첫 판을 넣는다(SETTINGS 와 같은 규칙). 근거는 docs/wing-plan.md §2.4·§8 */
+export const WING_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  {
+    key: 'wing.call_rule',
+    value: { perSecond: 4, perMinute: 40, maxRetries: 3, baseBackoffMs: 1000, maxBackoffMs: 30000, timeoutMs: 10000 },
+    note: '쿠팡 오픈 API 호출 제한·재시도 — 쿠팡 공지(업체 코드당 초당 5회, 로켓그로스 분당 50회, 확인 필요)보다 낮게',
+  },
+  {
+    key: 'wing.match_rule',
+    value: { dateWindowDays: 10, unitsToleranceBp: 2000, minScore: 70 },
+    note: '입고 요청 ↔ 선적 짝 제안 — 날짜 차이 허용 일수 · 수량 차이 허용(bp) · 제안 최소 점수(100점 중)',
+  },
+  { key: 'wing.key_valid_days', value: 180, note: '쿠팡 OPEN API 키 유효기간(일) — 발급일로부터. 만료 14일 전부터 화면에 알린다' },
+];
+SETTINGS.push(...WING_SETTINGS);

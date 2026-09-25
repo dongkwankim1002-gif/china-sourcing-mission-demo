@@ -29,6 +29,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { TrendingUp } from 'lucide-react'; // v2 metrics
+import { Plug2 } from 'lucide-react'; // v2 2차 wing
 
 export type AreaKey = 'app' | 'partner' | 'admin';
 export interface NavItem {
@@ -47,6 +48,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
       { href: '/app/requests', label: '견적 요청', icon: FileText, tab: true },
       { href: '/app/shipments', label: '선적', icon: Ship, tab: true },
       { href: '/app/docs', label: '서류함', icon: FolderOpen },
+      { href: '/app/integrations/wing', label: '쿠팡 WING 연동', icon: Plug2 },
       { href: '/app/partners', label: '거래처', icon: Users },
       { href: '/app/pnl', label: '판매손익', icon: Calculator },
       { href: '/app/checks', label: '청구서 점검', icon: ClipboardCheck },

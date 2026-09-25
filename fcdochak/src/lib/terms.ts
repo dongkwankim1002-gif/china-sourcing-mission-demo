@@ -170,3 +170,34 @@ export const TRUST_ACTION = {
 
 /** 추천 점수 네 항목의 이름 — 계산기·비교·업체 화면·어드민·정책·자주 묻는 질문이 같은 말을 쓴다(v2 검토) */
 export const SCORE_TERMS = ['정시 입고', '청구 편차', 'FC 회송', '가격 확실성'] as const;
+
+/** 쿠팡 WING 연동 행동 이름(v2 2차 wing) — 화면·e2e 가 같은 말을 쓴다 */
+export const WING_ACTION = {
+  saveKey: '키 저장',
+  revokeKey: '키 폐기',
+  importMock: '예시 입고 요청 가져오기',
+  importFile: 'WING 파일 올리기',
+  syncApi: 'WING 에서 바로 가져오기',
+  confirmMatch: '짝 확정',
+  pickMatch: '이 선적과 짝',
+  unlink: '짝 풀기',
+  fileBarcode: '바코드 PDF 올리기',
+} as const;
+
+export const WING_METHOD_LABEL: Record<'self_key' | 'partner_solution', string> = {
+  self_key: '판매자 본인 키(자체개발)',
+  partner_solution: '연동 업체 선택(FC도착)',
+};
+
+export const WING_STATUS_LABEL: Record<'saved' | 'verified' | 'failed' | 'revoked', string> = {
+  saved: '저장됨 · 연동 준비 중',
+  verified: '연결 확인됨',
+  failed: '쿠팡이 받지 않음',
+  revoked: '폐기함',
+};
+
+export const WING_SOURCE_LABEL: Record<'mock' | 'file' | 'api', string> = {
+  mock: '예시',
+  file: 'WING 파일',
+  api: 'WING 연동',
+};

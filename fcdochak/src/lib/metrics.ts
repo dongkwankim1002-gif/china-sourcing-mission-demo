@@ -249,3 +249,36 @@ export function monthlyRevenuePerShipment(rows: BookedRow[], months: string[], r
 export function monthLabel(m: string): string {
   return `${+m.slice(5, 7)}월`;
 }
+
+// v2 2차 wing — 쿠팡 WING 연동 이벤트 ------------------------------------------------
+/**
+ * WING 연동 이벤트는 fcd.events 가 아니라 fcd.wing_access_log(0014)에 쌓는다.
+ * fcd.events.kind 의 check 를 넓히려면 DROP CONSTRAINT 가 필요하고, 2차 꾸러미 여럿이 같은 제약을 바꾸면
+ * 뒤에 합친 쪽이 앞의 종류를 지운다 — 그래서 따로 둔다(docs/DECISIONS.md). 이름은 지표에서 쓰는 이름.
+ */
+export const WING_EVENT_KINDS = ['wing_connected', 'wing_imported', 'wing_matched', 'wing_unlinked', 'wing_barcode_filed', 'wing_api_blocked'] as const;
+export type WingEventKind = (typeof WING_EVENT_KINDS)[number];
+
+export const WING_EVENT_KIND_LABEL: Record<WingEventKind, string> = {
+  wing_connected: 'WING 키 연결',
+  wing_imported: 'WING 입고 요청 가져오기',
+  wing_matched: 'WING 입고 요청 ↔ 선적 짝 확정',
+  wing_unlinked: 'WING 짝 풀기',
+  wing_barcode_filed: '쿠팡 바코드 PDF 를 서류함에',
+  wing_api_blocked: 'WING 호출 막힘(스위치 꺼짐)',
+};
+
+/** 이벤트 이름 → 접근 기록의 action */
+export const WING_EVENT_ACTION: Record<WingEventKind, string> = {
+  wing_connected: 'key_saved',
+  wing_imported: 'imported',
+  wing_matched: 'matched',
+  wing_unlinked: 'unlinked',
+  wing_barcode_filed: 'barcode_filed',
+  wing_api_blocked: 'api_blocked',
+};
+
+/** 기간 안 WING 이벤트를 쓴 셀러 수(조직 기준) — 운영 지표에 덧붙일 자리 */
+export function wingActiveSellers(rows: readonly { orgId: string; kind: WingEventKind; at: string }[], r: Range, kind: WingEventKind = 'wing_imported'): number {
+  return new Set(rows.filter((x) => x.kind === kind && inRange(x.at, r)).map((x) => x.orgId)).size;
+}

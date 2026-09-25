@@ -25,6 +25,7 @@ import { Rng } from './rng';
 import { seedDemoInvoiceChecks } from './invoice-checks';
 import { seedDemoEvents } from './events';
 import { seedWorkspaceDemo } from './workspace';
+import { seedWingDemo } from './wing'; // v2 2차 wing
 
 export const DEMO_SEED = 0x0fcd0c4a;
 export const DEMO_ACCOUNTS = {
@@ -901,6 +902,8 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
   });
   // v2 셀러 공간(서류함 칸·청구 결정·거래처 초대) — 위 자료 위에 덧붙인다
   await db.transaction((q) => seedWorkspaceDemo(q, { now, shipperEmail: DEMO_ACCOUNTS.shipper.email }));
+  // v2 2차 wing — 흉내 어댑터로 만든 입고 요청(예시)·짝 확정 셋
+  await db.transaction((q) => seedWingDemo(q, { now, today: opts.today, shipperEmail: DEMO_ACCOUNTS.shipper.email }));
   const demoEvents = await db.transaction((q) => seedDemoEvents(q)); // v2 metrics — 방금 넣은 자료에서 이벤트
   if (pw && opts.createAuthUser) {
     for (const [k, id] of Object.entries(demoIds)) {
