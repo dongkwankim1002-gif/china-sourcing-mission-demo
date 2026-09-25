@@ -12,6 +12,7 @@ import { env } from '@/lib/env';
 import { ago, num, won, wonShort } from '@/lib/format';
 import { SEGMENTS, type Segment } from '@/lib/money/segments';
 import { BIZ_TYPE_LABEL } from '@/lib/terms';
+import { OpenGate } from '@/components/public/open-gate';
 
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -42,6 +43,8 @@ export default async function LanePage({ params }: { params: Promise<{ lane: str
   const segs = SEGMENTS.map((s) => ({ segment: s as Segment, amount: lane.medianSegments[s] ?? null, certainty: 'confirmed' as const }));
   const related = all.filter((l) => l.slug !== lane.slug && (l.hub === lane.hub || (l.port === lane.port && l.mode === lane.mode))).slice(0, 6);
   const calcHref = `/?hub=${lane.hub}&port=${lane.port}&mode=${lane.mode}#main`;
+  const toolHref = `/tools/pnl?lane=${lane.slug}`;
+  const segSum = SEGMENTS.reduce((a, s) => a + (lane.medianSegments[s] ?? 0), 0);
   return (
     <>
       <JsonLd
@@ -93,7 +96,7 @@ export default async function LanePage({ params }: { params: Promise<{ lane: str
           <div className="on-ink mt-6">
             <NineBar segments={segs} size="hero" ticks table="none" label={`${lane.hubName}→${lane.portName} ${lane.modeName} 구간별 중간값`} />
           </div>
-          <p className="mt-3 text-2xs text-on-ink-muted">최근 갱신 {ago(lane.updatedAt)} · 구간별 값은 각 구간의 중간값이라 합이 총액 중간값과 조금 다를 수 있습니다.</p>
+          <p className="mt-3 text-2xs text-on-ink-muted">최근 갱신 {ago(lane.updatedAt)} · 구간별 값은 각 구간의 중간값이라 합({won(segSum)})이 총액 중간값과 조금 다를 수 있습니다.</p>
           <div className="mt-6 flex flex-wrap gap-2">
             <Button asChild variant="primary">
               <Link href={calcHref}>
@@ -101,21 +104,33 @@ export default async function LanePage({ params }: { params: Promise<{ lane: str
               </Link>
             </Button>
             <Button asChild variant="secondary">
-              <Link href="/join/shipper">가입하고 견적 요청</Link>
+              <Link href={toolHref} data-testid="lane-to-pnl">이 구간으로 판매손익 계산</Link>
+            </Button>
+            <Button asChild variant="onInk" className="border border-white/20">
+              <Link href="/join/shipper">업체별 가격·견적 요청은 가입 후</Link>
             </Button>
           </div>
         </div>
       </section>
       <div className="mx-auto grid max-w-[1280px] gap-6 px-4 py-10 lg:grid-cols-[1fr_380px]">
+        <OpenGate className="lg:col-span-2" toolHref={toolHref} />
         <Panel>
-          <PanelHead title="9구간 중간값" sub="업체가 맡지 않은 구간은 플랫폼 참고치로 채워 계산" />
+          <PanelHead
+            title="9구간 중간값 · 공개"
+            sub="업체가 맡지 않은 구간은 플랫폼 참고치로 채워 계산"
+            action={
+              <p className="text-right text-xs text-muted" data-testid="lane-seg-sum">
+                구간별 중간값 합계 <b className="block text-md text-text tnum">{won(segSum)}</b>
+              </p>
+            }
+          />
           <div className="p-4">
             <NineTable segments={segs} />
             <NineBarLegend className="mt-3" />
           </div>
         </Panel>
         <Panel>
-          <PanelHead title={`이 구간 업체 ${partners.length}곳`} sub="가격은 가입 후 같은 조건 비교에서" />
+          <PanelHead title={`이 구간 업체 ${partners.length}곳`} sub="이름은 공개 · 업체별 가격과 견적 요청은 가입 후" />
           {partners.length ? (
             <ul>
               {partners.map((p) => (

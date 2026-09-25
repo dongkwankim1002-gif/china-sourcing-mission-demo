@@ -3,9 +3,11 @@ import { BrandMark } from '@/components/brand-mark';
 import { env } from '@/lib/env';
 import { AccountSlot, MobileNav } from './header-client';
 
-export const PUBLIC_NAV = [
+export const PUBLIC_NAV: { href: string; label: string; lgOnly?: boolean }[] = [
   { href: '/lanes', label: '구간 시세' },
   { href: '/partners', label: '업체 찾기' },
+  // 768 폭에서는 머리 줄이 넘쳐 lg 부터 보인다(바닥글·홈 도구 띠에는 늘 있다)
+  { href: '/tools/pnl', label: '판매손익 계산', lgOnly: true },
   { href: '/faq', label: '자주 묻는 질문' },
   { href: '/join/partner', label: '입점 안내' },
 ];
@@ -32,7 +34,7 @@ export function PublicHeader() {
           <nav aria-label="공개 메뉴" className="hidden md:block">
             <ul className="flex items-center gap-1">
               {PUBLIC_NAV.map((n) => (
-                <li key={n.href}>
+                <li key={n.href} className={n.lgOnly ? 'hidden lg:block' : undefined}>
                   <Link href={n.href} className="rounded-sm px-3 py-2 text-sm font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink">
                     {n.label}
                   </Link>

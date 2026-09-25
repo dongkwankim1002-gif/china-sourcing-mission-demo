@@ -1,7 +1,7 @@
 'use client';
 import * as React from 'react';
 import Link from 'next/link';
-import { ArrowRight, Info, TriangleAlert } from 'lucide-react';
+import { ArrowRight, Ban, Calculator as CalcIcon, Info, TriangleAlert } from 'lucide-react';
 import { NumberField } from '@/components/number-field';
 import { NineBar, NineBarLegend, type BarSegment } from '@/components/nine-bar';
 import { LetterMark } from '@/components/brand-mark';
@@ -15,6 +15,7 @@ import { DEFAULT_INPUT, type CalcInput } from '@/lib/calc-defaults';
 import type { PublicSort, QuoteResponse } from '@/lib/public-quote';
 import { SORT_LABEL, topTitle } from '@/lib/ranking';
 import { cargoSummaryText } from '@/lib/standard-cargo';
+import { groupExclusions, type TraitCostNote } from '@/lib/money/seller';
 
 export type { QuoteResponse };
 
@@ -58,12 +59,15 @@ export function Calculator({
   traits,
   initial,
   demo,
+  traitNotes = [],
 }: {
   hubs: { code: string; name_ko: string; province_ko: string }[];
   fcs: { code: string; name: string }[];
   traits: { code: string; name_ko: string }[];
   initial: QuoteResponse | null;
   demo: boolean;
+  /** v2 tools — 특성마다 생길 수 있는 추가비용(설정 표) */
+  traitNotes?: TraitCostNote[];
 }) {
   const [input, setInput] = React.useState<CalcInput>(DEFAULT_INPUT);
   const [data, setData] = React.useState<QuoteResponse | null>(initial);
@@ -146,6 +150,19 @@ export function Calculator({
     ? `${hubName} → ${input.port === 'PTK' ? '평택항' : '인천항'} · ${input.mode === 'ANY' ? '방식 상관없음' : modeName} · ${cargoSummaryText({ units: input.units!, cartons: input.cartons!, kg: input.kg!, cbm: input.cbm!, goodsValue: input.goods ?? 0, goodsCurrency: input.cur })}${input.traits.length ? ` · 특성 ${input.traits.length}개` : ''}`
     : '입력을 채우면 조건이 여기에 적힙니다';
   const bestTotals = best?.totals ?? null;
+  const excludedGroups = groupExclusions(data?.excludedList ?? []);
+  const toolHref = `/tools/pnl?${new URLSearchParams({
+    hub: input.hub,
+    port: input.port,
+    mode: input.mode === 'ANY' ? (best?.mode ?? 'ANY') : input.mode,
+    units: String(input.units ?? ''),
+    cartons: String(input.cartons ?? ''),
+    kg: String(input.kg ?? ''),
+    cbm: String(input.cbm ?? ''),
+    goods: String(input.goods ?? ''),
+    cur: input.cur,
+    ...(input.traits.length ? { traits: input.traits.join(',') } : {}),
+  })}`;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_460px]">
@@ -305,6 +322,11 @@ export function Calculator({
                   <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-label" aria-hidden />
                   <span>
                     <b className="text-on-ink">{v.name}</b> — {v.text}
+                    {traitNotes.find((n) => n.trait === v.code)?.items.length ? (
+                      <span className="mt-0.5 block text-on-ink" data-testid="calc-extra-cost">
+                        추가비용 가능: {traitNotes.find((n) => n.trait === v.code)!.items.join(' · ')}
+                      </span>
+                    ) : null}
                   </span>
                 </li>
               ))}
@@ -377,9 +399,23 @@ export function Calculator({
               </ol>
             ) : (
               <p className="px-4 py-6 text-sm text-on-ink-muted">
-                이 조건에 공개된 요금표가 아직 없습니다. 가입하면 공개하지 않은 요금까지 비교하고, 견적 요청으로 응찰을 받을 수 있습니다.
+                {data?.excluded ? '화물 특성을 취급하는 업체의 공개 요금이 이 조건에 없습니다. ' : ''}이 조건에 공개된 요금표가 아직 없습니다. 가입하면 공개하지 않은 요금까지 비교하고, 견적 요청으로 응찰을 받을 수 있습니다.
               </p>
             )}
+            {excludedGroups.length ? (
+              <details className="group border-t border-white/10 px-4 py-2.5" data-testid="calc-excluded">
+                <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold text-on-ink [&::-webkit-details-marker]:hidden">
+                  <Ban className="size-3.5 text-label" aria-hidden /> 조건이 안 맞아 뺀 업체 {data?.excludedList.length ?? 0}곳 — 사유 보기
+                </summary>
+                <ul className="mt-2 grid gap-1 text-2xs text-on-ink-muted">
+                  {excludedGroups.map((g) => (
+                    <li key={g.reason}>
+                      <b className="text-on-ink">{g.reason}</b> · {g.names.join(' · ')}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
             <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-4 py-3">
               <Button asChild variant="primary" size="md">
                 <Link href="/join/shipper">
@@ -387,6 +423,11 @@ export function Calculator({
                 </Link>
               </Button>
               {demo ? <DemoMenu variant="secondary" label={ACTION.demo} align="start" /> : null}
+              <Button asChild variant="onInk" size="md" className="border border-white/20">
+                <Link href={toolHref} data-testid="calc-to-pnl">
+                  <CalcIcon aria-hidden /> 이 조건으로 판매손익 계산
+                </Link>
+              </Button>
               <span className="flex items-center gap-1 text-2xs text-on-ink-muted">
                 <Info className="size-3.5" aria-hidden /> 빈 구간은 플랫폼 참고치로 채워 같은 조건으로 맞춥니다
               </span>

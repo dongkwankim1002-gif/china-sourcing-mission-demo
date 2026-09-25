@@ -140,4 +140,32 @@ export const SETTINGS: { key: string; value: unknown; note: string }[] = [
   { key: 'fulfillment_per_unit', value: 2800, note: '판매손익 기본 개당 풀필먼트 비용(원)' },
   { key: 'reference_lines', value: REFERENCE_LINES, note: '비교 때 빈 구간을 채우는 참고 요금' },
   { key: 'expiring_days', value: 10, note: '「곧 만료」로 표시할 남은 날' },
+  // v2 tools — 공개 판매손익 계산기(/tools/pnl) 기준값. 실제 쿠팡 요율을 확인한 값이 아니다(예시). 확인하면 어드민에서 새 판으로.
+  {
+    key: 'tools.coupang_fee_basis',
+    value: {
+      saleFeeBp: 1080,
+      rgInboundPerUnit: 700,
+      rgShippingPerUnit: 2100,
+      adBp: 0,
+      checkedOn: '2026-09-25',
+      example: true,
+      source: '예시 기준값 — 쿠팡 판매 수수료·로켓그로스 요금은 카테고리·크기·기간마다 다릅니다. 쿠팡 WING 과 로켓그로스 요금표에서 확인해 주세요.',
+    },
+    note: '공개 판매손익 계산기의 쿠팡 기준값(예시). 확인한 값으로 바꾸면 checkedOn·example 도 함께 고친다',
+  },
+  {
+    key: 'tools.trait_extra_costs',
+    value: [
+      { trait: 'battery', items: ['MSDS·UN38.3 시험성적서 발급비', '배터리 취급 할증(업체마다 다름)', '항공 불가 — 해상·카페리 기간만큼 재고가 늦게 들어감'] },
+      { trait: 'radio', items: ['전파 적합성평가(KC 전파) 비용 — 번호가 없을 때', '통관 보류 기간의 보관료'] },
+      { trait: 'kc', items: ['KC 안전인증·시험성적서 비용 — 대상일 때', '통관 보류 기간의 보관료'] },
+      { trait: 'food_contact', items: ['기구·용기·포장 수입신고 대행료', '정밀검사가 걸리면 검사비와 5~10일 보관료'] },
+      { trait: 'liquid', items: ['누수 방지 이중 포장비', '받지 않는 카페리 선사가 있어 선택지가 줄어듦'] },
+      { trait: 'cosmetics', items: ['한글 표시사항 라벨 작업비', '화장품책임판매업 등록(없으면 수입 불가)'] },
+      { trait: 'dg', items: ['위험물 할증·전용 적재 비용', 'MSDS 필수 · 항공·카페리 불가'] },
+      { trait: 'kids', items: ['KC 어린이제품 인증 비용', '표시사항 라벨 작업비'] },
+    ],
+    note: '화물 특성마다 생길 수 있는 추가비용 항목(금액 없이 글로). 계산기·비교에서 경고로 보인다',
+  },
 ];

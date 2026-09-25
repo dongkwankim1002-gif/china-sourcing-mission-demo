@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { laneStats, STANDARD_CARGO } from '@/lib/server/public';
 import { EmptyState, PageTitle } from '@/components/ui/core';
+import { OpenGate } from '@/components/public/open-gate';
 import { num, wonShort, ago } from '@/lib/format';
 
 export const revalidate = 3600;
@@ -19,8 +20,9 @@ export default async function LanesPage() {
       <PageTitle
         eyebrow={`기준 화물 ${STANDARD_CARGO.cbm} CBM · ${num(STANDARD_CARGO.kg)} kg · ${STANDARD_CARGO.cartons}박스 · ${num(STANDARD_CARGO.units)}개 · 빈 구간은 참고치로 채움`}
         title={<span className="display text-[clamp(28px,4vw,44px)] font-normal">구간 시세</span>}
-        sub="공식·인증 대기 업체의 지금 유효한 요금표로 기준 화물의 FC 도착 총액을 계산해 중간값·최저를 냅니다. 개별 업체 가격은 싣지 않습니다."
+        sub="공식·인증 대기 업체의 지금 유효한 요금표로 기준 화물의 FC 도착 총액을 계산해 중간값·최저를 냅니다. 구간을 누르면 9구간별 중간값이 보입니다. 업체별 가격은 가입 후 같은 조건 비교에서 봅니다."
       />
+      <OpenGate className="mb-6" />
       {lanes.length === 0 ? (
         <div className="rounded-md border border-line bg-surface">
           <EmptyState title="아직 올라온 요금표가 없습니다" body="첫 요금표가 올라오면 구간별 시세가 여기에 채워집니다." />

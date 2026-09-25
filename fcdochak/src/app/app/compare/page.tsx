@@ -7,6 +7,7 @@ import { compare, filterOffers, rankOffers, SORT_LABEL, type Offer, type SortKey
 import { loadSettings } from '@/lib/server/settings';
 import { getReference, nameOf } from '@/lib/server/reference';
 import { listSkus } from '@/lib/server/shipper';
+import { loadTraitNotes } from '@/lib/server/tools';
 import { parseCargoQuery, toCargo } from '@/lib/cargo-params';
 import { reasonText, totalsBreakdown } from '@/lib/money';
 import { LetterMark } from '@/components/brand-mark';
@@ -39,13 +40,14 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   const f = { confirmedOnly: sp.conf === '1', fcReadyOnly: sp.fcr === '1', officialOnly: sp.off === '1' };
   const withRelated = sp.rel === '1';
   const today = todayKst();
-  const { result, skus } = await asUser(v, async (q) => {
+  const { result, skus, traitNotes } = await asUser(v, async (q) => {
     const s = await loadSettings(q);
-    const [result, skus] = await Promise.all([
+    const [result, skus, traitNotes] = await Promise.all([
       compare(q, { hub: cq.hub, port: cq.port, mode: cq.mode, cargo: toCargo(cq), traits: cq.traits }, s, today),
       listSkus(q, v.org.id),
+      loadTraitNotes(q),
     ]);
-    return { result, skus };
+    return { result, skus, traitNotes };
   });
   // 특수관계 업체는 기본으로 순위에서 뺀다 — 「특수관계 포함」을 켜면 넣고, 1위가 특수관계면 경고 띠
   const ranked = rankOffers(filterOffers(result.offers, f), { sort, includeRelated: withRelated });
@@ -96,6 +98,9 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
             {result.verdicts.map((x) => (
               <li key={x.code}>
                 <b>{x.name_ko}</b> — {x.verdict_ko} <span className="text-muted">{x.requirement_ko}</span>
+                {traitNotes.find((n) => n.trait === x.code)?.items.length ? (
+                  <span className="mt-0.5 block text-xs text-caution">추가비용 가능: {traitNotes.find((n) => n.trait === x.code)!.items.join(' · ')}</span>
+                ) : null}
               </li>
             ))}
           </ul>

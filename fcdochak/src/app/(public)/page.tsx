@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, BadgeCheck, CalendarClock, FileSpreadsheet, PackageCheck, Truck } from 'lucide-react';
+import { ArrowRight, BadgeCheck, CalculatorIcon, CalendarClock, FileSpreadsheet, PackageCheck, Truck } from 'lucide-react';
 import { Calculator } from '@/components/public/calculator';
 import { buildQuoteResponse, type QuoteResponse } from '@/lib/public-quote';
 import { DEFAULT_INPUT } from '@/lib/calc-defaults';
@@ -14,6 +14,7 @@ import { compare } from '@/lib/server/compare';
 import { laneStats, listPartners, marketCounts, publicReviews, STANDARD_CARGO } from '@/lib/server/public';
 import { getReference } from '@/lib/server/reference';
 import { loadSettings } from '@/lib/server/settings';
+import { loadTraitNotes } from '@/lib/server/tools';
 import { dateKo, notFuture, num, wonShort } from '@/lib/format';
 import { ACTION, BIZ_TYPE_LABEL } from '@/lib/terms';
 import { SEGMENTS, SEGMENT_LABEL_KO } from '@/lib/money/segments';
@@ -49,13 +50,14 @@ const SEG_DESC: Record<string, string> = {
 };
 
 export default async function Home() {
-  const [ref, counts, lanes, partners, reviews, initial] = await Promise.all([
+  const [ref, counts, lanes, partners, reviews, initial, traitNotes] = await Promise.all([
     getReference(),
     marketCounts(),
     laneStats(),
     listPartners(),
     publicReviews(6),
     initialQuote(),
+    asPublic(loadTraitNotes),
   ]);
   const official = partners.filter((p) => p.status === 'official');
   const logos = official.filter((p) => p.logo_path);
@@ -90,7 +92,7 @@ export default async function Home() {
             업체마다 다른 견적 양식을 9구간으로 맞춰 적습니다. 뒤에 붙던 추가비용이 어디서 생기는지 먼저 보입니다.
           </p>
           <div className="mt-8">
-            <Calculator hubs={ref.hubs} fcs={ref.fcs} traits={ref.traits} initial={initial} demo={env.demoMode} />
+            <Calculator hubs={ref.hubs} fcs={ref.fcs} traits={ref.traits} initial={initial} demo={env.demoMode} traitNotes={traitNotes} />
           </div>
         </div>
       </section>
@@ -135,6 +137,24 @@ export default async function Home() {
             </li>
           ))}
         </ol>
+      </section>
+
+      <section aria-labelledby="tools" className="cv-auto mx-auto max-w-[1280px] px-4 pb-14">
+        <Link
+          href="/tools/pnl"
+          className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-md border border-line bg-surface p-5 hover:border-muted/60"
+          data-testid="home-tool-link"
+        >
+          <CalculatorIcon className="size-6 shrink-0 text-muted" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-bold text-muted">가입 없이 쓰는 도구</span>
+            <span id="tools" className="mt-0.5 block text-lg font-bold">판매손익 계산기</span>
+            <span className="mt-1 block text-sm text-muted">도착원가 · 관세·부가세 참고 추정 · 쿠팡 수수료·로켓그로스 비용 · 광고비 → 개당 마진과 손익분기 판매가</span>
+          </span>
+          <span className="inline-flex items-center gap-1 text-sm font-semibold">
+            계산해 보기 <ArrowRight className="size-4" aria-hidden />
+          </span>
+        </Link>
       </section>
 
       <section aria-labelledby="lanes" className="cv-auto border-y border-line bg-surface">
