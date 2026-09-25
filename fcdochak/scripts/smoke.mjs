@@ -27,7 +27,9 @@ const wait = async (url) => {
 let failed = false;
 for (const mode of modes) {
   if (failed) break;
-  const port = mode === 'on' ? 3201 : 3202;
+  // 여러 작업 복사본에서 동시에 돌릴 때는 SMOKE_PORT_BASE 로 포트를 나눈다
+  const base = Number(process.env.SMOKE_PORT_BASE || 3201);
+  const port = mode === 'on' ? base : base + 1;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `fcd-smoke-${mode}-`));
   const env = { DEMO_MODE: mode, PGLITE_SEED_DEMO: mode, PGLITE_DIR: dir, DEMO_PASSWORD: process.env.DEMO_PASSWORD || 'smoke-demo-password1', SESSION_SECRET: 'smoke-only-session-secret-0123456789abcdef', DATABASE_URL: '' };
   const admin = { ADMIN_EMAIL: 'smoke-admin@smoke.test', ADMIN_PASSWORD: 'SmokeAdmin12345', ADMIN_NAME: '시험운영자' };
