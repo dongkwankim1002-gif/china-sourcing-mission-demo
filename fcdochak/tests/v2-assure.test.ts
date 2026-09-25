@@ -279,7 +279,7 @@ const insertQuote = (q: Driver, org: string, user: string, no: string, version: 
 describe('새 표 — 권한', () => {
   it('참조 시드가 v2 스위치를 꺼짐으로 넣는다', async () => {
     const r = await db.query<{ key: string; value: unknown }>(`select key, value from fcd.v_current_settings where key like 'v2.%_enabled'`);
-    expect(r.length).toBe(4);
+    expect(r.length).toBeGreaterThanOrEqual(4); // v2 2차 꾸러미 스위치(v2.alliance_enabled 등)도 같은 규칙 — 모두 꺼짐
     expect(r.every((x) => x.value === false)).toBe(true);
   });
   it('RLS 가 켜져 있고, 두 표 모두 UPDATE·DELETE 권한이 없다', async () => {

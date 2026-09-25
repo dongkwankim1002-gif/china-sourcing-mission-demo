@@ -242,3 +242,25 @@ export const WING_SETTINGS: { key: string; value: unknown; note: string }[] = [
   { key: 'wing.key_valid_days', value: 180, note: '쿠팡 OPEN API 키 유효기간(일) — 발급일로부터. 만료 14일 전부터 화면에 알린다' },
 ];
 SETTINGS.push(...WING_SETTINGS);
+// v2 alliance — 등록 업체와의 제휴 구조(docs/alliance-plan.md). 스위치는 꺼짐으로 시작한다.
+// 비율·금액은 기획 문서의 「제안값」이다(사람이 정할 일). 보증보험 1억 원은 물류정책기본법 시행령 제30조의2(원문 대조 필요).
+export const ALLIANCE_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  { key: 'v2.alliance_enabled', value: false, note: '제휴 주선사 — 법률 검토·첫 제휴사 계약이 정해지기 전까지 꺼 둔다. 켜도 계약서 서명·돈의 이동·외부 연락은 앱이 하지 않는다' },
+  {
+    key: 'alliance.rules',
+    value: { expiryWarnDays: 30, minBondAmount: 100000000, requiredKinds: ['registration_cert', 'guarantee_bond', 'biz_reg', 'incident_history'] },
+    note: '제휴 요건 — 만료 경고 일수, 보증보험 최소 금액(원), 필수 서류',
+  },
+  {
+    key: 'alliance.default_terms',
+    value: {
+      model: 'partner_contract',
+      commissionBp: 300,
+      reserveBp: 3000,
+      liability: { overrun: { platformBp: 5000, capBp: 300 }, return: { platformBp: 0, capBp: 0 }, loss: { platformBp: 0, capBp: 0 }, delay: { platformBp: 0, capBp: 0 } },
+      validDays: 365,
+    },
+    note: '제휴 계약 첫 판 기본값 — 수수료 3%(확정가 − 관세사 보수), 준비금 프리미엄의 30%, 외부 요인 초과비용 플랫폼 50%·건당 확정가 3% 상한',
+  },
+];
+SETTINGS.push(...ALLIANCE_SETTINGS);

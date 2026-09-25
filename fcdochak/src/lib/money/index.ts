@@ -11,3 +11,4 @@ export * from './invoice-check';
 export * from './trust';
 export * from './assure';
 export * from './destination';
+export * from './alliance';

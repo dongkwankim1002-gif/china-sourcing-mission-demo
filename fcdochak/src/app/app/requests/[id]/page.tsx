@@ -18,6 +18,7 @@ import { CancelRequestButton, SelectBidButton } from './select-button';
 import { dateKo, dateTimeKo, num, pct, won } from '@/lib/format';
 import { assureView, currentFirmQuote, loadAssureConfig, myInterestKinds, requestBasis } from '@/lib/server/assure';
 import { AssurePanel } from '@/components/assure/assure-panel';
+import { contractParty } from '@/lib/server/alliance';
 
 export const metadata = { title: '견적 요청' };
 
@@ -35,7 +36,7 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
       ? null
       : await (async () => {
           const [config, basis, mine, current] = await Promise.all([loadAssureConfig(q), requestBasis(q, id, v.org.id, s, todayKst()), myInterestKinds(q, v.id), currentFirmQuote(q, v.org.id, { requestId: id })]);
-          return basis ? { view: assureView(config, basis), mine: [...mine], current } : null;
+          return basis ? { view: assureView(config, basis), mine: [...mine], current, party: await contractParty(q, basis.lead?.partnerId) } : null;
         })();
     return { ...d, s, facts, assure };
   });
@@ -191,7 +192,7 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
               ]}
             />
           </Suspense>
-          {assure ? <AssurePanel view={assure.view} mine={assure.mine} current={assure.current} sampleLabel="응찰" modeLabel={assure.view.mode ? nameOf(ref, 'mode', assure.view.mode) : null} ctx={{ source: 'request', requestId: r.id }} /> : null}
+          {assure ? <AssurePanel view={assure.view} mine={assure.mine} current={assure.current} party={assure.party} sampleLabel="응찰" modeLabel={assure.view.mode ? nameOf(ref, 'mode', assure.view.mode) : null} ctx={{ source: 'request', requestId: r.id }} /> : null}
         </div>
         <ActivityLog
           items={events.map((e) => ({

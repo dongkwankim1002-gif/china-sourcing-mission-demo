@@ -24,6 +24,7 @@ import { SEGMENTS, SEGMENT_LABEL_KO } from '@/lib/money/segments';
 import { ScoreBreakdown } from '@/components/trust/score-breakdown';
 import { assureView, basisFromOffers, currentFirmQuote, laneKey, loadAssureConfig, myInterestKinds } from '@/lib/server/assure';
 import { AssurePanel } from '@/components/assure/assure-panel';
+import { contractParty } from '@/lib/server/alliance';
 import { cargoToSearch } from '@/lib/cargo-params';
 
 export const metadata = { title: '같은 조건 비교' };
@@ -54,7 +55,9 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
     ]);
     // v2 assure — 확정가·보장 참고(스위치 꺼짐이면 참고 숫자 + 관심 등록만)
     const [config, mine, current] = await Promise.all([loadAssureConfig(q), myInterestKinds(q, v.id), currentFirmQuote(q, v.org.id, { laneKey: laneKey(cq) })]);
-    const assure = { view: assureView(config, basisFromOffers(result.offers)), mine: [...mine], current };
+    const assureBasis = basisFromOffers(result.offers);
+    const party = await contractParty(q, assureBasis.lead?.partnerId); // v2 alliance — 확정가 계약 상대(꺼짐이면 null)
+    const assure = { view: assureView(config, assureBasis), mine: [...mine], current, party };
     return { result, skus, traitNotes, assure };
   });
   // 특수관계 업체는 기본으로 순위에서 뺀다 — 「특수관계 포함」을 켜면 넣고, 1위가 특수관계면 경고 띠
@@ -234,6 +237,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
         view={assure.view}
         mine={assure.mine}
         current={assure.current}
+        party={assure.party}
         sampleLabel="요금표"
         modeLabel={assure.view.mode ? nameOf(ref, 'mode', assure.view.mode) : null}
         ctx={{ source: 'compare', query: cargoToSearch({ hub: cq.hub, port: cq.port, mode: cq.mode, units: cq.units, cartons: cq.cartons, kg: cq.kg, cbm: cq.cbm, goods: cq.goods, cur: cq.cur, fc: cq.fc, traits: cq.traits }) }}

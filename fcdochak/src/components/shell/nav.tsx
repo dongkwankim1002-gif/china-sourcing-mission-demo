@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { TrendingUp } from 'lucide-react'; // v2 metrics
 import { Plug2 } from 'lucide-react'; // v2 2차 wing
+import { BadgeCheck as AllianceIcon } from 'lucide-react'; // v2 alliance
 
 export type AreaKey = 'app' | 'partner' | 'admin';
 export interface NavItem {
@@ -67,6 +68,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
       { href: '/partner/reviews', label: zh ? '评价·回复' : '후기·답변', icon: MessageSquareReply },
       { href: '/partner/market', label: zh ? '市场数据' : '시장 데이터', icon: BarChart3 },
       { href: '/partner/profile', label: zh ? '公司资料' : '회사 프로필', icon: Building2 },
+      { href: '/partner/alliance', label: zh ? '合作货代' : '제휴 주선사', icon: AllianceIcon }, // v2 alliance
       { href: '/partner/notifications', label: zh ? '通知' : '알림', icon: Bell },
     ];
   }
@@ -83,6 +85,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
     { href: '/admin/audit', label: '감사 기록', icon: ScrollText },
     { href: '/admin/demo', label: '데모 관리', icon: Sparkles },
     { href: '/admin/assure', label: '확정가·보장', icon: ShieldCheck },
+    { href: '/admin/alliance', label: '제휴 주선사', icon: AllianceIcon }, // v2 alliance
     { href: '/styleguide', label: '스타일가이드', icon: Palette },
   ];
 }

@@ -36,6 +36,12 @@ export const ACTION = {
   copyLink: '링크 복사',
   revokeInvite: '초대 거두기',
   acceptInvite: '거래처로 연결',
+  // v2 alliance
+  applyAlliance: '제휴 신청하기',
+  uploadAllianceDoc: '올리기',
+  verifyRequirement: '확인함',
+  newTermsVersion: '계약 조건 새 판 만들기',
+  newSettlement: '정산 명세 만들기',
 } as const;
 
 export const REQUEST_STATUS: Record<string, { label: string; tone: 'neutral' | 'info' | 'caution' | 'ok' | 'stamp' | 'label' }> = {

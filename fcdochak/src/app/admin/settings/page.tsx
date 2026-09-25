@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { ASSURE_KINDS, ASSURE_SETTING_LABEL, ASSURE_SWITCH_KEY, readAssureConfig } from '@/lib/assure-settings';
 import { AssureSwitch } from './assure-switches';
 import { V2_SETTING_LABEL } from '@/lib/v2-setting-schemas';
+import { ALLIANCE_SETTING_LABEL } from '@/lib/alliance-settings';
 
 export const metadata = { title: '설정' };
 
@@ -18,6 +19,7 @@ const LABEL: Record<string, string> = {
   score_min_sample: '추천 점수 최소 표본(최근 일수·건수)', review_lost_after_days: '「분실·미도착」으로 보는 도착 예정일 뒤 일수',
   ...ASSURE_SETTING_LABEL,
   ...V2_SETTING_LABEL,
+  ...ALLIANCE_SETTING_LABEL,
 };
 
 export default async function Settings() {
