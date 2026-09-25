@@ -7,6 +7,7 @@ import { requireViewer } from '@/lib/server/viewer';
 import { loadSettings } from '@/lib/server/settings';
 import { notifyMany } from '@/lib/server/notify';
 import { isFcReady } from '@/lib/money';
+import { ASSURE_SETTING_SCHEMAS } from '@/lib/assure-settings';
 
 interface R {
   ok: boolean;
@@ -150,6 +151,8 @@ const SETTING_SCHEMAS: Record<string, z.ZodTypeAny> = {
   fulfillment_per_unit: z.number().int().min(0).max(100000),
   expiring_days: z.number().int().min(1).max(60),
   reference_lines: z.array(z.object({ segment: z.string(), included: z.boolean(), basis: z.string(), unitPrice: z.number().min(0), currency: z.enum(['KRW', 'RMB', 'USD']), minCharge: z.number().nullable().optional(), certainty: z.string() })).length(9),
+  // v2 assure — 스위치(true/false)와 요율
+  ...ASSURE_SETTING_SCHEMAS,
 };
 
 /** 설정 새 판 — 고치지 않고 쌓는다. 값은 키별 규칙으로 검사한다. */
@@ -171,6 +174,7 @@ export async function addSetting(key: string, raw: string, note: string): Promis
     await audit(q, v.id, null, 'settings.new_version', `settings:${key}`, { value: p.data, note });
   });
   revalidatePath('/admin/settings');
+  if (key.startsWith('v2.')) revalidatePath('/admin/assure');
   return { ok: true };
 }
 

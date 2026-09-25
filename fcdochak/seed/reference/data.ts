@@ -141,3 +141,23 @@ export const SETTINGS: { key: string; value: unknown; note: string }[] = [
   { key: 'reference_lines', value: REFERENCE_LINES, note: '비교 때 빈 구간을 채우는 참고 요금' },
   { key: 'expiring_days', value: 10, note: '「곧 만료」로 표시할 남은 날' },
 ];
+
+// v2 assure — 확정가·보장 자리. 스위치는 모두 꺼짐으로 시작한다(켜도 실제 계약·결제는 없다).
+export const V2_ASSURE_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  { key: 'v2.firm_price_enabled', value: false, note: '확정가 시범 — 국제물류주선업 등록·초과비용 준비금이 정해지기 전까지 꺼 둔다' },
+  { key: 'v2.coverage_enabled', value: false, note: '회송 보장 시범 — 보험사 제휴가 정해지기 전까지 꺼 둔다' },
+  { key: 'v2.deferred_enabled', value: false, note: '물류비 후불 시범 — 금융사·결제대행 제휴가 정해지기 전까지 꺼 둔다' },
+  { key: 'v2.consolidation_enabled', value: false, note: '공동 혼적 시범 — 콘솔사 물량 단가가 정해지기 전까지 꺼 둔다' },
+  {
+    key: 'v2.firm_price_rates',
+    value: { confidenceBp: 9000, loadingBp: 10000, minPremiumBp: 150, smallSampleMin: 5, smallSamplePremiumBp: 500, maxPremiumBp: 2000, roundTo: 1000, validDays: 7 },
+    note: '확정가 = 중간값 + 초과 위험(신뢰수준 분위 − 중간값) × 배수. 최소·표본 적음 프리미엄, 상한을 넘으면 내지 않음',
+  },
+  {
+    key: 'v2.coverage_rates',
+    value: { priorReturnRateBp: 350, credibilityK: 30, loadingBp: 4000, minFee: 5000, maxInsurableRateBp: 1500, roundTo: 100 },
+    note: '회송 보장료 = 보장 금액 × 신뢰도 가중 회송률 × (1 + 부가율)',
+  },
+  { key: 'v2.deferred_rates', value: { monthlyFeeBp: 150, termDays: 30, maxAmount: 30000000 }, note: '물류비 후불 참고 수수료(30일당 bp)·기간·한도' },
+];
+SETTINGS.push(...V2_ASSURE_SETTINGS);

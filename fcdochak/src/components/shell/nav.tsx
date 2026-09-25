@@ -19,6 +19,7 @@ import {
   Scale,
   ScrollText,
   Settings,
+  ShieldCheck,
   Ship,
   Sparkles,
   Tags,
@@ -70,6 +71,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
     { href: '/admin/settings', label: '설정', icon: Settings, tab: true },
     { href: '/admin/audit', label: '감사 기록', icon: ScrollText },
     { href: '/admin/demo', label: '데모 관리', icon: Sparkles },
+    { href: '/admin/assure', label: '확정가·보장', icon: ShieldCheck },
     { href: '/styleguide', label: '스타일가이드', icon: Palette },
   ];
 }

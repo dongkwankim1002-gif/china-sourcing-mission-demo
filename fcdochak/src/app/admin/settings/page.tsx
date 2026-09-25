@@ -4,6 +4,9 @@ import { requireViewer } from '@/lib/server/viewer';
 import { Chip, PageTitle, Panel, PanelHead } from '@/components/ui/core';
 import { DutyEditor, SettingEditor } from './editor';
 import { dateTimeKo } from '@/lib/format';
+import Link from 'next/link';
+import { ASSURE_KINDS, ASSURE_SETTING_LABEL, ASSURE_SWITCH_KEY, readAssureConfig } from '@/lib/assure-settings';
+import { AssureSwitch } from './assure-switches';
 
 export const metadata = { title: '설정' };
 
@@ -11,6 +14,7 @@ const LABEL: Record<string, string> = {
   fx: '환율', commission_rate_bp: '성사 수수료 요율(bp)', fc_ready_rule: 'FC 입고 준비 인증 기준', score_caps: '추천 점수 상한(편차·회송률)',
   quote_params: '청구 수량 환산', vat_rate_bp: '부가세율(bp)', insurance_bp: '보험료 산입(bp)', sale_fee_bp: '판매 수수료 기본값(bp)',
   fulfillment_per_unit: '개당 풀필먼트 기본값(원)', reference_lines: '비교 참고 요금(빈 구간 채움)', expiring_days: '「곧 만료」 기준(일)',
+  ...ASSURE_SETTING_LABEL,
 };
 
 export default async function Settings() {
@@ -20,6 +24,7 @@ export default async function Settings() {
     versions: await q.query<{ key: string; n: number }>(`select key, count(*)::int n from fcd.settings group by key`),
     duty: await q.query<{ category: string; name_ko: string; rate_bp: number; created_at: string }>(`select category, name_ko, rate_bp, created_at from fcd.v_current_duty_rates order by category`),
   }));
+  const assureOn = readAssureConfig(new Map(d.current.map((x) => [x.key, x.value]))).on;
   return (
     <>
       <PageTitle title="설정" sub="요율·기준값·환율·관세율은 코드가 아니라 여기서 읽습니다. 고치지 않고 새 판으로 쌓입니다." />
@@ -35,6 +40,19 @@ export default async function Settings() {
               <span><b className="font-mono text-xs">{k as string}</b><span className="block text-xs text-muted">{note as string}</span></span>
               <Chip tone={on ? 'ok' : 'neutral'}>{on ? '켜짐' : '꺼짐'}</Chip>
             </li>
+          ))}
+        </ul>
+      </Panel>
+      <Panel className="mb-6" aria-labelledby="assure-switches">
+        <PanelHead
+          id="assure-switches"
+          title="v2 시범 스위치 — 확정가·보장"
+          sub="기본 꺼짐. 켜도 실제 계약·결제는 없고 시범 기록까지만 합니다. 켜고 끄는 것도 새 판으로 쌓입니다."
+          action={<Link href="/admin/assure" className="text-xs font-semibold underline underline-offset-4">관심 등록 목록</Link>}
+        />
+        <ul className="grid gap-px bg-line-2 md:grid-cols-2">
+          {ASSURE_KINDS.map((k) => (
+            <AssureSwitch key={k} kind={k} on={assureOn[k]} versions={d.versions.find((x) => x.key === ASSURE_SWITCH_KEY[k])?.n ?? 0} />
           ))}
         </ul>
       </Panel>
