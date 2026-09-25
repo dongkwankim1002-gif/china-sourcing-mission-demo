@@ -125,7 +125,7 @@ export default async function LanePage({ params }: { params: Promise<{ lane: str
             }
           />
           <div className="p-4">
-            <NineTable segments={segs} />
+            <NineTable segments={segs} stackBelowMd />
             <NineBarLegend className="mt-3" />
           </div>
         </Panel>

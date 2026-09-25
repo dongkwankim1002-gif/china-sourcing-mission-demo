@@ -69,7 +69,7 @@ test('화주 비교 — 꺼짐이면 참고 확정가와 관심 등록만', asyn
 
   const firm = card.getByRole('button', { name: '확정가 관심 등록', exact: true });
   await firm.click();
-  await expect(page.getByText('확정가 관심 등록했습니다').first()).toBeVisible();
+  await expect(page.getByText('확정가 관심 등록을 남겼습니다').first()).toBeVisible();
   await expect(card.getByRole('button', { name: '확정가 관심 등록함' })).toBeDisabled();
   await card.getByRole('button', { name: '회송 보장 관심 등록', exact: true }).click();
   await expect(card.getByRole('button', { name: '회송 보장 관심 등록함' })).toBeDisabled();

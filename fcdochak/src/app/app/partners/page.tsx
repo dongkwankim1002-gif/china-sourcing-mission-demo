@@ -76,7 +76,7 @@ export default async function PartnersPage() {
               ))}
             </ul>
           ) : (
-            <EmptyState title="아직 거래처가 없습니다" body="왼쪽에서 초대 링크를 만들어 쓰던 포워더에게 보내 보세요." />
+            <EmptyState title="아직 거래처가 없습니다" body="「내 포워더 초대하기」에서 초대 링크를 만들어 쓰던 포워더에게 보내 보세요." />
           )}
         </Panel>
       </div>

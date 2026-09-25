@@ -56,8 +56,15 @@ export async function decideInvoice(input: z.infer<typeof Decision>): Promise<Ws
       return { error: '이미 다른 결정이 들어왔습니다. 화면을 새로 고쳐 주세요' };
     }
     // 이의는 물류사가 처리하는 예외(청구 편차)로도 연다 — 물류사 화면의 예외 처리 흐름을 그대로 쓴다
+    // 이미 열린 청구 편차 예외가 있으면(청구서를 올릴 때 연 것·앞선 이의) 새로 열지 않는다 — 같은 선적에 열린 예외가 겹치지 않게.
+    // 새 사유는 알림 본문으로 물류사에 간다.
     if (d.decision === 'disputed') {
-      await q.query(`insert into fcd.exceptions (shipment_id, kind, note, created_by) values ($1,'billing_deviation',$2,$3)`, [d.shipmentId, `청구 이의: ${reason}`, v.id]);
+      await q.query(
+        `insert into fcd.exceptions (shipment_id, kind, note, created_by)
+         select $1,'billing_deviation',$2,$3
+          where not exists (select 1 from fcd.exceptions e where e.shipment_id = $1 and e.kind = 'billing_deviation' and e.resolved_at is null)`,
+        [d.shipmentId, `청구 이의: ${reason}`, v.id],
+      );
     }
     return { x, diff };
   });
@@ -128,7 +135,8 @@ export async function acceptInvite(token: string): Promise<WsResult<{ redirect: 
   const v = await getViewer();
   if (!v) return { ok: false, error: '로그인이 풀렸습니다' };
   if (!isInviteToken(token)) return { ok: false, error: ACCEPT_RESULT_TEXT.not_found };
-  const org = v.orgs.find((o) => o.kind === 'partner');
+  // 링크 화면이 「거래처로 연결」 버튼을 보이는 조직(관리자로 있는 물류사)과 같은 곳으로 받는다
+  const org = v.orgs.find((o) => o.kind === 'partner' && o.role === 'partner_admin');
   if (!org) return { ok: false, error: ACCEPT_RESULT_TEXT.not_partner_admin };
   const r = await asUser(v, (q) => q.query<{ r: string }>(`select fcd.accept_partner_invite($1, $2) r`, [hashInviteToken(token), org.id]));
   const res = r[0]?.r ?? 'not_found';

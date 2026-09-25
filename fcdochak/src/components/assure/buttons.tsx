@@ -30,7 +30,7 @@ export function InterestButton({ kind, label, ctx, shown, done: initialDone, pil
           const r = await registerInterest({ kind, ctx, shown: shown ?? null });
           if (!r.ok) return void toast.error(r.error ?? '관심 등록을 하지 못했습니다');
           setDone(true);
-          toast.success(r.already ? `${label} — 이미 관심 등록하셨습니다` : `${label} 관심 등록했습니다. 시범이 열리면 알려 드립니다.`);
+          toast.success(r.already ? `${label} — 이미 관심 등록하셨습니다` : `${label} 관심 등록을 남겼습니다. 시범 여부는 이 화면에서 확인하세요(따로 연락드리지 않습니다).`);
         })
       }
     >

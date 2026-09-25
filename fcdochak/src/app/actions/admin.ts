@@ -8,6 +8,7 @@ import { loadSettings } from '@/lib/server/settings';
 import { notifyMany } from '@/lib/server/notify';
 import { isFcReady } from '@/lib/money';
 import { ASSURE_SETTING_SCHEMAS } from '@/lib/assure-settings';
+import { V2_SETTING_SCHEMAS } from '@/lib/v2-setting-schemas';
 
 interface R {
   ok: boolean;
@@ -155,6 +156,8 @@ const SETTING_SCHEMAS: Record<string, z.ZodTypeAny> = {
   reference_lines: z.array(z.object({ segment: z.string(), included: z.boolean(), basis: z.string(), unitPrice: z.number().min(0), currency: z.enum(['KRW', 'RMB', 'USD']), minCharge: z.number().nullable().optional(), certainty: z.string() })).length(9),
   // v2 assure — 스위치(true/false)와 요율
   ...ASSURE_SETTING_SCHEMAS,
+  // v2 tools·check·workspace·metrics
+  ...V2_SETTING_SCHEMAS,
 };
 
 /** 설정 새 판 — 고치지 않고 쌓는다. 값은 키별 규칙으로 검사한다. */

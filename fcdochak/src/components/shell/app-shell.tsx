@@ -72,9 +72,9 @@ export function AppShell({
   const more = nav.filter((n) => !tabs.includes(n));
 
   return (
-    <div className="flex min-h-dvh flex-col" lang={zh ? 'zh-CN' : 'ko'}>
+    <div className="flex min-h-[calc(100dvh_-_var(--banner-h))] flex-col" lang={zh ? 'zh-CN' : 'ko'}>
       {demo ? <DemoRibbon zh={zh} /> : null}
-      <header className={cn('sticky z-40 bg-ink text-on-ink', demo ? 'top-7' : 'top-0')}>
+      <header className={cn('sticky z-40 bg-ink text-on-ink', demo ? 'top-[calc(1.75rem_+_var(--banner-h))]' : 'top-[var(--banner-h)]')}>
         <div className="flex h-14 items-center gap-2 px-3 md:px-4">
           <Link href={nav[0].href} className="flex shrink-0 items-center gap-2 rounded-sm pr-2">
             <BrandMark />
@@ -121,8 +121,11 @@ export function AppShell({
       <div className="flex flex-1">
         <aside
           className={cn(
-            'sticky top-14 hidden h-[calc(100dvh-3.5rem)] shrink-0 flex-col border-r border-line bg-surface md:flex',
-            demo && 'top-[5.25rem] h-[calc(100dvh-5.25rem)]',
+            'sticky hidden shrink-0 flex-col border-r border-line bg-surface md:flex',
+            // 미리보기 띠(--banner-h)·예시 띠(1.75rem)·머리(3.5rem) 아래에 딱 맞게 — 화면 맨 위에서도 아래가 잘리지 않는다
+            demo
+              ? 'top-[calc(5.25rem_+_var(--banner-h))] h-[calc(100dvh_-_5.25rem_-_var(--banner-h))]'
+              : 'top-[calc(3.5rem_+_var(--banner-h))] h-[calc(100dvh_-_3.5rem_-_var(--banner-h))]',
             collapsed ? 'w-16' : 'w-60',
           )}
           aria-label={zh ? '主菜单' : '주 메뉴'}
@@ -177,7 +180,7 @@ export function AppShell({
 
 function DemoRibbon({ zh }: { zh: boolean }) {
   return (
-    <div className="sticky top-0 z-50 flex h-7 items-center justify-center gap-2 bg-label text-xs font-bold text-on-label">
+    <div className="sticky top-[var(--banner-h)] z-50 flex h-7 items-center justify-center gap-2 bg-label text-xs font-bold text-on-label">
       <span className="rounded-[2px] bg-ink px-1.5 text-2xs text-label">{zh ? '示例' : '예시 데이터'}</span>
       {zh ? '这里的公司、价格和货件都是虚构的示例数据。' : '이 화면의 업체·요금·선적은 모두 가상의 예시입니다.'}
     </div>

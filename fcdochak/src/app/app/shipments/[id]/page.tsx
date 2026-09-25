@@ -168,7 +168,7 @@ export default async function ShipmentPage({ params }: { params: Promise<{ id: s
                       {review.reply_body ? <ReplyBlock partnerName={s.partner_name} body={review.reply_body} version={review.reply_version} at={review.reply_at} /> : null}
                     </Panel>
                   ) : outcome ? (
-                    <ReviewForm shipmentId={s.id} outcome={outcome} defaultOnTime={outcome === 'delivered' || outcome === 'fc_returned' ? !late : false} defaultBilling={dev == null || Math.abs(dev) < 0.03} />
+                    <ReviewForm shipmentId={s.id} outcome={outcome} defaultOnTime={outcome === 'delivered' || outcome === 'fc_returned' ? !late : false} defaultBilling={dev == null || Math.abs(dev) * 10_000 < ws.billingFlagBp} />
                   ) : (
                     <Panel><EmptyState title="선적이 끝나면 평가할 수 있습니다" body={`FC 입고가 끝나거나(회송 포함), 입고 반려가 나거나, 도착 예정일에서 오래 지나도 입고되지 않으면(분실·미도착) 평가를 남길 수 있습니다.`} /></Panel>
                   ),

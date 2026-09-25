@@ -45,6 +45,20 @@ test('표 붙여넣기 → 9구간으로 가르고 점검 — 로그인 없이 �
   await expect(result).toContainText('관세·부가세');
   await expect(page.getByTestId('check-save')).toContainText('이 결과는 저장하지 않았습니다');
   await expect(page.getByTestId('check-save').getByRole('link', { name: '로그인' })).toHaveAttribute('href', '/login?next=/check');
+  // 예시에 「LCL 해상운임」이 있어 방식을 LCL 로 미리 골랐다 — 섞인 비교 경고는 없다
+  await expect(page.locator('#ck-mode')).toHaveValue('LCL');
+  await expect(page.getByTestId('check-mixed-mode')).toHaveCount(0);
+});
+
+test('결과를 낸 뒤 입력을 고치면 「조건이 바뀌었습니다」, 방식이 「상관없음」이면 섞인 비교 경고', async ({ page }) => {
+  await pasteExampleAndCheck(page);
+  await expect(page.getByTestId('check-stale')).toHaveCount(0);
+  await page.getByLabel('4번째 금액').fill('300000');
+  await expect(page.getByTestId('check-stale')).toBeVisible();
+  await page.locator('#ck-mode').selectOption('ANY');
+  await page.getByTestId('check-stale').getByRole('button', { name: '다시 점검' }).click();
+  await expect(page.getByTestId('check-stale')).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByTestId('check-mixed-mode')).toContainText('방식이 섞인 비교입니다');
 });
 
 test('직접 입력 — 9구간 칸을 만들고 일부만 채워도 점검된다', async ({ page }) => {

@@ -60,6 +60,9 @@ export function NineBar({
   // 대체 글은 짧은 요약 한 문장 — 아홉 칸 숫자는 아래 표로 나눈다(길게 이어 붙이면 읽는 쪽에서 잘린다)
   const summary = nineBarSummary(ordered, { unit, locale, label });
   const tableId = React.useId();
+  const keyNav = interactive && size === 'hero';
+  // 금액이 있는 구간(막대에 그려지는 칸)의 순서 — 화살표로 옮길 자리
+  const present = ordered.flatMap((x, i) => (x.amount != null && x.amount > 0 ? [i] : []));
 
   return (
     <div className={cn('relative w-full min-w-0', className)}>
@@ -67,7 +70,32 @@ export function NineBar({
         role="img"
         aria-label={summary}
         aria-describedby={table === 'sr' ? tableId : undefined}
-        className={cn('flex w-full gap-[2px] overflow-visible', h)}
+        // 큰 막대는 막대 전체가 한 번만 초점을 받고, 왼쪽·오른쪽 화살표로 구간을 옮긴다(이름 없는 초점 자리 아홉 개를 두지 않는다)
+        tabIndex={keyNav ? 0 : undefined}
+        onFocus={keyNav ? () => setActive((a) => a ?? present[0] ?? null) : undefined}
+        onBlur={keyNav ? () => setActive(null) : undefined}
+        onKeyDown={
+          keyNav
+            ? (e) => {
+                if (!present.length) return;
+                const at = active == null ? -1 : present.indexOf(active);
+                let next: number | null = null;
+                if (e.key === 'ArrowRight') next = present[Math.min(present.length - 1, at + 1)];
+                else if (e.key === 'ArrowLeft') next = present[Math.max(0, at - 1)];
+                else if (e.key === 'Home') next = present[0];
+                else if (e.key === 'End') next = present[present.length - 1];
+                else if (e.key === 'Escape') {
+                  setActive(null);
+                  return;
+                }
+                if (next != null) {
+                  e.preventDefault();
+                  setActive(next);
+                }
+              }
+            : undefined
+        }
+        className={cn('flex w-full gap-[2px] overflow-visible rounded-[3px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-label', h)}
         onPointerLeave={() => setActive(null)}
       >
         {ordered.map((s, i) => {
@@ -78,11 +106,8 @@ export function NineBar({
             <span
               key={s.segment}
               data-seg={s.segment}
-              tabIndex={interactive && size === 'hero' ? 0 : -1}
-              aria-hidden={size !== 'hero'}
+              aria-hidden
               onPointerEnter={interactive ? () => setActive(i) : undefined}
-              onFocus={interactive ? () => setActive(i) : undefined}
-              onBlur={interactive ? () => setActive(null) : undefined}
               className={cn(
                 'relative block h-full min-w-[3px] transition-[width,filter] duration-200 first:rounded-l-[3px] last:rounded-r-[3px]',
                 s.filled && 'bg-transparent',
@@ -196,6 +221,7 @@ export function NineTable({
   locale = 'ko',
   unit = 'won',
   vertical = false,
+  stackBelowMd = false,
   caption,
 }: {
   segments: BarSegment[];
@@ -203,6 +229,8 @@ export function NineTable({
   unit?: BarUnit;
   /** 세로(구간 한 줄씩) — 화면 읽기 프로그램용 표 */
   vertical?: boolean;
+  /** 좁은 화면(md 미만)에서는 구간 한 줄씩 세로 표로, md 부터 가로 표로 — 가로 표의 낱말이 잘리지 않게 */
+  stackBelowMd?: boolean;
   caption?: string;
 }) {
   const names = locale === 'zh' ? SEGMENT_LABEL_ZH : SEGMENT_LABEL_KO;
@@ -238,6 +266,43 @@ export function NineTable({
           })}
         </tbody>
       </table>
+    );
+  }
+  if (stackBelowMd) {
+    return (
+      <>
+        <table className="w-full text-sm tnum md:hidden">
+          {caption ? <caption className="sr-only">{caption}</caption> : null}
+          <thead className="sr-only">
+            <tr>
+              <th scope="col">{zh ? '区段' : '구간'}</th>
+              <th scope="col">{unit === 'permille' ? (zh ? '占比' : '비중') : zh ? '金额' : '금액'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {SEGMENTS.map((s, i) => {
+              const v = bySeg.get(s);
+              return (
+                <tr key={s} className="border-b border-line-2 last:border-0">
+                  <th scope="row" className="py-1.5 pr-2 text-left font-semibold">
+                    <span className="mr-1.5 inline-block size-2 rounded-[1px] align-middle" style={{ background: `var(--seg-${i + 1})` }} aria-hidden />
+                    {i + 1}. {names[s]}
+                  </th>
+                  <td className="py-1.5 text-right">
+                    {v?.amount == null ? <span className="text-muted">{zh ? '不含' : '제외'}</span> : <span className="font-semibold text-text">{won(v.amount)}</span>}
+                    {v?.amount != null && stateOf(v) ? (
+                      <span className={cn('ml-1.5 text-2xs', v.certainty === 'extra_possible' ? 'text-caution' : 'text-muted')}>{stateOf(v)}</span>
+                    ) : null}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <div className="hidden md:block">
+          <NineTable segments={segments} locale={locale} unit={unit} caption={caption} />
+        </div>
+      </>
     );
   }
   return (

@@ -319,19 +319,28 @@ export function PnlTool({
               ) : null}
               {laneHas ? (
                 <>
-                  <p className="text-xs font-semibold text-muted">9구간 합계 · 업체 {arrival!.count}곳 견적의 중간값</p>
+                  <p className="text-xs font-semibold text-muted" data-testid="tool-arrival-basis">
+                    {arrival!.basis === 'reference'
+                      ? `9구간 합계 · 플랫폼 참고치 (이 조건 업체가 ${arrival!.partners}곳뿐이라 업체 시세 대신)`
+                      : `9구간 합계 · 요금표 ${arrival!.count}장(업체 ${arrival!.partners}곳) 견적의 중간값`}
+                  </p>
                   <p className="display mt-1 text-[clamp(26px,3vw,32px)] leading-none tnum" data-testid="tool-arrival-total">
                     {num(arrival!.median)}
                     <span className="ml-1 text-[0.5em]">원</span>
                   </p>
                   <p className="mt-1 text-xs text-muted tnum">
-                    개당 {num(arrival!.perUnitMedian)}원 · 최저 {num(arrival!.min)}원 · 싼 쪽 4분의 1 {num(arrival!.q1)}원 이하
+                    개당 {num(arrival!.perUnitMedian)}원
+                    {arrival!.min != null && arrival!.q1 != null
+                      ? ` · 최저 ${num(arrival!.min)}원 · 싼 쪽 4분의 1 ${num(arrival!.q1)}원 이하`
+                      : arrival!.basis === 'market'
+                        ? ' · 요금표가 적어 최저·분위는 싣지 않습니다'
+                        : ''}
                   </p>
                   <NineBar
                     className="mt-3"
                     size="md"
                     segments={arrival!.segments.map((s) => ({ segment: s.segment, amount: s.amount, certainty: 'confirmed' as const }))}
-                    label={`${laneObj?.label ?? ''} 구간별 중간값`}
+                    label={`${laneObj?.label ?? ''} ${arrival!.basis === 'reference' ? '구간별 참고치' : '구간별 중간값'}`}
                   />
                   <ol className="mt-3 grid grid-cols-3 gap-x-3 gap-y-1 text-2xs text-muted tnum">
                     {arrival!.segments.map((s, i) => (
@@ -522,7 +531,7 @@ export function PnlTool({
             {sens ? (
               <Panel>
                 <PanelHead title="민감도표 — 개당 이익" sub="가로: 판매가 변화 · 세로: 물류비(9구간 + 추가비용) 변화" />
-                <div className="overflow-x-auto p-4">
+                <div className="overflow-x-auto p-4" tabIndex={0} role="region" aria-label="민감도표(옆으로 밀어 더 보기)">
                   <table className="w-full min-w-[520px] border-separate border-spacing-[2px] text-xs tnum" data-testid="tool-sensitivity">
                     <thead>
                       <tr>

@@ -39,7 +39,7 @@ const Interest = z.object({
   note: z.string().trim().max(300).optional(),
 });
 
-/** 관심 등록 — 한 사람이 종류마다 한 번. 이미 했으면 그대로 둔다 */
+/** 관심 등록 — 한 사람이 종류마다 한 번. 이미 했으면 그대로 둔다(두 번 눌러 동시에 와도 유일 색인에 걸려 조용히 넘어간다) */
 export async function registerInterest(input: z.infer<typeof Interest>): Promise<R> {
   const v = await requireViewer('app');
   const p = Interest.safeParse(input);
@@ -51,8 +51,8 @@ export async function registerInterest(input: z.infer<typeof Interest>): Promise
   const r = await asUser(v, async (q) => {
     const ins = await q.query<{ id: string }>(
       `insert into fcd.assure_interests (org_id, user_id, kind, source, detail, note)
-       select $1, $2, $3, $4, $5::jsonb, $6
-        where not exists (select 1 from fcd.assure_interests where user_id = $2 and kind = $3)
+       values ($1, $2, $3, $4, $5::jsonb, $6)
+       on conflict (user_id, kind) do nothing
        returning id`,
       [v.org.id, v.id, d.kind, d.ctx.source, JSON.stringify(detail), d.note || null],
     );

@@ -46,6 +46,9 @@ const TOTAL_ROW = /^(총\s*(합계|액|계|청구)|합\s*계|소\s*계|청구\s*
 /** 숫자 조각 — 「1,200,000」「¥3,600.50」「-12,000원」「60000 元」 */
 const AMOUNT = /(-|−)?\s*([₩¥$])?\s*(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(원|元|rmb|cny|usd|krw|위안|달러)?/gi;
 
+/** 금액 바로 앞에 적은 통화 — 「해상운임 USD 1,200」「O/F\tUSD\t850」「수출통관 RMB 300」 */
+const PREFIX_CUR = /(?:^|[\s|:：(（])(usd|us\$|rmb|cny|krw|달러|위안|元|人民币|美元)\s*[:：)）]?\s*$/i;
+
 export interface PastedLine extends InvoiceLine {
   /** 원래 줄(미리보기) */
   raw: string;
@@ -67,8 +70,9 @@ export function parseInvoiceText(text: string, defaultCurrency: Currency = 'KRW'
     const neg = !!m[1];
     const value = Number(m[3].replace(/,/g, ''));
     if (!Number.isFinite(value)) continue;
-    let label = raw
-      .slice(0, m.index)
+    const before = raw.slice(0, m.index);
+    const pre = PREFIX_CUR.exec(before);
+    let label = (pre ? before.slice(0, pre.index) : before)
       .replace(/\t+/g, ' ')
       .replace(/^\s*(\d+[.)]|[①-⑳]|[-*•·])\s*/, '')
       .replace(/[\s=:：|×x*@\-–]+$/i, '')
@@ -80,7 +84,8 @@ export function parseInvoiceText(text: string, defaultCurrency: Currency = 'KRW'
     if (!label || !/[^\d\s.,]/.test(label)) continue;
     const norm = label.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ');
     if (TOTAL_ROW.test(norm)) continue;
-    const currency = detectCurrency(`${m[2] ?? ''}${m[4] ?? ''}`) ?? detectCurrency(raw.slice(m.index)) ?? headCur ?? defaultCurrency;
+    const currency =
+      detectCurrency(`${m[2] ?? ''}${m[4] ?? ''}`) ?? detectCurrency(raw.slice(m.index)) ?? (pre ? detectCurrency(pre[1]) : null) ?? headCur ?? defaultCurrency;
     out.push({ label: label.slice(0, 80), amount: neg ? -value : value, currency, segment: classifyItem(label), raw });
   }
   return out;
@@ -94,4 +99,20 @@ export function lineFromRow(row: { item?: unknown; amount?: unknown; currency?: 
   if (TOTAL_ROW.test(label.normalize('NFKC').toLowerCase())) return null;
   const currency = detectCurrency(row.currency == null ? null : String(row.currency)) ?? detectCurrency(label) ?? defaultCurrency;
   return { label: label.slice(0, 80), amount, currency, segment: classifyItem(label) };
+}
+
+/**
+ * 줄 이름에서 운송 방식을 짐작한다 — 「상관없음」이면 항공·해상 요금표가 한 분포에 섞여 판정이 흐려지므로,
+ * 청구서에 방식이 적혀 있으면 미리 골라 둔다. 두 가지 이상이 보이거나 없으면 null(셀러가 고른다).
+ */
+export function inferMode(labels: string[]): 'LCL' | 'FCL' | 'AIR' | 'FERRY' | null {
+  const found = new Set<'LCL' | 'FCL' | 'AIR' | 'FERRY'>();
+  for (const raw of labels) {
+    const t = raw.normalize('NFKC').toLowerCase();
+    if (/(^|[^a-z])lcl([^a-z]|$)|拼箱|혼재/.test(t)) found.add('LCL');
+    if (/(^|[^a-z])fcl([^a-z]|$)|整箱|(^|[^a-z])(20|40)\s*(ft|gp|hq)|컨테이너\s*(단독|통)/.test(t)) found.add('FCL');
+    if (/항공|air\s*(freight|cargo)?|空运|(^|[^a-z])awb([^a-z]|$)/.test(t)) found.add('AIR');
+    if (/카페리|페리|ferry|轮渡/.test(t)) found.add('FERRY');
+  }
+  return found.size === 1 ? [...found][0] : null;
 }

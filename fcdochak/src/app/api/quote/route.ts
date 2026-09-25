@@ -9,12 +9,12 @@ import { compare } from '@/lib/server/compare';
 import { buildQuoteResponse, parsePublicSort } from '@/lib/public-quote';
 import { loadSettings } from '@/lib/server/settings';
 import { readSession } from '@/lib/auth/session';
-import { allow } from '@/lib/server/rate-limit';
+import { allow, clientIp } from '@/lib/server/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
+  const ip = clientIp(req.headers);
   if (!allow(`quote:${ip}`, 90)) {
     return NextResponse.json({ error: '잠시 뒤 다시 계산해 주세요(1분에 90번까지).' }, { status: 429 });
   }

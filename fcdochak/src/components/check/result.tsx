@@ -108,19 +108,19 @@ export function CheckResultView({ outcome, heading = 'h2' }: { outcome: CheckOut
       )}
 
       <Panel aria-labelledby="check-table">
-        <PanelHead id="check-table" title="구간별 비교" sub="중간값·싼 쪽 25%·최저는 이 화물로 계산한 요금표 기준. 표본이 적은 구간은 최저를 싣지 않습니다." />
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm tnum">
+        <PanelHead id="check-table" title="구간별 비교" sub="중간값·싼 쪽 25%·최저는 이 화물로 계산한 요금표 기준. 표본이 적은 구간은 싼 쪽 25%·최저를 싣지 않습니다(좁은 화면에서는 두 칸을 접습니다)." />
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="구간별 비교 표(옆으로 밀어 더 보기)">
+          <table className="w-full min-w-[420px] text-sm tnum md:min-w-[720px]">
             <caption className="sr-only">9구간별 청구 금액과 구간 시세</caption>
             <thead className="bg-surface-2 text-xs text-muted">
               <tr>
                 <th scope="col" className="px-3 py-2 text-left font-semibold">구간</th>
                 <th scope="col" className="px-3 py-2 text-right font-semibold">내 청구</th>
                 <th scope="col" className="px-3 py-2 text-right font-semibold">중간값</th>
-                <th scope="col" className="px-3 py-2 text-right font-semibold">싼 쪽 25%</th>
-                <th scope="col" className="px-3 py-2 text-right font-semibold">최저</th>
+                <th scope="col" className="hidden px-3 py-2 text-right font-semibold md:table-cell">싼 쪽 25%</th>
+                <th scope="col" className="hidden px-3 py-2 text-right font-semibold md:table-cell">최저</th>
                 <th scope="col" className="px-3 py-2 text-right font-semibold">중간값 대비</th>
-                <th scope="col" className="px-3 py-2 text-left font-semibold">판정</th>
+                <th scope="col" className="hidden px-3 py-2 text-left font-semibold sm:table-cell">판정</th>
               </tr>
             </thead>
             <tbody>
@@ -129,18 +129,22 @@ export function CheckResultView({ outcome, heading = 'h2' }: { outcome: CheckOut
                   <th scope="row" className="px-3 py-2 text-left font-semibold">
                     <span className="mr-1.5 inline-block size-2 rounded-[1px] align-middle" style={{ background: `var(--seg-${i + 1})` }} aria-hidden />
                     {SEGMENT_LABEL_KO[s.segment]}
+                    {/* 좁은 화면에서는 판정 칸이 없어 구간 이름 아래에 */}
+                    <span className="mt-1 block sm:hidden">
+                      <Chip tone={CHECK_VERDICT[s.verdict].tone}>{CHECK_VERDICT[s.verdict].label}</Chip>
+                    </span>
                   </th>
                   <td className="px-3 py-2 text-right font-semibold">{s.amount == null ? <span className="text-muted">없음</span> : won(s.amount)}</td>
                   <td className="px-3 py-2 text-right">
                     {s.benchmark.median == null ? '—' : won(s.benchmark.median)}
                     {s.benchmark.source === 'reference' ? <span className="block text-2xs text-muted">참고치</span> : s.benchmark.source === 'market' ? <span className="block text-2xs text-muted">{s.benchmark.n}장</span> : null}
                   </td>
-                  <td className="px-3 py-2 text-right text-muted">{s.benchmark.source === 'market' && s.benchmark.q1 != null ? won(s.benchmark.q1) : '—'}</td>
-                  <td className="px-3 py-2 text-right text-muted">{s.benchmark.min == null ? '—' : won(s.benchmark.min)}</td>
+                  <td className="hidden px-3 py-2 text-right text-muted md:table-cell">{s.benchmark.source === 'market' && s.benchmark.q1 != null ? won(s.benchmark.q1) : '—'}</td>
+                  <td className="hidden px-3 py-2 text-right text-muted md:table-cell">{s.benchmark.min == null ? '—' : won(s.benchmark.min)}</td>
                   <td className={s.overMedianBp == null ? 'px-3 py-2 text-right text-muted' : s.overMedianBp > 0 ? 'px-3 py-2 text-right text-stamp' : 'px-3 py-2 text-right text-ok'}>
                     {s.overMedianBp == null ? (s.expected != null ? `+${won(s.expected)} 예상` : '—') : `${s.overMedianBp > 0 ? '+' : '−'}${bpText(s.overMedianBp)}`}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="hidden px-3 py-2 sm:table-cell">
                     <Chip tone={CHECK_VERDICT[s.verdict].tone}>{CHECK_VERDICT[s.verdict].label}</Chip>
                   </td>
                 </tr>

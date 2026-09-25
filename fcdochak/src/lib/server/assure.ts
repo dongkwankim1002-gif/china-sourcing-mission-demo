@@ -66,7 +66,7 @@ export function assureView(config: AssureConfig, basis: AssureBasis): AssureView
  * 화면 필터·정렬과 상관없이 같은 조건 시장 분포로 본다. 대표 업체는 특수관계를 뺀 가장 싼 곳.
  */
 export async function compareBasis(q: Queryable, cq: CargoQueryT, s: AppSettings, today: string): Promise<AssureBasis> {
-  const r = await compare(q, { hub: cq.hub, port: cq.port, mode: cq.mode, cargo: toCargo(cq), traits: cq.traits }, s, today);
+  const r = await compare(q, { hub: cq.hub, port: cq.port, mode: cq.mode, cargo: toCargo(cq), traits: cq.traits, fc: cq.fc }, s, today);
   return basisFromOffers(r.offers);
 }
 

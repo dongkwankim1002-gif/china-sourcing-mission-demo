@@ -13,10 +13,12 @@ export function PreviewBanner() {
       role="note"
       aria-label="미리보기 안내"
       data-testid="preview-banner"
-      className="flex min-h-7 items-center justify-center gap-2 border-b border-stamp/40 bg-stamp-bg px-3 py-1 text-center text-xs font-bold text-stamp"
+      data-preview-banner=""
+      // 높이는 --banner-h(1.75rem)와 같게 한 줄로 고정 — 셸의 붙박이 머리·옆 메뉴가 이 높이만큼 내려 앉는다
+      className="sticky top-0 z-[60] flex h-7 items-center justify-center gap-2 overflow-hidden whitespace-nowrap border-b border-stamp/40 bg-stamp-bg px-3 text-center text-xs font-bold text-stamp"
     >
       <FlaskConical className="size-3.5 shrink-0" aria-hidden />
-      <span>v2 미리보기 — 운영 아님</span>
+      <span className="truncate">v2 미리보기 — 운영 아님</span>
       <span className="hidden font-semibold sm:inline">· 임시 자료라 바뀌거나 사라질 수 있습니다</span>
     </div>
   );

@@ -7,7 +7,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { asPublic } from '@/lib/db';
 import { CheckInput, type CheckInputT, type CheckOutcome } from '@/lib/invoice-check-input';
-import { allow } from '@/lib/server/rate-limit';
+import { allow, clientIp } from '@/lib/server/rate-limit';
 import { getMyCheck, loadCheckRule, runInvoiceCheck, saveInvoiceCheck } from '@/lib/server/invoice-check';
 import { getViewer } from '@/lib/server/viewer';
 
@@ -20,7 +20,7 @@ export interface CheckActionResult<T> {
 
 async function limited(key: string): Promise<boolean> {
   const rule = await asPublic(loadCheckRule);
-  const ip = (await headers()).get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
+  const ip = clientIp(await headers());
   return !allow(`${key}:${ip}`, rule.publicPerMinute);
 }
 

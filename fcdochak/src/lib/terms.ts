@@ -167,3 +167,6 @@ export const TRUST_ACTION = {
   reply: '공개 답변 남기기',
   editReply: '답변 고치기',
 } as const;
+
+/** 추천 점수 네 항목의 이름 — 계산기·비교·업체 화면·어드민·정책·자주 묻는 질문이 같은 말을 쓴다(v2 검토) */
+export const SCORE_TERMS = ['정시 입고', '청구 편차', 'FC 회송', '가격 확실성'] as const;

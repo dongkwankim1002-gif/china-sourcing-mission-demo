@@ -2,6 +2,14 @@
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
+/* 미리보기 띠(PREVIEW_BANNER) 높이 — 띠가 있을 때만 1.75rem. 붙박이 머리·옆 메뉴가 이만큼 내려 앉는다 */
+:root {
+  --banner-h: 0px;
+}
+:root:has([data-preview-banner]) {
+  --banner-h: 1.75rem;
+}
+
 /* 토큰 — docs/DESIGN.md §1. 값은 여기 한 곳에만. */
 :root {
   color-scheme: light;

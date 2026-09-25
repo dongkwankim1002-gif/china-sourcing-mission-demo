@@ -154,7 +154,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
       </div>
       <p className="mt-3 text-xs text-muted" data-testid="compare-sort-now">
         현재 기준: <b className="text-text">{SORT_LABEL[sort]}</b> · 비교 {offers.length}곳 · 제외 {result.excluded.length}곳 · 만료 요금표 {result.expired.length}장
-        {ranked.relatedHidden ? ` · 특수관계 업체 ${ranked.relatedHidden}곳은 순위에서 뺐습니다(「특수관계 포함」으로 보기)` : ''} · 추천 점수 = 정시 입고 30 · 청구 편차 25 · FC 회송률 25 · 가격확정도 20 (광고·특수관계는 점수 밖)
+        {ranked.relatedHidden ? ` · 특수관계 업체 ${ranked.relatedHidden}곳은 순위에서 뺐습니다(「특수관계 포함」으로 보기)` : ''} · 추천 점수 = 정시 입고 30 · 청구 편차 25 · FC 회송률 25 · 가격 확실성 20 (광고·특수관계는 점수 밖)
         {offers.some((o) => !o.sampleEnough) ? ` · 최근 ${offers[0].trust.sample.days}일 끝난 선적이 ${offers[0].trust.sample.min}건 미만인 업체는 점수 대신 「표본 부족」으로 적고${sort === 'recommend' ? ' 추천순에서 뒤에 둡니다' : ''}` : ''}
       </p>
       {ranked.relatedTop && offers[0] ? (
@@ -315,7 +315,7 @@ function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName }: { o: 
           </p>
           <ScoreBreakdown variant="inline" className="mt-1" parts={o.parts} score={o.score} trust={o.trust} metrics={m} certainty={certainty} />
         </div>
-        <div className={cn('flex items-end justify-between gap-3', !card && 'lg:flex-col lg:items-end')}>
+        <div className={cn('flex flex-wrap items-end justify-between gap-3', !card && 'lg:flex-col lg:flex-nowrap lg:items-end')}>
           <div className={cn(!card && 'lg:text-right')}>
             <Won v={o.quote.total} className="block text-lg font-bold" />
             <span className="block text-xs text-muted tnum">개당 {num(o.quote.perUnit)}원</span>
@@ -323,7 +323,7 @@ function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName }: { o: 
               확정 합계 {num(t.confirmed)}원{t.referenceCount ? ` · 참고치 포함 합계 ${num(t.withReference)}원` : ''}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Tooltip
               content={
                 <span className="grid gap-0.5 tnum">
@@ -333,7 +333,7 @@ function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName }: { o: 
                   <span>정시 입고 {o.parts.onTime.toFixed(1)} / 30 {m?.shipments_done ? `(${pct(m.on_time_rate, 0)})` : '(실측 없음)'}</span>
                   <span>청구 편차 {o.parts.deviation.toFixed(1)} / 25 {m?.invoiced_count ? `(${pct(m.avg_deviation, 1)})` : '(실측 없음)'}</span>
                   <span>FC 회송률 {o.parts.fcReturn.toFixed(1)} / 25 {m?.done_30d ? `(${pct(m.return_rate_30d, 1)})` : '(실측 없음)'}</span>
-                  <span>가격확정도 {o.parts.certainty.toFixed(1)} / 20</span>
+                  <span>가격 확실성 {o.parts.certainty.toFixed(1)} / 20</span>
                     </>
                   ) : (
                     <span>최근 {o.trust.sample.days}일 끝난 선적 {o.trust.sample.n}건 · 기준 {o.trust.sample.min}건</span>
@@ -341,7 +341,7 @@ function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName }: { o: 
                 </span>
               }
             >
-              <button type="button" className="h-8 rounded-xs border border-line px-2 text-xs font-bold tnum hover:border-muted/60">{o.sampleEnough ? `추천 ${o.score}` : `표본 부족(${o.trust.sample.n}건)`}</button>
+              <button type="button" className="h-8 shrink-0 whitespace-nowrap rounded-xs border border-line px-2 text-xs font-bold tnum hover:border-muted/60">{o.sampleEnough ? `추천 ${o.score}` : `표본 부족(${o.trust.sample.n}건)`}</button>
             </Tooltip>
             <Button asChild size="sm" variant="primary">
               <a href={requestHref}>견적 요청</a>

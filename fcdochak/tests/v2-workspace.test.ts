@@ -348,7 +348,18 @@ describe('DB — RLS·권한·데모(메모리 PGlite)', () => {
     )[0].id;
     await asRole(db, 'fcd_user', REAL_SHIPPER_USER, false, (q) => q.query(`update fcd.partner_invites set revoked_at = now() where id = $1`, [revId]));
     // 거둔 것을 되살리거나 이름을 바꾸지 못한다
-    await expect(asRole(db, 'fcd_user', REAL_SHIPPER_USER, false, (q) => q.query(`update fcd.partner_invites set revoked_at = null where id = $1`, [revId]))).rejects.toThrow();
+    // 이미 거둔 초대는 고칠 줄이 없다(제한 정책) — 되살리기·거둔 시각 바꾸기 모두 0줄
+    for (const sql of [`update fcd.partner_invites set revoked_at = null where id = $1 returning id`, `update fcd.partner_invites set revoked_at = now() - interval '9 days' where id = $1 returning id`]) {
+      const n = await asRole(db, 'fcd_user', REAL_SHIPPER_USER, false, (q) => q.query(sql, [revId])).catch(() => []);
+      expect(n).toEqual([]);
+    }
+    // 아직 거두지 않은 초대도 미래 시각으로는 거두지 못한다
+    const fut = (
+      await asRole(db, 'fcd_user', REAL_SHIPPER_USER, false, (q) =>
+        q.query<{ id: string }>(`insert into fcd.partner_invites (shipper_org_id, token_hash, partner_name, expires_at, created_by) values ($1,$2,'미래',now() + interval '3 days',$3) returning id`, [REAL_SHIPPER, hashInviteToken(newInviteToken()), REAL_SHIPPER_USER]),
+      )
+    )[0].id;
+    await expect(asRole(db, 'fcd_user', REAL_SHIPPER_USER, false, (q) => q.query(`update fcd.partner_invites set revoked_at = now() + interval '1 day' where id = $1`, [fut]))).rejects.toThrow();
     await expect(asRole(db, 'fcd_user', REAL_SHIPPER_USER, false, (q) => q.query(`update fcd.partner_invites set partner_name = 'x' where id = $1`, [revId]))).rejects.toThrow(/permission/);
     for (const [hh, want] of [[exp, 'expired'], [rev, 'revoked'], [hashInviteToken(newInviteToken()), 'not_found']] as const) {
       const r = await asRole(db, 'fcd_user', REAL_PARTNER_USER, false, (q) => q.query<{ r: string }>(`select fcd.accept_partner_invite($1, $2) r`, [hh, REAL_PARTNER]));
@@ -374,7 +385,7 @@ describe('DB — RLS·권한·데모(메모리 PGlite)', () => {
       expect(after.find((c) => c.table === t)!.real, t).toBe(before.find((c) => c.table === t)!.real);
     }
     const inv = await db.query<{ n: number }>(`select count(*)::int n from fcd.partner_invites where shipper_org_id = $1`, [REAL_SHIPPER]);
-    expect(inv[0].n).toBe(3);
+    expect(inv[0].n).toBe(4); // 만료·거둠·받음 + 미래 시각 거두기 시험용
     const link = await db.query<{ n: number }>(`select count(*)::int n from fcd.shipper_partners where shipper_org_id = $1`, [REAL_SHIPPER]);
     expect(link[0].n).toBe(1);
   });

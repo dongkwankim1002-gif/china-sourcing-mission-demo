@@ -272,7 +272,7 @@ export async function addInvoice(input: z.infer<typeof InvInput>): Promise<Resul
     return { ...s, dev };
   });
   if ('error' in r) return { ok: false, error: r.error };
-  await recordEvent(v.id, { orgId: v.org.id, sellerOrgId: r.shipper_org_id, kind: 'invoiced', targetKind: 'shipment', targetId: d.shipmentId, detail: { total } });
+  await recordEvent(v.id, { orgId: v.org.id, sellerOrgId: r.shipper_org_id, kind: 'invoiced', targetKind: 'shipment', targetId: d.shipmentId }); // 금액은 이벤트에 복사하지 않는다(지표가 청구서에서 읽는다)
   await notifyMany([{ orgId: r.shipper_org_id, kind: 'invoice_arrived', title: `청구서 도착 — ${r.shipment_no}`, body: `${v.org.name} · ${total.toLocaleString('ko-KR')}원 (응찰 대비 ${(r.dev * 100).toFixed(1)}%)`, link: `/app/shipments/${d.shipmentId}?tab=billing` }]);
   revalidatePath(`/partner/shipments/${d.shipmentId}`);
   return { ok: true };

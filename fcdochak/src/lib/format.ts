@@ -4,12 +4,15 @@ const nf = new Intl.NumberFormat('ko-KR');
 
 export function won(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return '—';
-  return `${nf.format(Math.round(n))}원`;
+  // −0(예: 0 에 음수 부호를 붙인 칸)은 「-0원」이 아니라 「0원」
+  return `${nf.format(Math.round(n) || 0)}원`;
 }
 
 export function num(n: number | null | undefined, digits = 0): string {
   if (n == null || !Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: digits, minimumFractionDigits: 0 }).format(n);
+  // 표시 자릿수에서 0 이 되는 값(−0, −0.3 등)은 부호 없이 0
+  const v = Math.abs(n) < 0.5 * 10 ** -digits ? 0 : n;
+  return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: digits, minimumFractionDigits: 0 }).format(v);
 }
 
 /** 1,284만 원 / 3.2억 원 — 큰 금액 요약. 1만 미만은 그대로. */

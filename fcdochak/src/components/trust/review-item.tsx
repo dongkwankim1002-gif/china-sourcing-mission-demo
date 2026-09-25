@@ -4,7 +4,7 @@
 import { MessageSquareReply, PackageX, RotateCcw, SearchX } from 'lucide-react';
 import { Chip } from '@/components/ui/core';
 import { dateKo } from '@/lib/format';
-import { REVIEW_OUTCOME_LABEL } from '@/lib/terms';
+import { REVIEW_OUTCOME_LABEL, REVIEW_OUTCOME_LABEL_ZH } from '@/lib/terms';
 
 export interface ReviewItemData {
   id: string;
@@ -18,12 +18,12 @@ export interface ReviewItemData {
   reply_at: string | null;
 }
 
-export function OutcomeChip({ outcome }: { outcome: string | null }) {
+export function OutcomeChip({ outcome, zh = false }: { outcome: string | null; zh?: boolean }) {
   if (!outcome || outcome === 'delivered') return null;
   const icon = outcome === 'fc_returned' ? <RotateCcw aria-hidden /> : outcome === 'fc_rejected' ? <PackageX aria-hidden /> : <SearchX aria-hidden />;
   return (
     <Chip tone={outcome === 'fc_returned' ? 'caution' : 'stamp'} icon={icon}>
-      {REVIEW_OUTCOME_LABEL[outcome] ?? outcome}
+      {(zh ? REVIEW_OUTCOME_LABEL_ZH[outcome] : REVIEW_OUTCOME_LABEL[outcome]) ?? outcome}
     </Chip>
   );
 }

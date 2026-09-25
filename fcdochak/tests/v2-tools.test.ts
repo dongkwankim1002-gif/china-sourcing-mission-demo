@@ -21,10 +21,12 @@ import {
   type SellerPnlInput,
 } from '@/lib/money';
 import { basisLabel, parseFeeBasis, parseTraitNotes } from '@/lib/tools-settings';
-import { buildArrivalResponse } from '@/lib/tools-arrival';
+import { buildArrivalResponse, parseArrivalRule } from '@/lib/tools-arrival';
 import { buildQuoteResponse } from '@/lib/public-quote';
 import { STANDARD_CARGO } from '@/lib/standard-cargo';
 import { asRole, hazardDb, todayKst } from './helpers';
+
+const REF = { total: 500_000, toPort: 300_000, segments: [{ segment: 'pickup', amount: 200_000 }, { segment: 'freight', amount: 300_000 }] };
 
 vi.mock('server-only', () => ({}));
 
@@ -217,7 +219,7 @@ describe('구간 시세로 도착원가 — DB(데모) 위에서', () => {
     const rows = await asRole(db, 'fcd_public', null, true, (q) =>
       q.query<{ key: string }>(`select key from fcd.v_current_settings where key like 'tools.%' order by key`),
     );
-    expect(rows.map((r) => r.key)).toEqual(['tools.coupang_fee_basis', 'tools.trait_extra_costs']);
+    expect(rows.map((r) => r.key)).toEqual(['tools.arrival_rule', 'tools.coupang_fee_basis', 'tools.trait_extra_costs']);
   });
 
   it('구간 시세 중간값과 같은 규칙 — 기준 화물이면 구간 시세 총액 중간값과 같다', async () => {
@@ -227,9 +229,12 @@ describe('구간 시세로 도착원가 — DB(데모) 위에서', () => {
     expect(lanes.length).toBeGreaterThan(0);
     const l = lanes.find((x) => x.hub === 'YIW' && x.port === 'ICN') ?? lanes[0];
     const a = await arrivalEstimate({ hub: l.hub, port: l.port, mode: l.mode, cargo: STANDARD_CARGO, traits: [] });
+    const rule = parseArrivalRule(SETTINGS.find((x) => x.key === 'tools.arrival_rule')!.value);
     expect(a.count).toBe(l.cards);
+    expect(a.partners).toBeGreaterThanOrEqual(rule.minSamples);
+    expect(a.basis).toBe('market');
     expect(a.median).toBe(l.median);
-    expect(a.min).toBe(l.min);
+    expect(a.min).toBe(a.count >= rule.minSpreadSamples ? l.min : null);
     expect(a.segments).toHaveLength(9);
     expect(a.toPortMedian).toBeGreaterThan(0);
     expect(a.toPortMedian).toBeLessThan(a.median);
@@ -270,13 +275,40 @@ describe('구간 시세로 도착원가 — DB(데모) 위에서', () => {
     const r = buildArrivalResponse(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { offers: [offer('a', 100), offer('b', 300)], excluded: [offer('c', 50, [{ kind: 'capability', trait: 'dg', traitName: '위험물' }]), offer('d', 70, [{ kind: 'withdrawn' }])], verdicts: [] } as any,
-      { okOrg: () => true, units: 10 },
+      { okOrg: () => true, units: 10, rule: { minSamples: 2, minSpreadSamples: 3 }, reference: REF },
     );
     expect(r.median).toBe(200);
     expect(r.perUnitMedian).toBe(20);
     expect(r.excluded).toEqual([{ name: 'c', mode: 'LCL', reasons: ['위험물 취급 등록 없음'] }]); // 거둔 요금표는 도구에서 다루지 않는다
     expect(JSON.stringify(r)).not.toMatch(/"total"/);
     expect(JSON.stringify(r.excluded)).not.toMatch(/50/);
+  });
+
+  it('업체가 적으면(1곳·2곳) 업체 집계 대신 플랫폼 참고치 — 한 업체의 비공개 금액이 드러나지 않는다', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const offer = (id: string, total: number, freight: number): any => ({
+      partner: { id, name: id, name_zh: null, slug: id, status: 'official', business_type: null, logo_path: null, related_party_note: null, is_demo: false },
+      mode: 'LCL',
+      exclusions: [],
+      quote: { total, segments: [{ segment: 'pickup', amount: total - freight, certainty: 'confirmed', filled: false }, { segment: 'freight', amount: freight, certainty: 'confirmed', filled: false }] },
+    });
+    const rule = { minSamples: 3, minSpreadSamples: 5 };
+    const secret = [offer('p1', 123_457, 100_001), offer('p2', 234_567, 200_003)];
+    for (const n of [1, 2]) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const r = buildArrivalResponse({ offers: secret.slice(0, n), excluded: [], verdicts: [] } as any, { okOrg: () => true, units: 10, rule, reference: REF });
+      expect(r).toMatchObject({ basis: 'reference', count: n, partners: n, median: REF.total, min: null, q1: null, toPortMedian: REF.toPort });
+      const body = JSON.stringify(r);
+      for (const x of ['123457', '100001', '234567', '200003', '23457', '34567']) expect(body).not.toContain(x);
+    }
+    // 같은 업체의 요금표 여러 장은 한 곳으로 센다
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const same = buildArrivalResponse({ offers: [offer('p1', 1000, 500), offer('p1', 1100, 600), offer('p1', 1200, 700)], excluded: [], verdicts: [] } as any, { okOrg: () => true, units: 1, rule, reference: REF });
+    expect(same).toMatchObject({ basis: 'reference', count: 3, partners: 1 });
+    // 3곳이면 중간값은 내되, 요금표 5장 미만이면 최저·싼 쪽 4분의 1 은 싣지 않는다
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const three = buildArrivalResponse({ offers: [...secret, offer('p3', 345_678, 300_000)], excluded: [], verdicts: [] } as any, { okOrg: () => true, units: 10, rule, reference: REF });
+    expect(three).toMatchObject({ basis: 'market', partners: 3, median: 234_567, min: null, q1: null });
   });
 
   it('홈 계산기 응답에도 뺀 업체 이름·사유가 실린다(가격 없음)', () => {

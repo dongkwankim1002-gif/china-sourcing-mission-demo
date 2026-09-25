@@ -136,13 +136,13 @@ export interface SignupRow {
 }
 
 /**
- * 초대로 들어온 업체 비율 — 기간 안 가입 업체(물류사·화주 모두) 중 초대로 들어온 비율.
- * ready: 초대로 들어온 기록이 한 번이라도 있는가(없으면 초대 기능이 아직 기록을 남기지 않는 것 — 「준비 중」).
+ * 초대로 들어온 업체 비율 — 기간 안 가입한 물류사 중 거래처 초대 링크로 들어온 비율.
+ * 초대는 물류사에게만 가므로 분모도 물류사 가입만 센다(화주 가입이 늘어 비율이 내려가지 않게). 가입이 없으면 ratio = null.
  */
-export function inviteRatio(rows: SignupRow[], r: Range): { invited: number; total: number; ratio: number; ready: boolean } {
-  const inR = rows.filter((x) => inRange(x.at, r));
+export function inviteRatio(rows: SignupRow[], r: Range): { invited: number; total: number; ratio: number | null } {
+  const inR = rows.filter((x) => x.orgKind === 'partner' && inRange(x.at, r));
   const invited = inR.filter((x) => x.via === 'invite').length;
-  return { invited, total: inR.length, ratio: inR.length ? invited / inR.length : 0, ready: rows.some((x) => x.via === 'invite') };
+  return { invited, total: inR.length, ratio: inR.length ? invited / inR.length : null };
 }
 
 /** 재선적률 — 기간 안 예약한 셀러 중, 그 기간 첫 예약 전에 이미 예약한 적이 있는 셀러 비율 */
@@ -173,21 +173,27 @@ export interface InvoiceRow {
   bidTotal: number;
 }
 
-/** 견적(고른 응찰) 대비 청구 차이 — 선적마다 최신 판. 기간은 최신 판의 발행 시각으로 가른다. */
-export function quoteVsInvoice(rows: InvoiceRow[], r: Range): { n: number; avgSigned: number | null; avgAbs: number | null; over5: number } {
+/**
+ * 견적(고른 응찰) 대비 청구 차이 — 선적마다 최신 판. 기간은 최신 판의 발행 시각으로 가른다.
+ * overFlag = 차이 절대값이 flagBp(설정 workspace.billing_flag_bp — 청구 승인 화면의 「차이 큼」과 같은 선) 이상인 건수.
+ */
+export function quoteVsInvoice(rows: InvoiceRow[], r: Range, flagBp: number): { n: number; avgSigned: number | null; avgAbs: number | null; overFlag: number } {
   const latest = new Map<string, InvoiceRow>();
   for (const x of rows) {
     const p = latest.get(x.shipmentId);
     if (!p || x.version > p.version || (x.version === p.version && ms(x.at) > ms(p.at))) latest.set(x.shipmentId, x);
   }
   const devs: number[] = [];
+  let overFlag = 0;
   for (const x of latest.values()) {
     if (!inRange(x.at, r) || !(x.bidTotal > 0)) continue;
     devs.push((x.total - x.bidTotal) / x.bidTotal);
+    // 원 단위 정수로 견준다(소수 오차로 경계 건이 빠지지 않게)
+    if (Math.abs(x.total - x.bidTotal) * 10_000 >= flagBp * x.bidTotal) overFlag++;
   }
-  if (!devs.length) return { n: 0, avgSigned: null, avgAbs: null, over5: 0 };
+  if (!devs.length) return { n: 0, avgSigned: null, avgAbs: null, overFlag: 0 };
   const sum = (a: number[]) => a.reduce((t, v) => t + v, 0);
-  return { n: devs.length, avgSigned: sum(devs) / devs.length, avgAbs: sum(devs.map(Math.abs)) / devs.length, over5: devs.filter((d) => Math.abs(d) >= 0.05).length };
+  return { n: devs.length, avgSigned: sum(devs) / devs.length, avgAbs: sum(devs.map(Math.abs)) / devs.length, overFlag };
 }
 
 export interface InboundRow {

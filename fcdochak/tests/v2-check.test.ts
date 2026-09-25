@@ -11,6 +11,7 @@ import {
   checkInvoice,
   distribution,
   groupLines,
+  showSpread,
   SEGMENTS,
   toKrw,
   type Benchmark,
@@ -29,7 +30,7 @@ import { STANDARD_CARGO } from '@/lib/standard-cargo';
 import { asRole, hazardDb, todayKst } from './helpers';
 
 const FX = { KRW: 1, RMB: 190.5, USD: 1380 };
-const RULE: InvoiceCheckRule = { minSamples: 3, highOverMedianBp: 2000, lowUnderMedianBp: 3000, missingCoverageBp: 5000, publicPerMinute: 20 };
+const RULE: InvoiceCheckRule = { minSamples: 3, highOverMedianBp: 2000, lowUnderMedianBp: 3000, missingCoverageBp: 5000, publicPerMinute: 20, minSpreadSamples: 4 };
 const none: Benchmark = { source: 'none', n: 0, median: null, q1: null, q3: null, min: null, coverageBp: null };
 const mkt = (median: number, q1: number, q3: number, min: number, n = 10, coverageBp = 10000): Benchmark => ({ source: 'market', n, median, q1, q3, min, coverageBp });
 const bench = (over: Partial<Record<Segment, Benchmark>>) => Object.fromEntries(SEGMENTS.map((s) => [s, over[s] ?? none])) as Record<Segment, Benchmark>;
@@ -92,6 +93,16 @@ describe('붙여넣은 표 읽기', () => {
     expect(got[0].segment).toBe('freight');
     expect(got[1].amount).toBe(-10000);
   });
+  it('통화를 금액 앞에 적어도 읽는다(중국 포워더 청구서) — 항목 이름에서는 뺀다', () => {
+    const got = parseInvoiceText('해상운임 USD 1,200\nO/F\tUSD\t850\n수출통관 RMB 300\n보관 CNY: 90\n인원 3 12,000', 'KRW');
+    expect(got.map((g) => [g.label, g.amount, g.currency, g.segment])).toEqual([
+      ['해상운임', 1200, 'USD', 'freight'],
+      ['O/F', 850, 'USD', 'freight'],
+      ['수출통관', 300, 'RMB', 'export_customs'],
+      ['보관', 90, 'RMB', 'kr_warehouse'],
+      ['인원 3', 12000, 'KRW', null],
+    ]);
+  });
   it('숫자 없는 줄뿐이면 빈 목록, 기본 통화는 위안으로도', () => {
     expect(parseInvoiceText('안녕하세요\n청구서입니다')).toEqual([]);
     expect(parseInvoiceText('창고 작업 280', 'RMB')[0].currency).toBe('RMB');
@@ -125,6 +136,27 @@ describe('비교 계산(순수 함수)', () => {
     expect(benchmarkFrom([100, 200, 300, 400], 8, 250, RULE)).toMatchObject({ source: 'market', n: 4, median: 250, min: 100, coverageBp: 5000 });
     expect(benchmarkFrom([100, 200], 8, 250, RULE)).toEqual({ source: 'reference', n: 2, median: 250, q1: 250, q3: 250, min: null, coverageBp: 2500 });
     expect(benchmarkFrom([], 0, null, RULE)).toMatchObject({ source: 'none', median: null, coverageBp: null });
+  });
+  it('표본이 퍼짐 기준보다 적으면 중간값만 — 요금표 3장의 금액이 분위로 다 드러나지 않게', () => {
+    const amounts = [100, 200, 300];
+    const b = benchmarkFrom(amounts, 3, 250, RULE); // minSamples 3 ≤ n < minSpreadSamples 4
+    expect(b).toEqual({ source: 'market', n: 3, median: 200, q1: null, q3: null, min: null, coverageBp: 10000 });
+    // 응답에 남는 금액은 중간값 하나뿐
+    const shown = [b.median, b.q1, b.q3, b.min].filter((x) => x != null);
+    expect(amounts.filter((a) => shown.includes(a))).toEqual([200]);
+    expect(benchmarkFrom(amounts, 3, 250, { minSamples: 3 })).toMatchObject({ q1: null, q3: null, min: null }); // 기준이 없으면 싣지 않는다
+    expect(showSpread(4, RULE)).toBe(true);
+    expect(showSpread(3, RULE)).toBe(false);
+    // 비싼 쪽 경계가 없으면 「과함」은 중간값 기준만 본다
+    const r = checkInvoice({
+      lines: [line('운임', 260, 'freight')],
+      fx: FX,
+      benchmarks: bench({ freight: b }),
+      market: { cards: 3, totals: distribution([100, 200, 300]) },
+      rule: RULE,
+    });
+    expect(r.segments.find((x) => x.segment === 'freight')!.verdict).toBe('high');
+    expect(r.market).toMatchObject({ median: 200, q1: null, min: null });
   });
   it('구간별 모으기 — 세금·못 정한 줄은 따로', () => {
     const g = groupLines([line('a', 100, 'freight'), line('b', 1, 'freight', 'RMB'), line('관세', 50, 'tax'), line('?', 7, null)], FX);
@@ -245,7 +277,9 @@ describe('비교 계산(순수 함수)', () => {
 
   it('규칙 읽기 — 빠진 칸이 있으면 알린다(기본값을 박지 않는다)', () => {
     const v = SETTINGS.find((s) => s.key === 'invoice_check_rule')!.value;
-    expect(parseInvoiceCheckRule(v)).toEqual({ minSamples: 3, highOverMedianBp: 2000, lowUnderMedianBp: 3000, missingCoverageBp: 5000, publicPerMinute: 20 });
+    expect(parseInvoiceCheckRule(v)).toEqual({ minSamples: 3, highOverMedianBp: 2000, lowUnderMedianBp: 3000, missingCoverageBp: 5000, publicPerMinute: 20, minSpreadSamples: 5 });
+    // 퍼짐 기준이 없는 옛 판 — 퍼짐을 싣지 않는 쪽으로
+    expect(parseInvoiceCheckRule({ minSamples: 3, highOverMedianBp: 2000, lowUnderMedianBp: 3000, missingCoverageBp: 5000, publicPerMinute: 20 }).minSpreadSamples).toBeUndefined();
     expect(() => parseInvoiceCheckRule({ minSamples: 3 })).toThrow(/invoice_check_rule/);
   });
 

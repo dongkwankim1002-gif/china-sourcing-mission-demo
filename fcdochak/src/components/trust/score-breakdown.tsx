@@ -23,25 +23,46 @@ export interface MetricsView {
   invoiced_count: number | null;
 }
 
-function measures(m: MetricsView | null, t: TrustView, certainty: number | null): Record<ScoreKey, { text: string; measured: boolean }> {
+const ITEM_LABEL_ZH: Record<ScoreKey, string> = { onTime: '准时入库', deviation: '账单偏差', fcReturn: 'FC退回', certainty: '价格确定性' };
+
+function measures(m: MetricsView | null, t: TrustView, certainty: number | null, zh = false): Record<ScoreKey, { text: string; measured: boolean }> {
   const dev = t.deviation;
-  const fail = [t.rejected ? `반려 ${num(t.rejected)}건` : null, t.lost ? `분실·미도착 ${num(t.lost)}건` : null].filter(Boolean).join(' · ');
+  const none = zh ? '无实测(按中间值)' : '실측 없음(중립값)';
+  const fail = [
+    t.rejected ? (zh ? `拒收 ${num(t.rejected)}票` : `반려 ${num(t.rejected)}건`) : null,
+    t.lost ? (zh ? `丢失·未到 ${num(t.lost)}票` : `분실·미도착 ${num(t.lost)}건`) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   return {
     onTime: m?.shipments_done
-      ? { text: `${pct(m.on_time_rate, 0)} · 입고 ${num(m.shipments_done)}건`, measured: true }
-      : { text: '실측 없음(중립값)', measured: false },
+      ? { text: zh ? `${pct(m.on_time_rate, 0)} · 入库 ${num(m.shipments_done)}票` : `${pct(m.on_time_rate, 0)} · 입고 ${num(m.shipments_done)}건`, measured: true }
+      : { text: none, measured: false },
     deviation: dev.n
-      ? { text: `평균 ${pct(dev.avgAbs, 1)} · 나쁜 쪽 10%(${num(dev.worstCount)}건) 평균 ${pct(dev.worst10, 1, true)} · 청구 ${num(dev.n)}건`, measured: true }
-      : { text: '실측 없음(중립값)', measured: false },
+      ? {
+          text: zh
+            ? `平均 ${pct(dev.avgAbs, 1)} · 最差10%(${num(dev.worstCount)}票) 平均 ${pct(dev.worst10, 1, true)} · 账单 ${num(dev.n)}张`
+            : `평균 ${pct(dev.avgAbs, 1)} · 나쁜 쪽 10%(${num(dev.worstCount)}건) 평균 ${pct(dev.worst10, 1, true)} · 청구 ${num(dev.n)}건`,
+          measured: true,
+        }
+      : { text: none, measured: false },
     fcReturn: m?.done_30d
-      ? { text: `30일 회송률 ${pct(m.return_rate_30d, 1)} · 입고 ${num(m.done_30d)}건${fail ? ` · ${fail}` : ''}`, measured: true }
-      : { text: `실측 없음(중립값)${fail ? ` · ${fail}` : ''}`, measured: false },
-    certainty: { text: certainty == null ? '확정 구간 비중 없음' : `확정 구간 ${pct(certainty, 0)}`, measured: certainty != null },
+      ? {
+          text: zh
+            ? `30天退回率 ${pct(m.return_rate_30d, 1)} · 入库 ${num(m.done_30d)}票${fail ? ` · ${fail}` : ''}`
+            : `30일 회송률 ${pct(m.return_rate_30d, 1)} · 입고 ${num(m.done_30d)}건${fail ? ` · ${fail}` : ''}`,
+          measured: true,
+        }
+      : { text: `${none}${fail ? ` · ${fail}` : ''}`, measured: false },
+    certainty: {
+      text: certainty == null ? (zh ? '无确定区段占比' : '확정 구간 비중 없음') : zh ? `确定区段 ${pct(certainty, 0)}` : `확정 구간 ${pct(certainty, 0)}`,
+      measured: certainty != null,
+    },
   };
 }
 
-export function sampleSentence(s: SampleVerdict) {
-  return `최근 ${s.days}일 끝난 선적 ${num(s.n)}건 · 점수 기준 ${num(s.min)}건`;
+export function sampleSentence(s: SampleVerdict, zh = false) {
+  return zh ? `最近 ${s.days} 天完成 ${num(s.n)} 票 · 评分标准 ${num(s.min)} 票` : `최근 ${s.days}일 끝난 선적 ${num(s.n)}건 · 점수 기준 ${num(s.min)}건`;
 }
 
 export function ScoreBreakdown({
@@ -53,6 +74,7 @@ export function ScoreBreakdown({
   certaintyNote,
   variant = 'full',
   className,
+  zh = false,
 }: {
   parts: ScoreParts;
   score: number;
@@ -63,8 +85,11 @@ export function ScoreBreakdown({
   certaintyNote?: string;
   variant?: 'full' | 'inline';
   className?: string;
+  /** 물류사 콘솔에서 중국어를 고른 경우(항목 이름·잰 값·안내를 중국어로) */
+  zh?: boolean;
 }) {
-  const ms = measures(metrics, trust, certainty);
+  const ms = measures(metrics, trust, certainty, zh);
+  const label = (k: ScoreKey, ko: string) => (zh ? ITEM_LABEL_ZH[k] : ko);
   const items = scoreBreakdown(parts, { onTime: ms.onTime.measured, deviation: ms.deviation.measured, fcReturn: ms.fcReturn.measured });
   const enough = trust.sample.enough;
 
@@ -101,19 +126,19 @@ export function ScoreBreakdown({
             <span className="ml-1 text-base text-muted">/ 100</span>
           </p>
         ) : (
-          <p className="display text-2xl text-caution">표본 부족({num(trust.sample.n)}건)</p>
+          <p className="display text-2xl text-caution">{zh ? `样本不足(${num(trust.sample.n)}票)` : `표본 부족(${num(trust.sample.n)}건)`}</p>
         )}
-        <p className="text-2xs text-muted">{sampleSentence(trust.sample)}</p>
+        <p className="text-2xs text-muted">{sampleSentence(trust.sample, zh)}</p>
       </div>
       {!enough ? (
         <p className="rounded-sm bg-caution-bg p-2 text-xs text-text">
-          표본이 기준에 못 미쳐 추천 점수와 항목 점수를 내지 않습니다. 아래는 지금까지 잰 값입니다.
+          {zh ? '样本未达标准，不显示推荐分和分项分。以下为目前实测值。' : '표본이 기준에 못 미쳐 추천 점수와 항목 점수를 내지 않습니다. 아래는 지금까지 잰 값입니다.'}
         </p>
       ) : null}
       <ul className="grid gap-2.5">
         {items.map((it) => (
           <li key={it.key} className="grid gap-1 sm:grid-cols-[112px_minmax(0,1fr)_76px] sm:items-center sm:gap-3">
-            <span className="text-sm font-semibold">{it.label}</span>
+            <span className="text-sm font-semibold">{label(it.key, it.label)}</span>
             <span className="min-w-0">
               {enough ? (
                 <span className="block h-2 overflow-hidden rounded-xs bg-surface-2" aria-hidden>
@@ -130,7 +155,9 @@ export function ScoreBreakdown({
         ))}
       </ul>
       <p className="text-2xs text-muted">
-        가중치: 정시 입고 30 · 청구 편차 25 · FC 회송 25 · 가격 확실성 20. 실측이 없는 항목은 절반(중립값)으로 셉니다. 광고·특수관계는 점수에 들어가지 않습니다.
+        {zh
+          ? '权重：准时入库 30 · 账单偏差 25 · FC退回 25 · 价格确定性 20。无实测的项目按一半(中间值)计算。广告·关联关系不计入评分。'
+          : '가중치: 정시 입고 30 · 청구 편차 25 · FC 회송 25 · 가격 확실성 20. 실측이 없는 항목은 절반(중립값)으로 셉니다. 광고·특수관계는 점수에 들어가지 않습니다.'}
       </p>
     </div>
   );

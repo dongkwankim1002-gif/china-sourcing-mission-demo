@@ -57,7 +57,8 @@ export default async function PartnerReviews() {
             trust={d.trust}
             metrics={m}
             certainty={m?.price_certainty ?? null}
-            certaintyNote="최근 180일 응찰 기준"
+            certaintyNote={zh ? '按最近 180 天报价' : '최근 180일 응찰 기준'}
+            zh={zh}
           />
         </Panel>
         <div className="grid min-w-0 content-start gap-3 xl:col-start-1 xl:row-start-1">
@@ -70,7 +71,7 @@ export default async function PartnerReviews() {
                 <li key={r.id} className="min-w-0 rounded-md border border-line bg-surface p-4" data-review-id={r.id}>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="display text-lg tnum">{r.rating}/5</span>
-                    <OutcomeChip outcome={r.outcome} />
+                    <OutcomeChip outcome={r.outcome} zh={zh} />
                     {r.on_time_ok ? <Chip tone="ok">{zh ? '准时入库' : '정시 입고'}</Chip> : <Chip tone="caution">{zh ? '晚到' : '늦은 입고'}</Chip>}
                     {r.billing_ok ? <Chip tone="ok">{zh ? '按报价结算' : '견적대로 청구'}</Chip> : <Chip tone="caution">{zh ? '账单差异' : '청구 차이'}</Chip>}
                     {!r.published ? <Chip tone="neutral">{zh ? '未公开' : '비공개'}</Chip> : null}

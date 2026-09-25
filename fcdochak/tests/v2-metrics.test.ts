@@ -67,12 +67,15 @@ describe('지표 순수 함수', () => {
     expect(monthlyCount(e, 'booked', ['2026-08', '2026-09'])).toEqual([{ month: '2026-08', n: 0 }, { month: '2026-09', n: 1 }]);
   });
 
-  it('초대 비율 — 초대 기록이 없으면 0 이고 「준비 중」', () => {
+  it('초대 비율 — 물류사 가입만 분모, 가입이 없으면 null', () => {
     const rows = [{ at: '2026-09-02T00:00:00Z', orgKind: 'partner' as const, via: 'direct' }, { at: '2026-09-03T00:00:00Z', orgKind: 'shipper' as const, via: null }];
-    expect(inviteRatio(rows, r)).toEqual({ invited: 0, total: 2, ratio: 0, ready: false });
+    expect(inviteRatio(rows, r)).toEqual({ invited: 0, total: 1, ratio: 0 });
     const withInvite = [...rows, { at: '2026-09-04T00:00:00Z', orgKind: 'partner' as const, via: 'invite' }, { at: '2026-08-04T00:00:00Z', orgKind: 'partner' as const, via: 'invite' }];
-    expect(inviteRatio(withInvite, r)).toEqual({ invited: 1, total: 3, ratio: 1 / 3, ready: true });
-    expect(inviteRatio([], r)).toEqual({ invited: 0, total: 0, ratio: 0, ready: false });
+    expect(inviteRatio(withInvite, r)).toEqual({ invited: 1, total: 2, ratio: 1 / 2 });
+    // 화주 가입이 늘어도 비율은 그대로
+    const moreShippers = [...withInvite, { at: '2026-09-05T00:00:00Z', orgKind: 'shipper' as const, via: null }, { at: '2026-09-06T00:00:00Z', orgKind: 'shipper' as const, via: null }];
+    expect(inviteRatio(moreShippers, r).ratio).toBe(1 / 2);
+    expect(inviteRatio([], r)).toEqual({ invited: 0, total: 0, ratio: null });
   });
 
   it('재선적률 — 기간 안 예약 셀러 중 그 전에 예약한 적 있는 곳', () => {
@@ -95,12 +98,13 @@ describe('지표 순수 함수', () => {
       { shipmentId: 's2', at: '2026-09-04T00:00:00Z', version: 1, total: 190_000, bidTotal: 200_000 },
       { shipmentId: 's3', at: '2026-08-04T00:00:00Z', version: 1, total: 500_000, bidTotal: 100_000 }, // 기간 밖
     ];
-    const q = quoteVsInvoice(rows, r);
+    const q = quoteVsInvoice(rows, r, 500);
     expect(q.n).toBe(2);
     expect(q.avgSigned).toBeCloseTo((0.1 - 0.05) / 2, 10);
     expect(q.avgAbs).toBeCloseTo((0.1 + 0.05) / 2, 10);
-    expect(q.over5).toBe(2);
-    expect(quoteVsInvoice([], r)).toEqual({ n: 0, avgSigned: null, avgAbs: null, over5: 0 });
+    expect(q.overFlag).toBe(2); // 10% · 5%(경계 포함)
+    expect(quoteVsInvoice(rows, r, 501).overFlag).toBe(1);
+    expect(quoteVsInvoice([], r, 300)).toEqual({ n: 0, avgSigned: null, avgAbs: null, overFlag: 0 });
   });
 
   it('회송률 — 회송 수량 ÷ 선적 수량(선적 수량을 넘지 않게)', () => {
@@ -320,7 +324,12 @@ describe('이벤트 표와 목적지 참조표(DB)', () => {
     expect(m.returns.cur.shipments).toBeGreaterThan(0);
     expect(m.billing.cur.n).toBeGreaterThan(0);
     expect(m.revenue.cur.perShipment).toBeGreaterThan(0);
-    expect(m.invite.cur).toMatchObject({ ratio: 0, ready: false });
+    // 데모 시드 — 초대 링크로 연결된 물류사의 가입은 via = 'invite'
+    const invitedAll = (await asRole(db, 'fcd_user', ids.admin, true, (q) =>
+      q.query<{ n: number }>(`select count(*)::int n from fcd.events where kind = 'signed_up' and detail->>'via' = 'invite'`),
+    ))[0].n;
+    expect(invitedAll).toBe(1);
+    expect(m.invite.cur.total).toBeGreaterThanOrEqual(m.invite.cur.invited);
     expect(m.repeat.cur.rate).not.toBeNull();
     expect(m.monthly.active).toHaveLength(6);
     const off = await asRole(db, 'fcd_user', ids.admin, true, async (q) => adminMetrics(q, await loadSettings(q), today, false));

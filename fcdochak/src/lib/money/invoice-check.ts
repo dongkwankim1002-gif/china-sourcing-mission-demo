@@ -37,6 +37,11 @@ export interface InvoiceCheckRule {
   missingCoverageBp: number;
   /** 비로그인 점검 — IP 당 분당 횟수 */
   publicPerMinute: number;
+  /**
+   * 분포의 퍼짐(싼 쪽 25%·비싼 쪽 25%·최저)을 싣는 최소 표본. 이보다 적으면 중간값만 싣는다 —
+   * 표본 3~4건에서 네 분위를 모두 내면 요금표 금액이 거의 그대로 드러난다. 없으면 퍼짐을 싣지 않는다.
+   */
+  minSpreadSamples?: number;
 }
 
 export interface Distribution {
@@ -149,16 +154,29 @@ export function toKrw(amount: number, currency: Currency, fx: Record<Currency, n
  * 구간 하나의 기준 — 이 구간을 맡은 요금표들의 금액(amounts)과 전체 요금표 수(cards), 참고치(reference).
  * 표본이 minSamples 이상이면 시장 분포, 아니면 참고치.
  */
-export function benchmarkFrom(amounts: number[], cards: number, reference: number | null | undefined, rule: Pick<InvoiceCheckRule, 'minSamples'>): Benchmark {
+export function benchmarkFrom(
+  amounts: number[],
+  cards: number,
+  reference: number | null | undefined,
+  rule: Pick<InvoiceCheckRule, 'minSamples' | 'minSpreadSamples'>,
+): Benchmark {
   const d = distribution(amounts);
   const coverageBp = cards > 0 ? toNumber(divRoundHalfUp(BigInt(amounts.length) * BP, BigInt(cards))) : null;
   if (d && d.n >= Math.max(1, rule.minSamples)) {
+    // 표본이 적으면 중간값만 — 분위·최저까지 내면 요금표 하나하나의 금액이 드러난다
+    if (!showSpread(d.n, rule)) return { source: 'market', n: d.n, median: d.median, q1: null, q3: null, min: null, coverageBp };
     return { source: 'market', n: d.n, median: d.median, q1: d.q1, q3: d.q3, min: d.min, coverageBp };
   }
   if (reference != null) {
     return { source: 'reference', n: d?.n ?? 0, median: reference, q1: reference, q3: reference, min: null, coverageBp };
   }
   return { source: 'none', n: d?.n ?? 0, median: null, q1: null, q3: null, min: null, coverageBp };
+}
+
+/** 퍼짐(분위·최저)을 실어도 되는 표본인가 — minSpreadSamples 가 없으면 싣지 않는다 */
+export function showSpread(n: number, rule: Pick<InvoiceCheckRule, 'minSamples' | 'minSpreadSamples'>): boolean {
+  const m = rule.minSpreadSamples;
+  return typeof m === 'number' && Number.isFinite(m) && n >= Math.max(m, rule.minSamples, 1);
 }
 
 function bpOver(amount: number, base: number): number {
@@ -217,7 +235,8 @@ export function checkInvoice(input: {
         diffFromMedian = amount - b.median;
         overMedianBp = bpOver(amount, b.median);
         diffFromMin = b.min != null ? amount - b.min : null;
-        const aboveQ3 = b.source !== 'market' || (b.q3 != null && amount > b.q3);
+        // 비싼 쪽 25% 경계는 퍼짐을 실을 만큼 표본이 있을 때만 조건에 넣는다(참고치·적은 표본은 중간값 기준만)
+        const aboveQ3 = b.source !== 'market' || b.q3 == null || amount > b.q3;
         if (overMedianBp >= rule.highOverMedianBp && aboveQ3) verdict = 'high';
         else if (-overMedianBp >= rule.lowUnderMedianBp) verdict = 'low';
         else verdict = 'typical';
@@ -251,8 +270,8 @@ export function checkInvoice(input: {
     market: {
       cards: input.market.cards,
       median: t?.median ?? null,
-      q1: t?.q1 ?? null,
-      min: t?.min ?? null,
+      q1: t && showSpread(t.n, rule) ? t.q1 : null,
+      min: t && showSpread(t.n, rule) ? t.min : null,
       overMedianBp: t && t.median > 0 && projectedTotal > 0 ? bpOver(projectedTotal, t.median) : null,
     },
     counts,

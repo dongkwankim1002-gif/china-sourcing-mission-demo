@@ -120,5 +120,7 @@ export function parseInvoiceCheckRule(v: unknown): InvoiceCheckRule {
     lowUnderMedianBp: o.lowUnderMedianBp as number,
     missingCoverageBp: o.missingCoverageBp as number,
     publicPerMinute: o.publicPerMinute as number,
+    // 없으면(0006 첫 판만 있는 DB) 퍼짐을 싣지 않는다 — 안전한 쪽
+    minSpreadSamples: typeof o.minSpreadSamples === 'number' && Number.isFinite(o.minSpreadSamples) && o.minSpreadSamples >= 1 ? o.minSpreadSamples : undefined,
   };
 }

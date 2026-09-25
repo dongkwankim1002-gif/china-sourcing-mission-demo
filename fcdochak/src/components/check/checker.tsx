@@ -12,7 +12,7 @@ import { NumberField } from '@/components/number-field';
 import { Button, Field, Input, NativeSelect, Textarea } from '@/components/ui/core';
 import { CheckResultView } from './result';
 import { runCheck, saveCheck, loadSavedInput } from '@/app/actions/check';
-import { classifyItem, lineFromRow, parseInvoiceText } from '@/lib/invoice-parse';
+import { classifyItem, inferMode, lineFromRow, parseInvoiceText } from '@/lib/invoice-parse';
 import { SEGMENTS, SEGMENT_LABEL_KO } from '@/lib/money/segments';
 import type { Currency, LineSegment } from '@/lib/money';
 import type { CheckInputT, CheckOutcome } from '@/lib/invoice-check-input';
@@ -103,6 +103,9 @@ export function InvoiceChecker({
   const [pasteCur, setPasteCur] = React.useState<Currency>('KRW');
   const [pasteNote, setPasteNote] = React.useState<string | null>(null);
   const [outcome, setOutcome] = React.useState<(CheckOutcome & { canSave: boolean }) | null>(null);
+  /** 결과를 낸 입력 — 지금 입력과 다르면 결과가 낡은 것(보관 막기) */
+  const [checked, setChecked] = React.useState<{ key: string; mode: CheckInputT['mode'] } | null>(null);
+  const [modeNote, setModeNote] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, start] = React.useTransition();
   const [saving, startSave] = React.useTransition();
@@ -165,6 +168,15 @@ export function InvoiceChecker({
       }),
     );
 
+  /** 읽은 줄 이름에 방식이 적혀 있고 지금 「상관없음」이면 그 방식으로 미리 고른다 */
+  const pickModeFrom = (labels: string[]) => {
+    const m = inferMode(labels);
+    if (!m || cargo.mode !== 'ANY') return;
+    if (m === 'FERRY' && !shandong) return;
+    setC('mode', m);
+    setModeNote(`청구서 항목에 「${MODES.find(([k]) => k === m)?.[1] ?? m}」이 있어 운송 방식을 그것으로 골랐습니다. 다르면 바꾸세요.`);
+  };
+
   const readPaste = () => {
     const got = parseInvoiceText(paste, pasteCur);
     if (got.length === 0) {
@@ -172,6 +184,7 @@ export function InvoiceChecker({
       return;
     }
     setLines(got.map(({ raw: _raw, ...l }) => mk({ ...l, auto: true })));
+    pickModeFrom(got.map((g) => g.label));
     setPasteNote(`${got.length}줄을 읽었습니다. 아래에서 구간이 맞는지 확인하세요.`);
     setOutcome(null);
     setSaved(null);
@@ -214,6 +227,7 @@ export function InvoiceChecker({
         return;
       }
       setOutcome(r.data);
+      setChecked({ key: JSON.stringify(i), mode: i.mode });
       requestAnimationFrame(() => resultRef.current?.focus());
     });
   };
@@ -240,6 +254,9 @@ export function InvoiceChecker({
   };
 
   const classifiedCount = lines.filter((l) => l.segment && l.segment !== 'tax').length;
+  // 결과를 낸 뒤 줄·화물 조건을 고쳤으면 결과가 낡았다 — 다시 점검해야 보관할 수 있다
+  const nowInput = outcome ? input() : null;
+  const stale = !!outcome && (!checked || typeof nowInput === 'string' || JSON.stringify(nowInput) !== checked.key);
 
   return (
     <div className="grid gap-6">
@@ -253,7 +270,26 @@ export function InvoiceChecker({
         <h2 id="step1" className="border-b border-line-2 px-4 py-3 text-base font-bold">
           <span className="mr-2 text-muted tnum">1</span>받은 견적서·청구서 넣기
         </h2>
-        <div role="tablist" aria-label="넣는 방법" className="flex flex-wrap gap-1 border-b border-line-2 px-3 pt-2">
+        <div
+          role="tablist"
+          aria-label="넣는 방법"
+          className="flex flex-wrap gap-1 border-b border-line-2 px-3 pt-2"
+          onKeyDown={(e) => {
+            // 탭 묶음 — 왼쪽·오른쪽 화살표(와 Home·End)로 옮기고 바로 고른다. Tab 은 고른 탭 하나에만 멈춘다
+            const order = ['paste', 'excel', 'manual'] as const;
+            const at = order.indexOf(tab);
+            const next =
+              e.key === 'ArrowRight' ? order[(at + 1) % order.length]
+              : e.key === 'ArrowLeft' ? order[(at + order.length - 1) % order.length]
+              : e.key === 'Home' ? order[0]
+              : e.key === 'End' ? order[order.length - 1]
+              : null;
+            if (!next) return;
+            e.preventDefault();
+            setTab(next);
+            document.getElementById(`tab-${next}`)?.focus();
+          }}
+        >
           {(
             [
               ['paste', '표 붙여넣기', ClipboardPaste],
@@ -268,6 +304,7 @@ export function InvoiceChecker({
               id={`tab-${k}`}
               aria-selected={tab === k}
               aria-controls={`panel-${k}`}
+              tabIndex={tab === k ? 0 : -1}
               onClick={() => setTab(k)}
               className={cn(
                 '-mb-px inline-flex h-10 items-center gap-1.5 rounded-t-sm border-b-2 px-3 text-sm font-semibold',
@@ -313,6 +350,7 @@ export function InvoiceChecker({
                 const got = rows.map((r) => lineFromRow(r, 'KRW')).filter((x): x is NonNullable<typeof x> => !!x);
                 if (got.length === 0) return { ok: false, error: '금액이 있는 줄이 없습니다' };
                 setLines(got.map((l) => mk({ ...l, auto: true })));
+                pickModeFrom(got.map((g) => g.label));
                 setOutcome(null);
                 setSaved(null);
                 return { ok: true, created: got.length };
@@ -413,8 +451,15 @@ export function InvoiceChecker({
               ))}
             </NativeSelect>
           </Field>
-          <Field label="운송 방식" htmlFor="ck-mode" hint="고르면 같은 방식끼리 견줍니다">
-            <NativeSelect id="ck-mode" value={cargo.mode} onChange={(e) => setC('mode', e.target.value as CheckInputT['mode'])}>
+          <Field label="운송 방식" htmlFor="ck-mode" hint={modeNote ?? '고르면 같은 방식끼리 견줍니다. 「상관없음」은 항공·해상이 섞여 판정이 흐려집니다'}>
+            <NativeSelect
+              id="ck-mode"
+              value={cargo.mode}
+              onChange={(e) => {
+                setC('mode', e.target.value as CheckInputT['mode']);
+                setModeNote(null);
+              }}
+            >
               {MODES.filter(([m]) => m !== 'FERRY' || shandong).map(([m, l]) => (
                 <option key={m} value={m}>
                   {l}
@@ -466,6 +511,19 @@ export function InvoiceChecker({
 
       {outcome ? (
         <div ref={resultRef} tabIndex={-1} aria-live="polite" className="grid gap-4 outline-none">
+          {stale ? (
+            <div role="status" className="flex flex-wrap items-center gap-3 rounded-md border border-caution/40 bg-caution-bg p-3 text-sm text-caution" data-testid="check-stale">
+              <span className="min-w-0 flex-1">조건이 바뀌었습니다 — 아래 결과는 고치기 전 입력의 결과입니다. 다시 점검해 주세요.</span>
+              <Button size="sm" variant="ink" onClick={submit} disabled={pending}>
+                다시 점검
+              </Button>
+            </div>
+          ) : null}
+          {checked?.mode === 'ANY' ? (
+            <p role="note" className="rounded-md border border-caution/40 bg-caution-bg p-3 text-sm text-caution" data-testid="check-mixed-mode">
+              방식이 섞인 비교입니다 — 운송 방식을 「상관없음」으로 두어 항공·해상 요금표를 한데 모아 견줬습니다. 비싼 쪽 경계가 올라가 과한 구간을 놓칠 수 있으니 받은 방식을 골라 다시 점검해 보세요.
+            </p>
+          ) : null}
           <CheckResultView outcome={outcome} />
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-2 p-4" data-testid="check-save">
             {saved ? (
@@ -479,10 +537,10 @@ export function InvoiceChecker({
               </>
             ) : outcome.canSave ? (
               <>
-                <Button variant="ink" onClick={save} disabled={saving}>
+                <Button variant="ink" onClick={save} disabled={saving || stale}>
                   {saving ? '보관하는 중…' : from ? `${CHECK_ACTION.save}(새 판)` : CHECK_ACTION.save}
                 </Button>
-                <p className="text-xs text-muted">보관한 점검은 나만 봅니다. 고쳐서 다시 보관하면 새 판으로 쌓입니다.</p>
+                <p className="text-xs text-muted">{stale ? '조건이 바뀌어 다시 점검한 뒤에 보관할 수 있습니다.' : '보관한 점검은 나만 봅니다. 고쳐서 다시 보관하면 새 판으로 쌓입니다.'}</p>
               </>
             ) : (
               <>

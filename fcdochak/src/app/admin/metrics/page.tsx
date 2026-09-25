@@ -39,19 +39,17 @@ export default async function AdminMetrics({ searchParams }: { searchParams: Pro
         <StatTile
           label="초대로 들어온 업체"
           value={m.invite.cur.ratio}
-          prev={m.invite.cur.ready ? m.invite.prev.ratio : null}
+          prev={m.invite.prev.ratio}
           format="pct"
           good="up"
-          hint={m.invite.cur.ready ? `가입 ${num(m.invite.cur.total)}곳 중 ${num(m.invite.cur.invited)}곳` : '초대 기록 준비 중'}
+          hint={m.invite.cur.total ? `가입한 물류사 ${num(m.invite.cur.total)}곳 중 ${num(m.invite.cur.invited)}곳` : '이 기간 물류사 가입 없음'}
         />
         <StatTile label="재선적률" value={m.repeat.cur.rate} prev={m.repeat.prev.rate} format="pct" hint={`예약한 셀러 ${num(m.repeat.cur.sellers)}곳 중 ${num(m.repeat.cur.repeat)}곳`} />
         <StatTile label="견적 대비 청구 차이" value={bill.avgSigned} prev={m.billing.prev.avgSigned} format="pct" good="down" hint={bill.n ? `청구 ${num(bill.n)}건 · 절대값 평균 ${pct(bill.avgAbs, 1)}` : '청구 없음'} />
         <StatTile label="회송률" value={m.returns.cur.rate} prev={m.returns.prev.rate} format="pct" good="down" hint={`FC 입고 ${num(m.returns.cur.shipments)}건 중 회송 ${num(m.returns.cur.withReturn)}건`} />
         <StatTile label="선적당 매출(수수료 기준)" value={m.revenue.cur.perShipment} prev={m.revenue.prev.perShipment} format="won" hint={`요율 ${(m.revenue.rateBp / 100).toFixed(2)}% · 물류비 − 관세사 보수`} href="/admin/commission" />
       </section>
-      {!m.invite.cur.ready ? (
-        <p className="mt-2 text-xs text-muted">초대로 들어온 업체 비율 — 거래처 초대 링크로 가입한 기록이 아직 없어 0%로 둡니다(초대 기록 표시 준비 중).</p>
-      ) : null}
+      <p className="mt-2 text-xs text-muted">초대로 들어온 업체 — 이 기간 가입한 물류사 중 화주의 거래처 초대 링크로 들어온 비율(초대는 물류사에게만 갑니다).</p>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Panel>

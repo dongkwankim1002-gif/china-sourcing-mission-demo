@@ -23,6 +23,7 @@ import {
 } from '../metrics';
 import type { SegmentAmounts } from '../money';
 import type { AppSettings } from './settings';
+import { workspaceSettings } from './workspace';
 
 export async function adminMetrics(q: Queryable, s: AppSettings, today: string, includeDemo: boolean, days = 30) {
   const demo = includeDemo ? 'true' : 'not o.is_demo';
@@ -89,6 +90,7 @@ export async function adminMetrics(q: Queryable, s: AppSettings, today: string, 
   );
 
   const rate = s.commissionRateBp;
+  const flagBp = (await workspaceSettings(q)).billingFlagBp;
   const funnel = EVENT_KINDS.filter((k) => k !== 'signed_up').map((k) => ({ kind: k, cur: countIn(events, k, cur), prev: countIn(events, k, prev) }));
   return {
     days,
@@ -98,7 +100,7 @@ export async function adminMetrics(q: Queryable, s: AppSettings, today: string, 
     managed: { cur: countIn(events, 'booked', cur), prev: countIn(events, 'booked', prev), inFlight },
     invite: { cur: inviteRatio(signups, cur), prev: inviteRatio(signups, prev) },
     repeat: { cur: repeatRate(booked, cur), prev: repeatRate(booked, prev) },
-    billing: { cur: quoteVsInvoice(invoices, cur), prev: quoteVsInvoice(invoices, prev) },
+    billing: { cur: quoteVsInvoice(invoices, cur, flagBp), prev: quoteVsInvoice(invoices, prev, flagBp), flagBp },
     returns: { cur: returnRate(inbound, cur), prev: returnRate(inbound, prev) },
     revenue: { cur: revenuePerShipment(bookedAmounts, cur, rate), prev: revenuePerShipment(bookedAmounts, prev, rate), rateBp: rate },
     monthly: {

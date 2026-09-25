@@ -75,7 +75,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
         </Panel>
       </div>
       <Panel className="mt-6">
-        <PanelHead title="업체 점수 순위" sub="정시 입고 30 · 청구 편차 25 · FC 회송률 25 · 가격확정도 20 — 광고·특수관계는 점수 밖" />
+        <PanelHead title="업체 점수 순위" sub="정시 입고 30 · 청구 편차 25 · FC 회송률 25 · 가격 확실성 20 — 광고·특수관계는 점수 밖" />
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm tnum">
             <thead className="bg-surface-2 text-xs text-muted">

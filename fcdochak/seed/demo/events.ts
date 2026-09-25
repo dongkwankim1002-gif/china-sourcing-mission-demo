@@ -15,7 +15,11 @@ export async function seedDemoEvents(q: Queryable): Promise<number> {
     -- 가입(화주·물류사 조직이 생긴 때)
     insert into fcd.events (org_id, seller_org_id, actor_id, kind, target_kind, target_id, detail, occurred_at, created_at)
     select o.id, case when o.kind = 'shipper' then o.id end, null, 'signed_up', 'org', o.id,
-           jsonb_build_object('orgKind', o.kind, 'via', 'direct'), o.created_at, o.created_at
+           jsonb_build_object('orgKind', o.kind, 'via',
+             -- 거래처 초대 링크로 연결된 물류사(shipper_partners.invite_id)는 초대 가입으로 적는다
+             case when o.kind = 'partner' and exists (select 1 from fcd.shipper_partners sp where sp.partner_org_id = o.id and sp.invite_id is not null)
+                  then 'invite' else 'direct' end),
+           o.created_at, o.created_at
       from fcd.orgs o where o.is_demo and o.kind in ('shipper', 'partner');
 
     -- 견적 요청
@@ -59,7 +63,7 @@ export async function seedDemoEvents(q: Queryable): Promise<number> {
 
     -- 청구(판마다)
     insert into fcd.events (org_id, seller_org_id, actor_id, kind, target_kind, target_id, detail, occurred_at, created_at)
-    select i.partner_org_id, s.shipper_org_id, i.created_by, 'invoiced', 'shipment', s.id, jsonb_build_object('total', i.total, 'version', i.version), i.created_at, i.created_at
+    select i.partner_org_id, s.shipper_org_id, i.created_by, 'invoiced', 'shipment', s.id, jsonb_build_object('version', i.version), i.created_at, i.created_at
       from fcd.invoices i join fcd.shipments s on s.id = i.shipment_id join fcd.orgs o on o.id = s.shipper_org_id where o.is_demo;
 
     -- 평가

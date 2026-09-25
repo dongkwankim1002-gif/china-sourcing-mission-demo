@@ -2,7 +2,9 @@
  * v2 assure — 확정가·회송 보장·후불 순수 함수와 새 표(관심 등록·확정가 견적)의 권한.
  * 화면 흐름은 e2e/v2-assure.spec.ts.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
 import type { Driver } from '@/lib/db/driver';
 import { seedDemo } from '@seed/demo';
 import { buildPurgeSql, planPurge } from '@seed/demo/purge';
@@ -332,6 +334,28 @@ describe('새 표 — 권한', () => {
                  values ('FP-T-4',$1,$2,'compare','{}'::jsonb,1,100,0,99,9000,'{}'::jsonb,'{}'::jsonb,current_date)`, [shipperOrg, ids.shipper]),
       ),
     ).rejects.toThrow();
+  });
+});
+
+describe('시범 확정가 기록 = 화면과 같은 조건', () => {
+  it('목적지가 3PL 이어도 compareBasis 표본이 비교 화면(compare + fc) 표본과 같다', async () => {
+    const { compare } = await import('@/lib/server/compare');
+    const { loadSettings } = await import('@/lib/server/settings');
+    const { compareBasis, basisFromOffers } = await import('@/lib/server/assure');
+    const { CargoQuery, toCargo } = await import('@/lib/cargo-params');
+    const today = todayKst();
+    for (const fc of ['TP-BSN', 'FC-ICH']) {
+      const cq = CargoQuery.parse({ hub: 'YIW', port: 'ICN', fc });
+      const [page, action, plain] = await asRole(db, 'fcd_user', ids.shipper, true, async (q) => {
+        const s = await loadSettings(q);
+        const r = await compare(q, { hub: cq.hub, port: cq.port, mode: cq.mode, cargo: toCargo(cq), traits: cq.traits, fc: cq.fc }, s, today);
+        const r0 = await compare(q, { hub: cq.hub, port: cq.port, mode: cq.mode, cargo: toCargo(cq), traits: cq.traits }, s, today);
+        return [basisFromOffers(r.offers), await compareBasis(q, cq, s, today), basisFromOffers(r0.offers)] as const;
+      });
+      expect(page.totals.length, fc).toBeGreaterThan(0);
+      expect(action.totals, fc).toEqual(page.totals);
+      if (fc === 'TP-BSN') expect(action.totals).not.toEqual(plain.totals);
+    }
   });
 });
 

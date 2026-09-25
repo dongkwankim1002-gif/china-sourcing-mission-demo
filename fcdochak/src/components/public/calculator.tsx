@@ -366,7 +366,7 @@ export function Calculator({
               </label>
               <p className="text-2xs text-on-ink-muted" aria-live="polite" data-testid="calc-sort-now">
                 현재 기준: <b className="text-on-ink">{SORT_LABEL[shownSort]}</b>
-                {shownSort === 'recommend' ? ' (정시 30 · 청구 편차 25 · FC 회송 25 · 가격확정도 20)' : ''}
+                {shownSort === 'recommend' ? ' (정시 30 · 청구 편차 25 · FC 회송 25 · 가격 확실성 20)' : ''}
                 {data && !data.includeRelated && data.relatedHidden ? ` · 특수관계 업체 ${data.relatedHidden}곳은 순위에서 뺐습니다` : ''}
               </p>
             </div>
@@ -442,7 +442,7 @@ export function Calculator({
         </section>
       </div>
       <div className="relative hidden min-w-0 lg:block">
-        <div className="sticky top-20">
+        <div className="sticky top-[calc(5rem_+_var(--banner-h))]">
           <SeaMap hub={input.hub} port={input.port} fc={input.fc} mode={input.mode === 'ANY' ? null : input.mode} className="h-auto w-full" />
         </div>
       </div>

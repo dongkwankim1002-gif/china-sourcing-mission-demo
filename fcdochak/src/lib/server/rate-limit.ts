@@ -15,3 +15,12 @@ export function allow(key: string, perMinute: number): boolean {
   e.n++;
   return e.n <= perMinute;
 }
+
+/**
+ * 제한 키로 쓸 접속 IP — 배포 플랫폼이 채우는 머리글을 먼저 본다(사용자가 보낸 x-forwarded-for 앞자리는 꾸밀 수 있다).
+ * Vercel: x-vercel-forwarded-for · x-real-ip 는 플랫폼이 덮어쓴다. 없을 때만 x-forwarded-for 를 본다.
+ */
+export function clientIp(h: { get(name: string): string | null }): string {
+  const first = (v: string | null) => v?.split(',')[0]?.trim() || null;
+  return first(h.get('x-vercel-forwarded-for')) ?? first(h.get('x-real-ip')) ?? first(h.get('x-forwarded-for')) ?? 'local';
+}

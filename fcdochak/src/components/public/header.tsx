@@ -27,7 +27,7 @@ export function PublicHeader() {
   return (
     <>
       <DemoBand />
-      <header className="sticky top-0 z-40 bg-ink text-on-ink">
+      <header className="sticky top-[var(--banner-h)] z-40 bg-ink text-on-ink">
         <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-4 px-4">
           <Link href="/" className="shrink-0 rounded-sm">
             <BrandMark />

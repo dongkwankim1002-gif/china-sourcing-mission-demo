@@ -60,8 +60,9 @@ test('운영 지표 — 운영 메뉴에서 들어가고 일곱 칸이 보인다
     await expect(tiles.getByText(label, { exact: true })).toBeVisible();
   }
   await expect(page.getByTestId('metrics-funnel').locator('tbody tr')).toHaveCount(10);
-  // 초대 기록이 없으면 0 · 준비 중
-  await expect(tiles.getByText('초대 기록 준비 중')).toBeVisible();
+  // 초대 비율은 물류사 가입만 분모로 — 「준비 중」 문구는 없다
+  await expect(tiles.getByText(/가입한 물류사 [\d,]+곳 중 [\d,]+곳|이 기간 물류사 가입 없음/)).toBeVisible();
+  await expect(page.getByText(/준비 중/)).toHaveCount(0);
   if (demo) {
     const booked = page.getByTestId('metrics-funnel').locator('tr').filter({ has: page.getByRole('rowheader', { name: '예약', exact: true }) });
     const n = Number((await booked.locator('td').first().innerText()).replace(/,/g, ''));
