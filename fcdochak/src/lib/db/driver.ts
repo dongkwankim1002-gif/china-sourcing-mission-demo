@@ -72,6 +72,29 @@ export function cleanDatabaseUrl(raw: string): string {
   }
 }
 
+/**
+ * json·jsonb 읽기 — 한 번 더 글자로 감싸 저장된 값(아래 쓰기 문제로 2026-09-25 첫 시드에 생김)은 한 겹 벗긴다.
+ * 진짜 글자 값('abc' 같은)은 그대로 둔다.
+ */
+export function parseJsonValue(raw: string): unknown {
+  const v = JSON.parse(raw);
+  if (typeof v === 'string') {
+    try {
+      const inner = JSON.parse(v);
+      if (inner !== null && typeof inner === 'object') return inner;
+      if (typeof inner === 'number' || typeof inner === 'boolean') return inner;
+    } catch {
+      /* 진짜 글자 값 */
+    }
+  }
+  return v;
+}
+
+/** json·jsonb 쓰기 — toParam 이 이미 JSON 글자로 만들어 넘기므로 다시 감싸지 않는다(postgres.js 기본은 JSON.stringify 를 한 번 더 함) */
+export function serializeJsonParam(v: unknown): string {
+  return typeof v === 'string' ? v : JSON.stringify(v);
+}
+
 async function createPostgres(rawUrl: string): Promise<Driver> {
   const postgres = (await import('postgres')).default;
   const url = cleanDatabaseUrl(rawUrl);
@@ -84,6 +107,10 @@ async function createPostgres(rawUrl: string): Promise<Driver> {
     connection: { TimeZone: 'UTC', application_name: 'fcdochak' },
     types: {
       int8: { to: OID.int8, from: [OID.int8], serialize: String, parse: parseNum },
+      json: { to: 3802, from: [114, 3802], serialize: serializeJsonParam, parse: parseJsonValue },
+      // text[]·varchar[]·uuid[] / int[] — toParam 이 이미 배열 글자로 넘긴다
+      textArray: { to: 1009, from: [1009, 1015, 2951], serialize: (v: unknown) => (typeof v === 'string' ? v : pgArray(v as unknown[])), parse: (s: string) => parsePgArray(s) },
+      intArray: { to: 1007, from: [1005, 1007, 1016], serialize: (v: unknown) => (typeof v === 'string' ? v : pgArray(v as unknown[])), parse: (s: string) => parsePgArray(s, Number) },
       numeric: { to: OID.numeric, from: [OID.numeric], serialize: String, parse: parseNum },
       date: { to: OID.date, from: [OID.date], serialize: identity, parse: identity },
       timestamptz: { to: OID.timestamptz, from: [OID.timestamptz, OID.timestamp], serialize: identity, parse: parseTimestamp },
@@ -125,6 +152,34 @@ export function pgArray(list: unknown[]): string {
       .join(',') +
     '}'
   );
+}
+
+/** Postgres 1차원 배열 글자('{a,"b c",NULL}') → 배열. postgres.js 가 배열 형식을 못 알아낼 때(풀러 등)를 대비해 직접 푼다. */
+export function parsePgArray(raw: string, item: (s: string) => unknown = (s) => s): unknown[] {
+  if (raw == null) return raw as never;
+  if (raw === '{}') return [];
+  const out: unknown[] = [];
+  let i = 1;
+  while (i < raw.length - 1) {
+    if (raw[i] === '"') {
+      let s = '';
+      i++;
+      while (i < raw.length && raw[i] !== '"') {
+        if (raw[i] === '\\') i++;
+        s += raw[i++];
+      }
+      i++; // 닫는 따옴표
+      out.push(item(s));
+    } else {
+      let j = i;
+      while (j < raw.length - 1 && raw[j] !== ',') j++;
+      const s = raw.slice(i, j);
+      out.push(s === 'NULL' ? null : item(s));
+      i = j;
+    }
+    if (raw[i] === ',') i++;
+  }
+  return out;
 }
 
 export async function createDriver(opts: { url?: string | null; dataDir?: string | null }): Promise<Driver> {

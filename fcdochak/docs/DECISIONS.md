@@ -42,3 +42,6 @@
 - 글꼴(640KB)은 첫 화면 경로에서 뺐다: 처음 온 기기는 그 쪽을 시스템 글꼴로 끝까지 그리고 한가할 때 파일만 캐시에 받아 두며, 다음 쪽 로드부터 머리에 글꼴 CSS 를 파싱 중에 써 넣어(캐시에서) 처음부터 붙인다(`layout.tsx` fontScript — optional 은 첫 그리기 뒤엔 영영 안 바뀌어 쓰지 않음). 로드 뒤 바꿔 끼우면 CLS 0.2, 미리 받기(preload)는 느린 4G 에서 LCP 6초라 둘 다 뺐다.
 - 로그인 쪽은 검색에 열어 둔다(공개 쪽). robots 의 `/partner` 가 공개 `/partners` 까지 막던 것을 `/partner$`·`/partner/` 로 좁혔다. 청록(--ok) 밝은 값은 칩 배경 위 대비 4.5 를 넘기려 #0C7166 으로 한 단계 짙게.
 - 공개 첫 화면의 첫 화면 밖 구역과 바닥글은 `content-visibility: auto` — 모바일에서 보이지 않는 구역 배치를 미뤄 성능 70대→90대.
+- postgres.js 는 jsonb 자리에 넘긴 JSON 글자를 한 번 더 JSON 으로 감싼다 — 2026-09-25 첫 Supabase 시드(설정·응찰·청구 금액 등)가 글자로 감싸여 저장됐다. 드라이버가 쓰기는 다시 감싸지 않게, 읽기는 한 겹 벗기게 고쳐 저장된 자료는 건드리지 않았다(지우거나 덮는 SQL 을 돌리지 않는 규칙). SQL 쪽에서 jsonb 안을 읽는 곳은 없다.
+- 배열(text[]·int[])도 드라이버가 직접 푼다 — 풀러 뒤에서 postgres.js 가 배열 형식을 못 알아내는 경우 대비.
+- 실제 Postgres 드라이버 경로 시험: PGlite 소켓 서버(@electric-sql/pglite-socket, maxConnections 50)에 postgres.js 로 붙여 마이그레이션·시드·next build·smoke 10개를 돌렸다.

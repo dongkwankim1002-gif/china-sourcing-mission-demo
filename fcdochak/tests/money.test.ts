@@ -278,3 +278,31 @@ describe('DB 연결 문자열', () => {
     expect(u).not.toContain('pgbouncer');
   });
 });
+
+import { parseJsonValue, serializeJsonParam } from '@/lib/db/driver';
+describe('json 값 — postgres.js', () => {
+  it('쓰기: JSON 글자는 다시 감싸지 않는다', () => {
+    expect(serializeJsonParam('{"a":1}')).toBe('{"a":1}');
+    expect(serializeJsonParam({ a: 1 })).toBe('{"a":1}');
+  });
+  it('읽기: 한 겹 더 감싸진 값은 벗기고, 보통 값·진짜 글자는 그대로', () => {
+    expect(parseJsonValue(JSON.stringify(JSON.stringify({ KRW: 1, RMB: 190 })))).toEqual({ KRW: 1, RMB: 190 });
+    expect(parseJsonValue(JSON.stringify(JSON.stringify(300)))).toBe(300);
+    expect(parseJsonValue(JSON.stringify(JSON.stringify([1, 2])))).toEqual([1, 2]);
+    expect(parseJsonValue('{"a":1}')).toEqual({ a: 1 });
+    expect(parseJsonValue('300')).toBe(300);
+    expect(parseJsonValue('"abc"')).toBe('abc');
+  });
+});
+
+import { parsePgArray, pgArray } from '@/lib/db/driver';
+describe('Postgres 배열 글자', () => {
+  it('풀고 되돌린다', () => {
+    expect(parsePgArray('{}')).toEqual([]);
+    expect(parsePgArray('{YIW,QDG}')).toEqual(['YIW', 'QDG']);
+    expect(parsePgArray('{"a b","c,d",NULL,"e\\"f"}')).toEqual(['a b', 'c,d', null, 'e"f']);
+    expect(parsePgArray('{1,2,3}', Number)).toEqual([1, 2, 3]);
+    const xs = ['배터리', 'KC 안전', 'a"b', 'c\\d'];
+    expect(parsePgArray(pgArray(xs))).toEqual(xs);
+  });
+});
