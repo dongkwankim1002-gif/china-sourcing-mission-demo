@@ -106,8 +106,10 @@ create view fcd.v_market_counts as
       where o.kind = 'partner' and o.status = 'official' and fcd.org_visible(o.id))::int as partners_official,
     (select count(*) from fcd.shipments s
       where s.stage = 9 and s.delivered_at > now() - interval '30 days' and fcd.org_visible(s.shipper_org_id))::int as delivered_30d,
-    (select count(*) from fcd.v_rate_cards_current r
-      where r.status = 'active' and r.valid_to >= (now() at time zone 'Asia/Seoul')::date
+    -- 안쪽 보기(v_rate_cards_current)는 security_invoker 라 부르는 사람의 RLS 를 받는다 — 원 표를 직접 센다
+    (select count(*) from fcd.rate_cards r
+      where not exists (select 1 from fcd.rate_cards n where n.supersedes_id = r.id)
+        and r.status = 'active' and r.valid_to >= (now() at time zone 'Asia/Seoul')::date
         and fcd.partner_priced(r.org_id))::int as cards_active;
 
 grant select on fcd.v_current_settings, fcd.v_current_duty_rates, fcd.v_rate_cards_current,

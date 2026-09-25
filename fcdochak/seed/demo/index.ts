@@ -368,7 +368,7 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
         cards.push({ id, partner: p, hub: lane.hub, port: lane.port, mode: lane.mode, from, to, lines, tiers, transit, status, current: isCurrent, certainty });
         T.cards.add(
           id, p.id, cardNo, vi + 1, prevId, lane.hub, lane.port, lane.mode, ymd((from - todayUtc) / DAY), ymd((to - todayUtc) / DAY),
-          certainty, p.deviation > 0.05 || rng.chance(0.15), isCurrent ? rng.chance(0.45) : rng.chance(0.3),
+          certainty, p.deviation > 0.05 || rng.chance(0.15), isCurrent ? rng.chance(0.65) : rng.chance(0.3),
           transit[0], transit[1], status,
           vi === 0 ? '첫 등록' : status === 'withdrawn' ? '선복 부족으로 거둠' : rng.pick(['유효기간 연장', '운임 조정', '항만 요금 반영', '환율 반영', '할인표 추가']),
           p.people[0]?.id ?? null, ts(createdAt),

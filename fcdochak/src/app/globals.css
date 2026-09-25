@@ -1,0 +1,303 @@
+@import 'tailwindcss';
+@import '../../public/fonts/pretendard/pretendard.css';
+@import '../../public/fonts/black-han-sans/black-han-sans.css';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* 토큰 — docs/DESIGN.md §1. 값은 여기 한 곳에만. */
+:root {
+  color-scheme: light;
+  --ink: #0e2340;
+  --ink-2: #1a3355;
+  --label: #f7c600;
+  --label-2: #ffe066;
+  --on-label: #0e2340;
+  --ok: #0e7c71;
+  --ok-bg: #e3f3f0;
+  --stamp: #c0312a;
+  --stamp-bg: #fbe9e7;
+  --caution: #9a5800;
+  --caution-bg: #fff1d9;
+  --paper: #eef1f4;
+  --surface: #ffffff;
+  --surface-2: #f6f8fa;
+  --line: #d5dbe2;
+  --line-2: #e6eaef;
+  --text: #0e1b2c;
+  --muted: #5b6878;
+  --on-ink: #eef3fa;
+  --on-ink-muted: #a9b7ca;
+  --focus-outer: #0e2340;
+
+  --seg-1: #001f51;
+  --seg-2: #0e3163;
+  --seg-3: #214375;
+  --seg-4: #335587;
+  --seg-5: #466899;
+  --seg-6: #5a7bac;
+  --seg-7: #6d8ebf;
+  --seg-8: #82a2d2;
+  --seg-9: #97b6e5;
+
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --grid: #e6eaef;
+
+  --shadow-1: 0 1px 2px rgb(14 35 64 / 0.06);
+  --shadow-2: 0 8px 24px rgb(14 35 64 / 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --ink: #060d18;
+    --ink-2: #0f1c30;
+    --label: #ffd23f;
+    --label-2: #ffe27a;
+    --on-label: #0e2340;
+    --ok: #2bb3a3;
+    --ok-bg: #0f2e30;
+    --stamp: #f0625a;
+    --stamp-bg: #3a1618;
+    --caution: #f4a93b;
+    --caution-bg: #33230a;
+    --paper: #0b1320;
+    --surface: #111b2b;
+    --surface-2: #16223a;
+    --line: #243247;
+    --line-2: #1c2a3e;
+    --text: #e6ecf3;
+    --muted: #93a1b3;
+    --on-ink: #e6ecf3;
+    --on-ink-muted: #8d9bb0;
+    --focus-outer: #e6ecf3;
+    --seg-1: #d8f0ff;
+    --seg-2: #c0dbfa;
+    --seg-3: #a8c6e9;
+    --seg-4: #90b2d8;
+    --seg-5: #799ec7;
+    --seg-6: #638ab6;
+    --seg-7: #4d77a6;
+    --seg-8: #366495;
+    --seg-9: #1f5185;
+    --chart-1: #3987e5;
+    --chart-2: #d95926;
+    --grid: #1c2a3e;
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 8px 24px rgb(0 0 0 / 0.5);
+  }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --ink: #060d18;
+  --ink-2: #0f1c30;
+  --label: #ffd23f;
+  --label-2: #ffe27a;
+  --on-label: #0e2340;
+  --ok: #2bb3a3;
+  --ok-bg: #0f2e30;
+  --stamp: #f0625a;
+  --stamp-bg: #3a1618;
+  --caution: #f4a93b;
+  --caution-bg: #33230a;
+  --paper: #0b1320;
+  --surface: #111b2b;
+  --surface-2: #16223a;
+  --line: #243247;
+  --line-2: #1c2a3e;
+  --text: #e6ecf3;
+  --muted: #93a1b3;
+  --on-ink: #e6ecf3;
+  --on-ink-muted: #8d9bb0;
+  --focus-outer: #e6ecf3;
+  --seg-1: #d8f0ff;
+  --seg-2: #c0dbfa;
+  --seg-3: #a8c6e9;
+  --seg-4: #90b2d8;
+  --seg-5: #799ec7;
+  --seg-6: #638ab6;
+  --seg-7: #4d77a6;
+  --seg-8: #366495;
+  --seg-9: #1f5185;
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --grid: #1c2a3e;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-2: 0 8px 24px rgb(0 0 0 / 0.5);
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-label: var(--label);
+  --color-label-2: var(--label-2);
+  --color-on-label: var(--on-label);
+  --color-ok: var(--ok);
+  --color-ok-bg: var(--ok-bg);
+  --color-stamp: var(--stamp);
+  --color-stamp-bg: var(--stamp-bg);
+  --color-caution: var(--caution);
+  --color-caution-bg: var(--caution-bg);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-on-ink: var(--on-ink);
+  --color-on-ink-muted: var(--on-ink-muted);
+
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'PingFang SC',
+    'Noto Sans SC', 'Microsoft YaHei', 'Apple SD Gothic Neo', sans-serif;
+  --font-display: 'Black Han Sans', 'Pretendard Variable', sans-serif;
+
+  --text-2xs: 11px;
+  --text-2xs--line-height: 16px;
+  --text-xs: 12px;
+  --text-xs--line-height: 18px;
+  --text-sm: 13px;
+  --text-sm--line-height: 20px;
+  --text-base: 14px;
+  --text-base--line-height: 22px;
+  --text-md: 16px;
+  --text-md--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 26px;
+  --text-xl: 22px;
+  --text-xl--line-height: 30px;
+
+  --radius-xs: 2px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    background: var(--paper);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 22px;
+    font-feature-settings: 'ss06';
+    -webkit-font-smoothing: antialiased;
+    overflow-x: clip;
+  }
+  :lang(zh) body,
+  body:lang(zh) {
+    font-family: 'Pretendard Variable', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  }
+  *:focus-visible {
+    outline: 2px solid var(--label);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--focus-outer);
+  }
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+  ::selection {
+    background: var(--label);
+    color: var(--on-label);
+  }
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  @media (min-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: 14px;
+    }
+  }
+}
+
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+@utility display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+@utility hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--surface) 55%, transparent) 0 3px,
+    transparent 3px 7px
+  );
+}
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes fcd-shimmer {
+  from {
+    background-position: -240px 0;
+  }
+  to {
+    background-position: 240px 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--line-2) 0, var(--surface-2) 120px, var(--line-2) 240px);
+  background-size: 480px 100%;
+  animation: fcd-shimmer 1.4s linear infinite;
+  border-radius: 4px;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+}
+
+@keyframes fcd-draw {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 남색 바탕(공개 첫 화면·머리 띠) 위 9구간 — 밝은 끝이 남색 위에서 2:1 을 넘는 단계(검증: --ordinal, #0e2340) */
+.on-ink {
+  --surface: var(--ink);
+  --text: #eef3fa;
+  --seg-1: #e3f2ff;
+  --seg-2: #cbdef4;
+  --seg-3: #b3cae4;
+  --seg-4: #9bb6d5;
+  --seg-5: #84a3c6;
+  --seg-6: #6e90b7;
+  --seg-7: #577da8;
+  --seg-8: #416b99;
+  --seg-9: #2a598a;
+  --caution: #f4a93b;
+  --muted: #a9b7ca;
+  --line: rgb(255 255 255 / 0.2);
+}

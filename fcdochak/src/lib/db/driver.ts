@@ -6,7 +6,7 @@
 export type Row = Record<string, unknown>;
 
 export interface Queryable {
-  query<T extends Row = Row>(sql: string, params?: unknown[]): Promise<T[]>;
+  query<T = Row>(sql: string, params?: unknown[]): Promise<T[]>;
   exec(sql: string): Promise<void>;
 }
 
@@ -41,7 +41,7 @@ async function createPglite(dataDir: string | null): Promise<Driver> {
   const db = await PGlite.create(dataDir ?? undefined, { parsers });
   await db.exec(`set timezone = 'UTC'`);
   const wrap = (q: { query: typeof db.query; exec: typeof db.exec }): Queryable => ({
-    async query<T extends Row>(sql: string, params: unknown[] = []) {
+    async query<T>(sql: string, params: unknown[] = []) {
       const r = await q.query<T>(sql, params.map(toParam));
       return r.rows;
     },
@@ -74,7 +74,7 @@ async function createPostgres(url: string): Promise<Driver> {
     onnotice: () => {},
   });
   const wrap = (q: typeof sql): Queryable => ({
-    async query<T extends Row>(text: string, params: unknown[] = []) {
+    async query<T>(text: string, params: unknown[] = []) {
       const r = await q.unsafe(text, params.map(toParam) as never[]);
       return r as unknown as T[];
     },
