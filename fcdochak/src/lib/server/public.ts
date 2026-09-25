@@ -2,12 +2,14 @@ import 'server-only';
 /** 공개 마켓 조회 — 비로그인. 개별 업체 가격은 공개가 요금표만, 구간 시세는 집계 숫자만. */
 import { asPublic, asSystem, todayKst, type Queryable } from '../db';
 import { env } from '../env';
-import { completeWithReference, computeQuote, type Cargo, type Segment } from '../money';
+import { completeWithReference, computeQuote, type Segment } from '../money';
+import { STANDARD_CARGO } from '../standard-cargo';
+import { queryPublicReviews, type PublicReview } from '../reviews-query';
 import { loadCards } from './compare';
 import { loadSettings } from './settings';
 
-/** 구간 시세의 기준 화물 — 화면에 그대로 적는다 */
-export const STANDARD_CARGO: Cargo = { units: 1200, cartons: 40, kg: 650, cbm: 3, goodsValue: 24000, goodsCurrency: 'RMB' };
+/** 구간 시세의 기준 화물 — 화면에 그대로 적는다. 값은 src/lib/standard-cargo.ts 한 곳에만 있다(계산기 첫 값과 같다). */
+export { STANDARD_CARGO };
 
 export interface MarketCounts {
   cards_today: number;
@@ -178,28 +180,12 @@ export async function listPartners(q?: Queryable): Promise<PublicPartner[]> {
   return q ? run(q) : asPublic(run);
 }
 
-export interface PublicReview {
-  id: string;
-  rating: number;
-  body: string;
-  author_label: string;
-  created_at: string;
-  partner_name: string;
-  partner_slug: string;
-  on_time_ok: boolean;
-  billing_ok: boolean;
-}
+export type { PublicReview };
 
+/** 공개 후기 — 오늘(KST) 이후 날짜는 쿼리에서 뺀다(src/lib/reviews-query.ts) */
 export async function publicReviews(limit = 6, partnerId?: string): Promise<PublicReview[]> {
-  return asPublic((q) =>
-    q.query<PublicReview>(
-      `select r.id, r.rating, r.body, r.author_label, r.created_at, o.name partner_name, o.slug partner_slug, r.on_time_ok, r.billing_ok
-         from fcd.reviews r join fcd.orgs o on o.id = r.partner_org_id
-        where ($2::uuid is null or r.partner_org_id = $2) and length(r.body) > 30
-        order by r.created_at desc limit $1`,
-      [limit, partnerId ?? null],
-    ),
-  );
+  const today = todayKst();
+  return asPublic((q) => queryPublicReviews(q, { limit, partnerId, today }));
 }
 
 export async function partnerBySlug(slug: string) {

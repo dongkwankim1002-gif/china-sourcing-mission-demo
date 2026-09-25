@@ -28,6 +28,43 @@ export function DemoMenu({ variant = 'primary', label = ACTION.demo, align = 'en
     { as: 'partner', label: '물류사로 둘러보기', sub: '견적 수신함 · 요금표 · 한/中', icon: Truck },
     { as: 'admin', label: '운영자로 둘러보기', sub: '대시보드 · 인증 큐 · 설정', icon: ShieldCheck },
   ];
+  // 폼은 메뉴 밖에 둔다. 메뉴 안에 두면 항목을 누르는 순간 메뉴가 닫히며 폼이 먼저 문서에서 빠져
+  // 브라우저가 제출을 취소한다(「form is not connected」 — 요청이 서버에 가지 않았다).
+  // 항목의 onSelect 가 메뉴 밖에 늘 붙어 있는 폼을 제출한다.
+  const forms = React.useRef<Record<string, HTMLFormElement | null>>({});
+  return (
+    <>
+      {items.map((it) => (
+        <form
+          key={it.as}
+          ref={(el) => {
+            forms.current[it.as] = el;
+          }}
+          action={demoLogin}
+          hidden
+          data-demo-form={it.as}
+        >
+          <input type="hidden" name="as" value={it.as} />
+        </form>
+      ))}
+      <DemoMenuInner items={items} variant={variant} label={label} align={align} onPick={(as) => forms.current[as]?.requestSubmit()} />
+    </>
+  );
+}
+
+function DemoMenuInner({
+  items,
+  variant,
+  label,
+  align,
+  onPick,
+}: {
+  items: { as: string; label: string; sub: string; icon: typeof Package }[];
+  variant: 'primary' | 'secondary' | 'onInk';
+  label: string;
+  align: 'start' | 'end';
+  onPick: (as: string) => void;
+}) {
   return (
     <Menu>
       <MenuTrigger asChild>
@@ -39,18 +76,13 @@ export function DemoMenu({ variant = 'primary', label = ACTION.demo, align = 'en
       <MenuContent align={align} className="w-64">
         <MenuLabel>예시 계정으로 바로 들어갑니다</MenuLabel>
         {items.map((it) => (
-          <form key={it.as} action={demoLogin}>
-            <input type="hidden" name="as" value={it.as} />
-            <MenuItem asChild>
-              <button type="submit" className="h-auto w-full py-2 text-left">
-                <it.icon aria-hidden />
-                <span className="flex flex-col">
-                  <span className="font-semibold">{it.label}</span>
-                  <span className="text-2xs text-muted">{it.sub}</span>
-                </span>
-              </button>
-            </MenuItem>
-          </form>
+          <MenuItem key={it.as} className="h-auto w-full py-2 text-left" onSelect={() => onPick(it.as)}>
+            <it.icon aria-hidden />
+            <span className="flex flex-col">
+              <span className="font-semibold">{it.label}</span>
+              <span className="text-2xs text-muted">{it.sub}</span>
+            </span>
+          </MenuItem>
         ))}
       </MenuContent>
     </Menu>

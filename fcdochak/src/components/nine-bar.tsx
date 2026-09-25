@@ -7,7 +7,8 @@
 import * as React from 'react';
 import { SEGMENTS, SEGMENT_LABEL_KO, SEGMENT_LABEL_ZH, type Segment } from '@/lib/money/segments';
 import { cn } from '@/lib/cn';
-import { won, pct } from '@/lib/format';
+import { pct } from '@/lib/format';
+import { formatBarValue, nineBarSummary, type BarUnit } from '@/lib/nine-summary';
 
 export interface BarSegment {
   segment: Segment;
@@ -30,6 +31,8 @@ export function NineBar({
   locale = 'ko',
   className,
   interactive = true,
+  unit = 'won',
+  table = 'sr',
 }: {
   segments: BarSegment[];
   size?: 'hero' | 'md' | 'thin';
@@ -40,6 +43,10 @@ export function NineBar({
   locale?: 'ko' | 'zh';
   className?: string;
   interactive?: boolean;
+  /** 값 단위 — 비로그인 공개 계산기는 금액 대신 천분율 */
+  unit?: BarUnit;
+  /** 구간별 숫자 표 — 'sr' 은 화면 읽기 프로그램에만(눈에는 안 보임), 'none' 은 옆에 NineTable 을 따로 둔 곳 */
+  table?: 'sr' | 'none';
 }) {
   const names = locale === 'zh' ? SEGMENT_LABEL_ZH : SEGMENT_LABEL_KO;
   const cert = locale === 'zh' ? CERT_ZH : CERT_KO;
@@ -49,16 +56,17 @@ export function NineBar({
   const scale = Math.max(scaleMax ?? total, 1);
   const [active, setActive] = React.useState<number | null>(null);
   const h = size === 'hero' ? 'h-11' : size === 'md' ? 'h-5' : 'h-3';
-  const summary =
-    label ??
-    `${locale === 'zh' ? '九段费用' : '9구간 금액'} ${won(total)}: ` +
-      ordered.map((s) => `${names[s.segment]} ${s.amount == null ? (locale === 'zh' ? '不含' : '제외') : won(s.amount)}`).join(', ');
+  const won = (v: number | null | undefined) => (v == null ? '—' : formatBarValue(v, unit));
+  // 대체 글은 짧은 요약 한 문장 — 아홉 칸 숫자는 아래 표로 나눈다(길게 이어 붙이면 읽는 쪽에서 잘린다)
+  const summary = nineBarSummary(ordered, { unit, locale, label });
+  const tableId = React.useId();
 
   return (
     <div className={cn('relative w-full min-w-0', className)}>
       <div
         role="img"
         aria-label={summary}
+        aria-describedby={table === 'sr' ? tableId : undefined}
         className={cn('flex w-full gap-[2px] overflow-visible', h)}
         onPointerLeave={() => setActive(null)}
       >
@@ -115,6 +123,12 @@ export function NineBar({
               {won(ordered[active].delta)}
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {table === 'sr' ? (
+        <div id={tableId} className="sr-only">
+          <NineTable segments={ordered} locale={locale} unit={unit} vertical />
         </div>
       ) : null}
 
@@ -177,10 +191,55 @@ export function NineBarLegend({ locale = 'ko', className }: { locale?: 'ko' | 'z
 }
 
 /** 9구간 표 — 막대 아래 숫자(표 보기·접근성용) */
-export function NineTable({ segments, locale = 'ko' }: { segments: BarSegment[]; locale?: 'ko' | 'zh' }) {
+export function NineTable({
+  segments,
+  locale = 'ko',
+  unit = 'won',
+  vertical = false,
+  caption,
+}: {
+  segments: BarSegment[];
+  locale?: 'ko' | 'zh';
+  unit?: BarUnit;
+  /** 세로(구간 한 줄씩) — 화면 읽기 프로그램용 표 */
+  vertical?: boolean;
+  caption?: string;
+}) {
   const names = locale === 'zh' ? SEGMENT_LABEL_ZH : SEGMENT_LABEL_KO;
   const cert = locale === 'zh' ? CERT_ZH : CERT_KO;
   const bySeg = new Map(segments.map((s) => [s.segment, s]));
+  const won = (v: number | null | undefined) => (v == null ? '—' : formatBarValue(v, unit));
+  const zh = locale === 'zh';
+  const stateOf = (v: BarSegment | undefined) =>
+    v?.amount == null ? (zh ? '不含' : '제외') : v.filled ? (zh ? '参考' : '참고치') : v.certainty ? cert[v.certainty] : '';
+  if (vertical) {
+    return (
+      <table>
+        <caption>{caption ?? (zh ? '九段明细' : '9구간 구간별 금액')}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{zh ? '区段' : '구간'}</th>
+            <th scope="col">{unit === 'permille' ? (zh ? '占比' : '비중') : zh ? '金额' : '금액'}</th>
+            <th scope="col">{zh ? '状态' : '확정도'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {SEGMENTS.map((s, i) => {
+            const v = bySeg.get(s);
+            return (
+              <tr key={s}>
+                <th scope="row">
+                  {i + 1}. {names[s]}
+                </th>
+                <td>{v?.amount == null ? '—' : won(v.amount)}</td>
+                <td>{stateOf(v)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+  }
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[560px] text-xs tnum">

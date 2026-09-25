@@ -6,7 +6,7 @@ import { listPartners, partnerBySlug, publicReviews, STANDARD_CARGO } from '@/li
 import { getReference, nameOf } from '@/lib/server/reference';
 import { loadCards } from '@/lib/server/compare';
 import { loadSettings } from '@/lib/server/settings';
-import { asPublic } from '@/lib/db';
+import { asPublic, todayKst } from '@/lib/db';
 import { completeWithReference, computeQuote, type Segment } from '@/lib/money';
 import { LetterMark } from '@/components/brand-mark';
 import { FcReadyChip, PartnerStatusChip, RelatedChip } from '@/components/badges';
@@ -15,7 +15,7 @@ import { ListingActions } from '@/components/public/listing-forms';
 import { Chip, DefList, EmptyState, Panel, PanelHead } from '@/components/ui/core';
 import { JsonLd } from '@/components/json-ld';
 import { env } from '@/lib/env';
-import { dateKo, num, pct, won, ymdDots } from '@/lib/format';
+import { dateKo, notFuture, num, pct, won, ymdDots } from '@/lib/format';
 import { BIZ_TYPE_LABEL } from '@/lib/terms';
 
 export const revalidate = 3600;
@@ -157,7 +157,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
               <PanelHead title="화주 후기" sub="FC 입고까지 끝난 선적의 평가" />
               {reviews.length ? (
                 <ul>
-                  {reviews.map((r) => (
+                  {notFuture(reviews, todayKst()).map((r) => (
                     <li key={r.id} className="border-b border-line-2 px-4 py-3 last:border-0">
                       <p className="text-sm">“{r.body}”</p>
                       <p className="mt-1 text-2xs text-muted">{r.rating}/5 · {r.author_label} · {dateKo(r.created_at, { dow: false })}</p>

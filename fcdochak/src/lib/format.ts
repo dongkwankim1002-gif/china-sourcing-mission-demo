@@ -93,3 +93,15 @@ export function cbm(n: number | null | undefined) {
 export function kg(n: number | null | undefined) {
   return n == null ? '—' : `${num(n, 1)} kg`;
 }
+
+/**
+ * 오늘(KST) 이후 날짜를 뺀다 — 후기·기록이 미래 날짜로 보이지 않게(쿼리에서도 막고 화면에서 한 번 더).
+ * today 는 'YYYY-MM-DD'(KST). created_at 이 그날 KST 23:59:59 까지면 남긴다.
+ */
+export function notFuture<T extends { created_at: string | Date }>(rows: T[], today: string): T[] {
+  const end = Date.parse(`${today}T00:00:00+09:00`) + 86_400_000;
+  return rows.filter((r) => {
+    const t = typeof r.created_at === 'string' ? Date.parse(r.created_at) : r.created_at.getTime();
+    return Number.isFinite(t) && t < end;
+  });
+}

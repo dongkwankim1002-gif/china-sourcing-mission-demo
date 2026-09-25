@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, BadgeCheck, CalendarClock, FileSpreadsheet, PackageCheck, Truck } from 'lucide-react';
-import { Calculator, type QuoteResponse } from '@/components/public/calculator';
+import { Calculator } from '@/components/public/calculator';
+import { buildQuoteResponse, type QuoteResponse } from '@/lib/public-quote';
 import { DEFAULT_INPUT } from '@/lib/calc-defaults';
 import { LetterMark } from '@/components/brand-mark';
 import { Button, Chip } from '@/components/ui/core';
@@ -9,11 +10,11 @@ import { asPublic, todayKst } from '@/lib/db';
 import { env } from '@/lib/env';
 import { BRAND } from '@/lib/brand';
 import { FAQ } from '@/content/faq';
-import { compare, sortOffers } from '@/lib/server/compare';
+import { compare } from '@/lib/server/compare';
 import { laneStats, listPartners, marketCounts, publicReviews, STANDARD_CARGO } from '@/lib/server/public';
 import { getReference } from '@/lib/server/reference';
 import { loadSettings } from '@/lib/server/settings';
-import { dateKo, num, wonShort } from '@/lib/format';
+import { dateKo, notFuture, num, wonShort } from '@/lib/format';
 import { ACTION, BIZ_TYPE_LABEL } from '@/lib/terms';
 import { SEGMENTS, SEGMENT_LABEL_KO } from '@/lib/money/segments';
 
@@ -30,17 +31,10 @@ async function initialQuote(): Promise<QuoteResponse | null> {
       todayKst(),
     );
   });
-  const top = sortOffers(r.offers, 'cheapest').slice(0, 5);
-  const best = top[0];
-  return {
-    count: r.offers.length,
-    excluded: r.excluded.length,
-    top: top.map((o) => ({ name: o.partner.name, slug: o.partner.slug ?? '', status: o.partner.status, logo: o.partner.logo_path, total: o.quote.total, perUnit: o.quote.perUnit, mode: o.mode, transit: o.transit, filled: o.quote.filled.length, related: !!o.partner.related_party_note })),
-    bar: best ? best.quote.segments.map((s) => ({ segment: s.segment, amount: s.amount == null ? null : Math.round((s.amount / best.quote.total) * 1000), certainty: s.certainty, filled: s.filled })) : null,
-    barUnit: 'permille',
-    verdicts: [],
-  };
+  return buildQuoteResponse(r, { sort: 'cheapest', includeRelated: false, detail: false });
 }
+
+const HERO_TITLE = '중국 공장에서 쿠팡 FC까지, 같은 조건으로 한 줄 비교.';
 
 const SEG_DESC: Record<string, string> = {
   pickup: '공장·도매시장에서 거둬 창고로',
@@ -85,10 +79,12 @@ export default async function Home() {
             <span className="size-1.5 rounded-full bg-ok" aria-hidden />
             오늘 갱신된 요금표 <b className="text-on-ink tnum">{num(counts.cards_today)}장</b> · 이번 주 견적 요청 <b className="text-on-ink tnum">{num(counts.requests_week)}건</b>
           </p>
-          <h1 className="display max-w-3xl text-[clamp(30px,5vw,52px)] leading-[1.08]">
-            중국 공장에서 쿠팡 FC까지,
-            <br />
-            <span className="text-label">같은 조건</span>으로 한 줄 비교.
+          {/* 읽히는 이름은 한 문장 그대로 — 색 강조 조각이 이름에서 빠지지 않게 이름을 제목에 직접 준다(보이는 글과 같은 말) */}
+          <h1 aria-label={HERO_TITLE} className="display max-w-3xl text-[clamp(30px,5vw,52px)] leading-[1.08]">
+            <span className="block">중국 공장에서 쿠팡 FC까지,</span>
+            <span className="block">
+              <strong className="font-normal text-label">같은 조건</strong>으로 한 줄 비교.
+            </span>
           </h1>
           <p className="mt-3 max-w-2xl text-md text-on-ink-muted">
             업체마다 다른 견적 양식을 9구간으로 맞춰 적습니다. 뒤에 붙던 추가비용이 어디서 생기는지 먼저 보입니다.
@@ -231,7 +227,7 @@ export default async function Home() {
           <h2 id="reviews" className="display mt-1 text-[clamp(26px,3.4vw,40px)] leading-tight">화주 후기</h2>
           {reviews.length ? (
             <ul className="mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {reviews.map((r) => (
+              {notFuture(reviews, todayKst()).map((r) => (
                 <li key={r.id} className="flex flex-col rounded-md border border-line bg-surface-2 p-4">
                   <div className="flex items-center justify-between gap-2">
                     <Stamp score={r.rating} />

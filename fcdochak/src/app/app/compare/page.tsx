@@ -3,12 +3,12 @@ import { Suspense } from 'react';
 import { AlertTriangle, ChevronDown, FileClock, Info, LayoutGrid, List, Table2 } from 'lucide-react';
 import { asUser, todayKst } from '@/lib/db';
 import { requireViewer } from '@/lib/server/viewer';
-import { compare, filterOffers, sortOffers, type Offer, type SortKey } from '@/lib/server/compare';
+import { compare, filterOffers, rankOffers, SORT_LABEL, type Offer, type SortKey } from '@/lib/server/compare';
 import { loadSettings } from '@/lib/server/settings';
 import { getReference, nameOf } from '@/lib/server/reference';
 import { listSkus } from '@/lib/server/shipper';
 import { parseCargoQuery, toCargo } from '@/lib/cargo-params';
-import { reasonText } from '@/lib/money';
+import { reasonText, totalsBreakdown } from '@/lib/money';
 import { LetterMark } from '@/components/brand-mark';
 import { NineBar, NineBarLegend } from '@/components/nine-bar';
 import { AdChip, FcReadyChip, PartnerStatusChip, RelatedChip, Won } from '@/components/badges';
@@ -23,10 +23,10 @@ import { SEGMENTS, SEGMENT_LABEL_KO } from '@/lib/money/segments';
 export const metadata = { title: '같은 조건 비교' };
 
 const SORTS: [SortKey, string][] = [
-  ['recommend', '추천'],
-  ['cheapest', '최저가'],
-  ['fastest', '최단'],
-  ['deviation', '청구 편차 적은 순'],
+  ['recommend', SORT_LABEL.recommend],
+  ['cheapest', SORT_LABEL.cheapest],
+  ['fastest', SORT_LABEL.fastest],
+  ['deviation', SORT_LABEL.deviation],
 ];
 
 export default async function ComparePage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -37,6 +37,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   const view = (['rows', 'cards', 'table'].includes(sp.view ?? '') ? sp.view : 'rows') as 'rows' | 'cards' | 'table';
   const sort = (SORTS.some(([k]) => k === sp.sort) ? sp.sort : 'recommend') as SortKey;
   const f = { confirmedOnly: sp.conf === '1', fcReadyOnly: sp.fcr === '1', officialOnly: sp.off === '1' };
+  const withRelated = sp.rel === '1';
   const today = todayKst();
   const { result, skus } = await asUser(v, async (q) => {
     const s = await loadSettings(q);
@@ -46,8 +47,10 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
     ]);
     return { result, skus };
   });
-  const offers = sortOffers(filterOffers(result.offers, f), sort);
-  const ad = result.ad && filterOffers([result.ad], f).length ? result.ad : null;
+  // 특수관계 업체는 기본으로 순위에서 뺀다 — 「특수관계 포함」을 켜면 넣고, 1위가 특수관계면 경고 띠
+  const ranked = rankOffers(filterOffers(result.offers, f), { sort, includeRelated: withRelated });
+  const offers = ranked.list;
+  const ad = result.ad && filterOffers([result.ad], f).length && (withRelated || !result.ad.partner.related_party_note) ? result.ad : null;
   const list = ad ? offers.filter((o) => o.cardId !== ad.cardId) : offers;
   const scaleMax = Math.max(1, ...offers.map((o) => o.quote.total));
 
@@ -129,11 +132,24 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
               {l}
             </Link>
           ))}
+          <Link href={qs({ rel: withRelated ? null : '1' })} scroll={false} aria-pressed={withRelated} className={cn('inline-flex h-9 items-center gap-1.5 rounded-xs border px-3 text-sm font-semibold', withRelated ? 'border-ink bg-ink text-on-ink' : 'border-line bg-surface hover:border-muted/60')}>
+            <span className={cn('grid size-4 place-items-center rounded-[2px] border text-2xs', withRelated ? 'border-label bg-label text-on-label' : 'border-muted/60')}>{withRelated ? '✓' : ''}</span>
+            특수관계 포함
+          </Link>
         </div>
       </div>
-      <p className="mt-3 text-xs text-muted">
-        비교 {offers.length}곳 · 제외 {result.excluded.length}곳 · 만료 요금표 {result.expired.length}장 · 추천 점수 = 정시 입고 30 · 청구 편차 25 · FC 회송률 25 · 가격확정도 20 (광고·특수관계는 점수 밖)
+      <p className="mt-3 text-xs text-muted" data-testid="compare-sort-now">
+        현재 기준: <b className="text-text">{SORT_LABEL[sort]}</b> · 비교 {offers.length}곳 · 제외 {result.excluded.length}곳 · 만료 요금표 {result.expired.length}장
+        {ranked.relatedHidden ? ` · 특수관계 업체 ${ranked.relatedHidden}곳은 순위에서 뺐습니다(「특수관계 포함」으로 보기)` : ''} · 추천 점수 = 정시 입고 30 · 청구 편차 25 · FC 회송률 25 · 가격확정도 20 (광고·특수관계는 점수 밖)
       </p>
+      {ranked.relatedTop && offers[0] ? (
+        <p role="alert" className="mt-3 flex items-start gap-2 rounded-md border border-caution/40 bg-caution-bg px-4 py-2.5 text-sm font-semibold text-caution">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>
+            1위 {offers[0].partner.name} — 플랫폼과 특수관계인 업체입니다{offers[0].partner.related_party_note ? `(${offers[0].partner.related_party_note.trim().replace(/[.。]$/, '')})` : ''}. 순위는 같은 기준으로 매겼지만 함께 판단해 주세요.
+          </span>
+        </p>
+      ) : null}
 
       {offers.length === 0 ? (
         <Panel className="mt-3">
@@ -159,7 +175,8 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
                       {SEGMENTS_SHORT[s]}
                     </th>
                   ))}
-                  <th scope="col" className="px-3 py-2 text-right font-semibold">합계</th>
+                  <th scope="col" className="px-3 py-2 text-right font-semibold">확정 합계</th>
+                  <th scope="col" className="px-3 py-2 text-right font-semibold">참고치 포함 합계</th>
                   <th scope="col" className="px-3 py-2 text-right font-semibold">개당</th>
                 </tr>
               </thead>
@@ -179,6 +196,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
                         <span className="block text-2xs not-italic text-muted">{s.filled ? '참고치' : s.certainty === 'estimated' ? '예상' : s.certainty === 'extra_possible' ? '추가 가능' : ''}</span>
                       </td>
                     ))}
+                    <td className="border-t border-line-2 px-3 py-2 text-right">{num(totalsBreakdown(o.quote.segments).confirmed)}</td>
                     <td className="border-t border-line-2 px-3 py-2 text-right text-sm font-bold">{num(o.quote.total)}</td>
                     <td className="border-t border-line-2 px-3 py-2 text-right">{num(o.quote.perUnit)}</td>
                   </tr>
@@ -245,6 +263,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
 function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName }: { o: Offer; rank: number; ad?: boolean; scaleMax: number; card: boolean; requestHref: string; modeName: string }) {
   const certainty = o.quote.total ? o.raw.confirmedTotal / o.quote.total : 0;
   const m = o.metrics;
+  const t = totalsBreakdown(o.quote.segments);
   return (
     <article className={cn('min-w-0 rounded-md border bg-surface', ad ? 'border-ink' : 'border-line')}>
       <div className={cn('grid gap-3 p-4', !card && 'lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)_200px] lg:items-center')}>
@@ -264,7 +283,7 @@ function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName }: { o: 
           </div>
         </div>
         <div className="min-w-0">
-          <NineBar segments={o.quote.segments} size="md" scaleMax={card ? undefined : scaleMax} label={`${o.partner.name} 9구간 ${won(o.quote.total)}`} />
+          <NineBar segments={o.quote.segments} size="md" scaleMax={card ? undefined : scaleMax} label={o.partner.name} />
           <p className="mt-2 text-2xs text-muted">
             {modeName} · {o.transit[0]}~{o.transit[1]}일 · 확정 {pct(certainty, 0)}
             {o.raw.extraPossible.length ? <span className="text-caution"> · 추가비용 가능: {o.raw.extraPossible.map((s) => SEGMENT_LABEL_KO[s]).join('·')}</span> : null}
@@ -276,6 +295,9 @@ function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName }: { o: 
           <div className={cn(!card && 'lg:text-right')}>
             <Won v={o.quote.total} className="block text-lg font-bold" />
             <span className="block text-xs text-muted tnum">개당 {num(o.quote.perUnit)}원</span>
+            <span className="block text-2xs text-muted tnum">
+              확정 합계 {num(t.confirmed)}원{t.referenceCount ? ` · 참고치 포함 합계 ${num(t.withReference)}원` : ''}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <Tooltip

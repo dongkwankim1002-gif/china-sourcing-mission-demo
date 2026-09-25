@@ -1,11 +1,12 @@
 /**
- * 공개 계산기 — 상위 5곳 총액과, 가장 낮은 곳의 9구간 비중.
+ * 공개 계산기 — 상위 5곳(가격순·추천 점수순) 총액과 1위의 9구간 비중. 특수관계 업체는 ?related=1 일 때만 순위에 넣는다.
  * 비로그인은 공개가 요금표만(RLS), 구간 금액 대신 비중(%)만 내려준다 — 9구간 상세는 가입 후.
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { asViewer, todayKst } from '@/lib/db';
 import { parseCargoQuery, toCargo } from '@/lib/cargo-params';
-import { compare, sortOffers } from '@/lib/server/compare';
+import { compare } from '@/lib/server/compare';
+import { buildQuoteResponse, parsePublicSort } from '@/lib/public-quote';
 import { loadSettings } from '@/lib/server/settings';
 import { readSession } from '@/lib/auth/session';
 import { allow } from '@/lib/server/rate-limit';
@@ -25,36 +26,10 @@ export async function GET(req: NextRequest) {
     const s = await loadSettings(db);
     return compare(db, { hub: q.hub, port: q.port, mode: q.mode, cargo: toCargo(q), traits: q.traits }, s, today);
   });
-  const top = sortOffers(result.offers, 'cheapest').slice(0, 5);
-  const best = top[0];
-  const detail = !!actor;
+  const sp = req.nextUrl.searchParams;
+  const body = buildQuoteResponse(result, { sort: parsePublicSort(sp.get('sort')), includeRelated: sp.get('related') === '1', detail: !!actor });
   return NextResponse.json(
-    {
-      count: result.offers.length,
-      excluded: result.excluded.length,
-      top: top.map((o) => ({
-        name: o.partner.name,
-        slug: o.partner.slug,
-        status: o.partner.status,
-        logo: o.partner.logo_path,
-        total: o.quote.total,
-        perUnit: o.quote.perUnit,
-        mode: o.mode,
-        transit: o.transit,
-        filled: o.quote.filled.length,
-        related: !!o.partner.related_party_note,
-      })),
-      bar: best
-        ? best.quote.segments.map((s) => ({
-            segment: s.segment,
-            amount: s.amount == null ? null : detail ? s.amount : Math.round((s.amount / best.quote.total) * 1000),
-            certainty: s.certainty,
-            filled: s.filled,
-          }))
-        : null,
-      barUnit: detail ? 'won' : 'permille',
-      verdicts: result.verdicts.map((v) => ({ code: v.code, name: v.name_ko, text: v.verdict_ko })),
-    },
+    body,
     { headers: { 'Cache-Control': 'private, no-store' } },
   );
 }
