@@ -13,12 +13,14 @@
 
 ## 지금 배포 상태 (2026-09-25)
 
-- Vercel 프로젝트 **`fcdochak`** (팀 dongkwankim1002-gif's projects, 기존 프로젝트와 별개) · Root `fcdochak` · 리전 `icn1` · Node 22
-- 운영 주소 **https://fcdochak.vercel.app** — 작업 가지 `claude/fcdochak-phase-1-0n4xlc` 커밋 `efec3d0` 을 운영 대상으로 배포
+- Vercel 프로젝트 **`fcdochak`** (팀 dongkwankim1002-gif's projects, 기존 프로젝트와 별개) · Root `fcdochak` · 함수 리전 `icn1` · Node 22 · Production Branch **`fcdochak`**
+- 운영 주소 **https://fcdochak.vercel.app** — `fcdochak` 가지에 PR 을 합칠 때마다 운영 배포(`d740fbc` 부터 Supabase 로 동작)
+- DB: 새 Supabase 프로젝트 **`fcdochak`**(서울, Vercel 마켓플레이스 연결). 연결값(`POSTGRES_*`·`SUPABASE_*`·`NEXT_PUBLIC_SUPABASE_*`)은 **Production 에만** 들어 있어 미리보기 배포는 여전히 PGlite 데모
+- 빌드 앞단 `vercel:prepare` 가 스키마·참조 첫 판·데모(없을 때만)·비공개 버킷 `fcd-docs` 를 맞춘다(지우거나 덮지 않음)
 - 환경변수: `DEMO_MODE=on` · `OUTBOUND_ENABLED=false` · `NEXT_PUBLIC_SITE_URL` · `SESSION_SECRET`·`DEMO_PASSWORD`(Sensitive, 무작위)
-- **Supabase 없음 → PGlite 데모 미리보기.** 둘러보기·데모 로그인은 되지만 새 가입·요청 등 쓰기는 서버 인스턴스가 바뀌면 사라진다
 - 보호: Vercel 로그인은 미리보기 배포에만(운영 주소는 공개). `main` 가지 커밋은 빌드하지 않는다(Ignored Build Step)
-- 남은 일: PR #1 을 `fcdochak` 에 합친 뒤 Vercel → Settings → Git → Production Branch 를 `fcdochak` 으로. 그 뒤로는 `fcdochak` 에 합칠 때마다 운영 배포
+- 빌드는 미국(iad1)에서 돌아 서울 DB 와 멀다 — 빌드 중 DB 읽기는 한 번에 모아서(DECISIONS.md)
+- 알아 둘 것: 첫 Supabase 시드의 jsonb 값 일부가 글자로 한 겹 더 감싸여 저장돼 있다. 읽을 때 드라이버가 벗기므로 화면은 맞다. 고치는 SQL 은 사람이 판단해 돌린다(여기서 돌리지 않음)
 
 ## 로컬
 
