@@ -1,0 +1,276 @@
+import 'server-only';
+/** 공개 마켓 조회 — 비로그인. 개별 업체 가격은 공개가 요금표만, 구간 시세는 집계 숫자만. */
+import { asPublic, asSystem, todayKst, type Queryable } from '../db';
+import { env } from '../env';
+import { completeWithReference, computeQuote, type Segment } from '../money';
+import { STANDARD_CARGO } from '../standard-cargo';
+import { queryPublicReviews, type PublicReview } from '../reviews-query';
+import { loadCards } from './compare';
+import { loadSettings } from './settings';
+import { emptyTrust, loadTrustFacts, loadTrustRule } from './trust';
+
+/** 구간 시세의 기준 화물 — 화면에 그대로 적는다. 값은 src/lib/standard-cargo.ts 한 곳에만 있다(계산기 첫 값과 같다). */
+export { STANDARD_CARGO };
+
+export interface MarketCounts {
+  cards_today: number;
+  requests_week: number;
+  partners_listed: number;
+  partners_official: number;
+  delivered_30d: number;
+  cards_active: number;
+}
+
+export async function marketCounts(): Promise<MarketCounts> {
+  return asPublic(async (q) => (await q.query<MarketCounts>('select * from fcd.v_market_counts'))[0]);
+}
+
+export interface LaneStat {
+  hub: string;
+  port: string;
+  mode: string;
+  slug: string;
+  hubName: string;
+  hubNameZh: string;
+  portName: string;
+  modeName: string;
+  cards: number;
+  partners: number;
+  median: number;
+  min: number;
+  q1: number;
+  medianPerCbm: number;
+  transitMin: number;
+  transitMax: number;
+  medianSegments: Record<Segment, number>;
+  updatedAt: string | null;
+}
+
+export function laneSlug(hub: string, port: string, mode: string) {
+  return `${hub}-${port}-${mode}`.toLowerCase();
+}
+
+function median(a: number[]) {
+  if (a.length === 0) return 0;
+  const s = [...a].sort((x, y) => x - y);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
+}
+function quantile(a: number[], p: number) {
+  if (a.length === 0) return 0;
+  const s = [...a].sort((x, y) => x - y);
+  return s[Math.min(s.length - 1, Math.floor(p * (s.length - 1) + 0.5))];
+}
+
+/**
+ * 구간 시세 — 모든 공식·인증 대기 업체의 현재 요금표로 기준 화물 총액을 계산해 중간값·최저·상위 25% 만 낸다.
+ * 개별 업체 가격은 내보내지 않는다. 데모는 DEMO_MODE 에 따라 뺀다.
+ */
+export function laneStats(): Promise<LaneStat[]> {
+  // 한 화면이 제목·본문·공유 그림에서 세 번 부르고, 빌드는 구간 화면 수십 장을 동시에 만든다 — 잠깐 같은 결과를 나눠 쓴다.
+  const now = Date.now();
+  if (!laneMemo || now - laneMemo.at > LANE_MEMO_MS) {
+    const p = computeLaneStats();
+    laneMemo = { at: now, p };
+    p.catch(() => {
+      if (laneMemo?.p === p) laneMemo = null;
+    });
+  }
+  return laneMemo.p;
+}
+
+const LANE_MEMO_MS = 60_000;
+let laneMemo: { at: number; p: Promise<LaneStat[]> } | null = null;
+
+async function computeLaneStats(): Promise<LaneStat[]> {
+  const today = todayKst();
+  return asSystem(async (q) => {
+    const s = await loadSettings(q);
+    const lanes = await q.query<{ hub: string; port: string; mode: string }>(
+      `select distinct r.origin_hub hub, r.port, r.mode from fcd.v_rate_cards_current r join fcd.orgs o on o.id = r.org_id
+        where o.status in ('official','pending_verification') and ($1 or not o.is_demo) and r.status = 'active' and r.valid_to >= $2::date`,
+      [env.demoMode, today],
+    );
+    const ref = await q.query<{ code: string; name_ko: string; name_zh: string; kind: string }>(
+      `select code, name_ko, name_zh, 'hub' kind from fcd.hubs union all select code, name_ko, name_zh, 'port' from fcd.ports
+       union all select code, name_ko, name_zh, 'mode' from fcd.modes`,
+    );
+    const name = (kind: string, code: string) => ref.find((r) => r.kind === kind && r.code === code);
+    const refQuote = computeQuote(s.referenceLines, STANDARD_CARGO, s.quoteParams);
+    const reference = Object.fromEntries(refQuote.segments.map((x) => [x.segment, x.amount])) as Partial<Record<Segment, number>>;
+    const out: LaneStat[] = [];
+    // 구간마다 따로 읽으면 DB 가 먼 곳(빌드 서버)에서 왕복이 수백 번 쌓인다 — 모든 구간을 한 번에 읽어 나눈다.
+    const { cards: allCards, lines, tiers } = await loadCards(q, { hub: null, port: null, mode: null });
+    const orgs = await q.query<{ id: string; ok: boolean }>(
+      `select id, (status in ('official','pending_verification') and ($2 or not is_demo)) ok from fcd.orgs where id = any($1::uuid[])`,
+      [[...new Set(allCards.map((c) => c.org_id))], env.demoMode],
+    );
+    const okOrg = new Set(orgs.filter((o) => o.ok).map((o) => o.id));
+    for (const lane of lanes) {
+      const cards = allCards.filter((c) => c.origin_hub === lane.hub && c.port === lane.port && c.mode === lane.mode);
+      const totals: number[] = [];
+      const segs: Record<string, number[]> = {};
+      const partners = new Set<string>();
+      let tmin = 99;
+      let tmax = 0;
+      let updated: string | null = null;
+      for (const c of cards) {
+        if (!okOrg.has(c.org_id) || c.status !== 'active' || c.valid_to < today) continue;
+        const ls = lines.get(c.id) ?? [];
+        if (!ls.some((l) => l.segment === 'freight' && l.included)) continue;
+        const qr = completeWithReference(computeQuote(ls, STANDARD_CARGO, s.quoteParams, tiers.get(c.id) ?? []), reference, STANDARD_CARGO.units);
+        totals.push(qr.total);
+        for (const x of qr.segments) (segs[x.segment] ??= []).push(x.amount ?? 0);
+        partners.add(c.org_id);
+        tmin = Math.min(tmin, c.transit_days_min);
+        tmax = Math.max(tmax, c.transit_days_max);
+        if (!updated || c.created_at > updated) updated = c.created_at;
+      }
+      if (totals.length === 0) continue;
+      const med = median(totals);
+      out.push({
+        ...lane,
+        slug: laneSlug(lane.hub, lane.port, lane.mode),
+        hubName: name('hub', lane.hub)?.name_ko ?? lane.hub,
+        hubNameZh: name('hub', lane.hub)?.name_zh ?? lane.hub,
+        portName: name('port', lane.port)?.name_ko ?? lane.port,
+        modeName: name('mode', lane.mode)?.name_ko ?? lane.mode,
+        cards: totals.length,
+        partners: partners.size,
+        median: med,
+        min: Math.min(...totals),
+        q1: quantile(totals, 0.25),
+        medianPerCbm: Math.round(med / STANDARD_CARGO.cbm),
+        transitMin: tmin,
+        transitMax: tmax,
+        medianSegments: Object.fromEntries(Object.entries(segs).map(([k, v]) => [k, median(v)])) as Record<Segment, number>,
+        updatedAt: updated,
+      });
+    }
+    const hubOrd = ['YIW', 'QDG', 'WEH', 'YNT', 'RZH', 'CAN', 'SZX'];
+    const modeOrd = ['LCL', 'FERRY', 'FCL', 'AIR'];
+    return out.sort(
+      (a, b) => hubOrd.indexOf(a.hub) - hubOrd.indexOf(b.hub) || a.port.localeCompare(b.port) || modeOrd.indexOf(a.mode) - modeOrd.indexOf(b.mode),
+    );
+  });
+}
+
+export interface PublicPartner {
+  id: string;
+  name: string;
+  name_zh: string | null;
+  slug: string;
+  status: string;
+  business_type: string | null;
+  logo_path: string | null;
+  hq_city: string | null;
+  related_party_note: string | null;
+  is_demo: boolean;
+  hubs: string[] | null;
+  modes: string[] | null;
+}
+
+export async function listPartners(q?: Queryable): Promise<PublicPartner[]> {
+  const run = (qq: Queryable) =>
+    qq.query<PublicPartner>(
+      `select o.id, o.name, o.name_zh, o.slug, o.status, o.business_type, o.logo_path, o.hq_city, o.related_party_note, o.is_demo,
+              (select array_agg(hub order by hub) from fcd.org_hubs h where h.org_id = o.id) hubs,
+              (select array_agg(mode order by mode) from fcd.org_modes m where m.org_id = o.id) modes
+         from fcd.orgs o where o.kind = 'partner' order by (o.status = 'official') desc, o.name`,
+    );
+  return q ? run(q) : asPublic(run);
+}
+
+export type { PublicReview };
+
+/** 공개 후기 — 오늘(KST) 이후 날짜는 쿼리에서 뺀다(src/lib/reviews-query.ts) */
+export async function publicReviews(limit = 6, partnerId?: string): Promise<PublicReview[]> {
+  const today = todayKst();
+  return asPublic((q) => queryPublicReviews(q, { limit, partnerId, today }));
+}
+
+/**
+ * 업체 화면 후기 — 최근 후기에 더해, 회송·입고 반려·분실(미도착)로 끝난 선적의 최근 후기를 함께 싣는다(v2 trust).
+ * 나쁜 끝의 후기가 좋은 후기 여러 건에 밀려 첫 화면에서 사라지지 않게 한다. 날짜 순으로 합친다.
+ */
+export async function partnerPageReviews(partnerId: string, recent = 6, hard = 4): Promise<PublicReview[]> {
+  const today = todayKst();
+  return asPublic(async (q) => {
+    const [a, b] = await Promise.all([
+      queryPublicReviews(q, { limit: recent, partnerId, today }),
+      queryPublicReviews(q, { limit: hard, partnerId, today, outcomes: ['fc_returned', 'fc_rejected', 'lost'] }),
+    ]);
+    const seen = new Set<string>();
+    return [...a, ...b].filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true))).sort((x, y) => new Date(y.created_at).getTime() - new Date(x.created_at).getTime());
+  });
+}
+
+export async function partnerBySlug(slug: string) {
+  return asPublic(async (q) => {
+    const p = (
+      await q.query<
+        PublicPartner & {
+          address: string | null;
+          phone: string | null;
+          website: string | null;
+          intro: string | null;
+          license_no: string | null;
+          cargo_insurance: string | null;
+          public_source: string | null;
+          public_checked_on: string | null;
+          created_at: string;
+        }
+      >(
+        `select o.id, o.name, o.name_zh, o.slug, o.status, o.business_type, o.logo_path, o.hq_city, o.related_party_note, o.is_demo,
+                o.address, o.phone, o.website, o.intro, o.license_no, o.cargo_insurance, o.public_source, o.public_checked_on, o.created_at,
+                (select array_agg(hub order by hub) from fcd.org_hubs h where h.org_id = o.id) hubs,
+                (select array_agg(mode order by mode) from fcd.org_modes m where m.org_id = o.id) modes
+           from fcd.orgs o where o.slug = $1 and o.kind = 'partner'`,
+        [slug],
+      )
+    )[0];
+    if (!p) return null;
+    const caps = await q.query<{ trait: string; name_ko: string }>(
+      `select c.trait, t.name_ko from fcd.org_capabilities c join fcd.cargo_traits t on t.code = c.trait where c.org_id = $1 order by t.ord`,
+      [p.id],
+    );
+    const metrics = (await q.query<Record<string, number | null>>('select * from fcd.v_partner_metrics where org_id = $1', [p.id]))[0] ?? null;
+    const grade = (
+      await q.query<{ granted: boolean; created_at: string }>(
+        `select granted, created_at from fcd.grade_records where org_id = $1 and grade = 'fc_ready' order by created_at desc limit 1`,
+        [p.id],
+      )
+    )[0];
+    const cards = await q.query<{ id: string; origin_hub: string; port: string; mode: string; valid_to: string; created_at: string; certainty: string }>(
+      `select id, origin_hub, port, mode, valid_to, created_at, certainty from fcd.v_rate_cards_current
+        where org_id = $1 and status = 'active' and valid_to >= (now() at time zone 'Asia/Seoul')::date order by origin_hub, port, mode`,
+      [p.id],
+    );
+    // v2 trust — 표본·끝별 건수·청구 편차 분포(숫자만)
+    const trustRule = await loadTrustRule(q);
+    const trust = (await loadTrustFacts(q, [p.id], trustRule)).get(p.id) ?? emptyTrust(trustRule);
+    const scoreCaps = (await loadSettings(q)).scoreCaps;
+    return { partner: p, caps, metrics, fcReady: grade?.granted ?? false, gradeAt: grade?.created_at ?? null, publicCards: cards, trust, scoreCaps };
+  });
+}
+
+/** 이 구간에 지금 유효한 요금표를 둔 업체(이름만 — 가격은 싣지 않는다) */
+export async function lanePartners(hub: string, port: string, mode: string) {
+  const today = todayKst();
+  return asSystem((q) =>
+    q.query<{ id: string; name: string; slug: string; status: string; logo_path: string | null; business_type: string | null; related_party_note: string | null }>(
+      `select distinct o.id, o.name, o.slug, o.status, o.logo_path, o.business_type, o.related_party_note
+         from fcd.rate_cards r join fcd.orgs o on o.id = r.org_id
+        where r.origin_hub = $1 and r.port = $2 and r.mode = $3 and r.status = 'active' and r.valid_to >= $4::date
+          and not exists (select 1 from fcd.rate_cards n where n.supersedes_id = r.id)
+          and o.status in ('official','pending_verification') and ($5 or not o.is_demo)
+        order by o.status desc, o.name`,
+      [hub, port, mode, today, env.demoMode],
+    ),
+  );
+}
+
+export async function laneBySlug(slug: string) {
+  const all = await laneStats();
+  return { lane: all.find((l) => l.slug === slug) ?? null, all };
+}

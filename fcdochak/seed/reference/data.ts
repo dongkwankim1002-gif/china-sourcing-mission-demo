@@ -1,0 +1,460 @@
+/**
+ * 참조 시드 — 본게임에도 남는 자료. 데모가 아니다.
+ * 기준값(환율·요율·기준)은 여기 「첫 판」만 넣고, 이후는 운영 어드민에서 새 판으로 쌓는다.
+ */
+import type { RateLine } from '@/lib/money/quote';
+
+export const HUBS = [
+  { code: 'YIW', name_ko: '이우', name_zh: '义乌', province_ko: '저장성', lat: 29.306, lng: 120.075, stage: 1, ord: 1 },
+  { code: 'QDG', name_ko: '청도', name_zh: '青岛', province_ko: '산둥성', lat: 36.067, lng: 120.383, stage: 1, ord: 2 },
+  { code: 'WEH', name_ko: '위해', name_zh: '威海', province_ko: '산둥성', lat: 37.513, lng: 122.12, stage: 1, ord: 3 },
+  { code: 'YNT', name_ko: '연태', name_zh: '烟台', province_ko: '산둥성', lat: 37.464, lng: 121.448, stage: 2, ord: 4 },
+  { code: 'RZH', name_ko: '일조', name_zh: '日照', province_ko: '산둥성', lat: 35.417, lng: 119.527, stage: 2, ord: 5 },
+  { code: 'CAN', name_ko: '광저우', name_zh: '广州', province_ko: '광둥성', lat: 23.129, lng: 113.264, stage: 1, ord: 6 },
+  { code: 'SZX', name_ko: '선전', name_zh: '深圳', province_ko: '광둥성', lat: 22.543, lng: 114.058, stage: 2, ord: 7 },
+] as const;
+
+export const PORTS = [
+  { code: 'ICN', name_ko: '인천', name_zh: '仁川', lat: 37.456, lng: 126.598, ord: 1 },
+  { code: 'PTK', name_ko: '평택', name_zh: '平泽', lat: 36.966, lng: 126.827, ord: 2 },
+] as const;
+
+export const MODES = [
+  { code: 'LCL', name_ko: 'LCL 혼적', name_zh: '拼箱 LCL', days_min: 7, days_max: 12, ord: 1 },
+  { code: 'FERRY', name_ko: '카페리', name_zh: '客滚船', days_min: 3, days_max: 6, ord: 2 },
+  { code: 'FCL', name_ko: 'FCL 컨테이너', name_zh: '整箱 FCL', days_min: 7, days_max: 14, ord: 3 },
+  { code: 'AIR', name_ko: '항공', name_zh: '空运', days_min: 2, days_max: 4, ord: 4 },
+] as const;
+
+/** 쿠팡 FC — 지역 이름으로만 부른다. 거리는 항구에서의 도로 거리(대략, km). */
+export const FC_CENTERS = [
+  { code: 'FC-ICN', name: '인천 FC', region: '인천', km_incheon: 18, km_pyeongtaek: 92 },
+  { code: 'FC-GOY', name: '고양 FC', region: '경기 북부', km_incheon: 45, km_pyeongtaek: 105 },
+  { code: 'FC-ICH', name: '이천 FC', region: '경기 동부', km_incheon: 88, km_pyeongtaek: 62 },
+  { code: 'FC-DPG', name: '덕평 FC', region: '경기 동부', km_incheon: 92, km_pyeongtaek: 70 },
+  { code: 'FC-DTN', name: '동탄 FC', region: '경기 남부', km_incheon: 62, km_pyeongtaek: 30 },
+  { code: 'FC-PTK', name: '평택 FC', region: '경기 남부', km_incheon: 84, km_pyeongtaek: 12 },
+  { code: 'FC-CAN', name: '천안 FC', region: '충청', km_incheon: 110, km_pyeongtaek: 38 },
+  { code: 'FC-DGU', name: '대구 FC', region: '경상', km_incheon: 290, km_pyeongtaek: 230 },
+  { code: 'FC-CWN', name: '창원 FC', region: '경상', km_incheon: 370, km_pyeongtaek: 310 },
+  { code: 'FC-GWJ', name: '광주 FC', region: '전라', km_incheon: 300, km_pyeongtaek: 230 },
+] as const;
+
+export const SEGMENT_ROWS = [
+  { code: 'pickup', ord: 1, name_ko: '집하', name_zh: '提货', description_ko: '공장·도매시장에서 화물을 거둬 창고로' },
+  { code: 'cn_warehouse', ord: 2, name_ko: '창고 작업', name_zh: '仓库作业', description_ko: '검수·라벨·재포장·팔레트' },
+  { code: 'export_customs', ord: 3, name_ko: '수출통관', name_zh: '出口报关', description_ko: '중국 수출신고·서류' },
+  { code: 'freight', ord: 4, name_ko: '국제운송', name_zh: '国际运输', description_ko: '해상·카페리·항공 운임' },
+  { code: 'port', ord: 5, name_ko: '항만', name_zh: '港口杂费', description_ko: '터미널 작업료·CFS·서류 발급' },
+  { code: 'broker', ord: 6, name_ko: '관세사', name_zh: '韩国报关行', description_ko: '수입신고 대리 보수 — 수수료 기준에서 뺀다' },
+  { code: 'kr_warehouse', ord: 7, name_ko: '국내 창고', name_zh: '韩国仓库', description_ko: '입고·보관·FC 규격 작업' },
+  { code: 'fc_delivery', ord: 8, name_ko: 'FC 운송', name_zh: 'FC 配送', description_ko: '쿠팡 FC 입고 운송·예약' },
+  { code: 'return_reserve', ord: 9, name_ko: '회송 대비', name_zh: '退仓预留', description_ko: 'FC 입고 반려 시 회송·재작업 예비비' },
+] as const;
+
+export const CARGO_TRAITS = [
+  {
+    code: 'battery', ord: 1, name_ko: '배터리', name_zh: '电池',
+    verdict_ko: '리튬 배터리 포함 — 항공은 못 보내고, 해상·카페리는 MSDS 와 UN38.3 시험성적서가 필요합니다.',
+    requirement_ko: '배터리 취급을 등록한 업체만 받을 수 있습니다.',
+    needs_capability: true, blocked_modes: ['AIR'],
+  },
+  {
+    code: 'radio', ord: 2, name_ko: '전파인증', name_zh: '无线电认证',
+    verdict_ko: '무선 기능 — 수입신고 때 전파법 적합성평가(KC 전파) 번호가 필요합니다.',
+    requirement_ko: '인증 번호를 요청서에 적어 주세요. 없으면 통관이 보류됩니다.',
+    needs_capability: false, blocked_modes: [],
+  },
+  {
+    code: 'kc', ord: 3, name_ko: 'KC 안전', name_zh: 'KC 安全认证',
+    verdict_ko: '전기·생활용품 — KC 안전인증·안전확인·공급자적합성확인 대상인지 먼저 확인합니다.',
+    requirement_ko: '대상이면 인증서 또는 시험성적서를 서류 탭에 올려 주세요.',
+    needs_capability: false, blocked_modes: [],
+  },
+  {
+    code: 'food_contact', ord: 4, name_ko: '식품접촉', name_zh: '食品接触',
+    verdict_ko: '식품에 닿는 제품 — 기구·용기·포장 수입신고가 필요하고, 정밀검사가 걸리면 5~10일 늘어납니다.',
+    requirement_ko: '재질 성적서를 준비해 주세요. 관세사가 식약처 신고를 대행합니다.',
+    needs_capability: false, blocked_modes: [],
+  },
+  {
+    code: 'liquid', ord: 5, name_ko: '액체', name_zh: '液体',
+    verdict_ko: '액체 — 누수 방지 이중 포장이 필요하고, 일부 카페리 선사는 받지 않습니다.',
+    requirement_ko: '액체 취급을 등록한 업체만 받을 수 있습니다.',
+    needs_capability: true, blocked_modes: [],
+  },
+  {
+    code: 'cosmetics', ord: 6, name_ko: '화장품', name_zh: '化妆品',
+    verdict_ko: '화장품 — 화장품책임판매업 등록 화주만 수입할 수 있고, 한글 표시사항이 필요합니다.',
+    requirement_ko: '책임판매업 등록증을 설정의 회사 서류에 올려 주세요.',
+    needs_capability: false, blocked_modes: [],
+  },
+  {
+    code: 'dg', ord: 7, name_ko: '위험물', name_zh: '危险品',
+    verdict_ko: '위험물(가스·압축·인화) — 항공과 카페리는 불가, 위험물 취급 업체의 해상 운송만 됩니다.',
+    requirement_ko: '위험물 취급을 등록한 업체만 받을 수 있습니다. MSDS 필수.',
+    needs_capability: true, blocked_modes: ['AIR', 'FERRY'],
+  },
+  {
+    code: 'kids', ord: 8, name_ko: '어린이제품', name_zh: '儿童产品',
+    verdict_ko: '어린이제품 — KC 어린이제품 안전인증(또는 안전확인) 없이는 통관되지 않습니다.',
+    requirement_ko: '인증 번호와 표시사항 사진을 서류 탭에 올려 주세요.',
+    needs_capability: false, blocked_modes: [],
+  },
+] as const;
+
+export const DUTY_RATES = [
+  { category: 'general', name_ko: '일반 잡화', rate_bp: 800 },
+  { category: 'electronics', name_ko: '소형 전자기기', rate_bp: 800 },
+  { category: 'audio', name_ko: '음향기기', rate_bp: 800 },
+  { category: 'apparel', name_ko: '의류·섬유', rate_bp: 1300 },
+  { category: 'kitchen', name_ko: '주방용품(식품접촉)', rate_bp: 800 },
+  { category: 'cosmetics', name_ko: '화장품', rate_bp: 650 },
+  { category: 'toys', name_ko: '완구·어린이제품', rate_bp: 800 },
+  { category: 'furniture', name_ko: '가구·대형 생활용품', rate_bp: 800 },
+  { category: 'chemical', name_ko: '가스·화학 생활용품', rate_bp: 650 },
+] as const;
+
+/** 비교 때 업체가 맡지 않은 구간을 채우는 플랫폼 참고 요금(원). 운영 어드민에서 새 판으로 바꾼다. */
+export const REFERENCE_LINES: RateLine[] = [
+  { segment: 'pickup', included: true, basis: 'per_cbm', unitPrice: 9000, currency: 'KRW', minCharge: 45000, certainty: 'estimated' },
+  { segment: 'cn_warehouse', included: true, basis: 'per_carton', unitPrice: 1100, currency: 'KRW', minCharge: 20000, certainty: 'estimated' },
+  { segment: 'export_customs', included: true, basis: 'per_shipment', unitPrice: 48000, currency: 'KRW', certainty: 'estimated' },
+  { segment: 'freight', included: true, basis: 'per_rt', unitPrice: 88000, currency: 'KRW', minCharge: 88000, certainty: 'estimated' },
+  { segment: 'port', included: true, basis: 'per_rt', unitPrice: 36000, currency: 'KRW', minCharge: 60000, certainty: 'estimated' },
+  { segment: 'broker', included: true, basis: 'per_shipment', unitPrice: 33000, currency: 'KRW', certainty: 'estimated' },
+  { segment: 'kr_warehouse', included: true, basis: 'per_carton', unitPrice: 1400, currency: 'KRW', minCharge: 30000, certainty: 'estimated' },
+  { segment: 'fc_delivery', included: true, basis: 'per_pallet', unitPrice: 42000, currency: 'KRW', minCharge: 60000, certainty: 'estimated' },
+  { segment: 'return_reserve', included: true, basis: 'per_carton', unitPrice: 600, currency: 'KRW', minCharge: 10000, certainty: 'estimated' },
+];
+
+export const SETTINGS: { key: string; value: unknown; note: string }[] = [
+  { key: 'fx', value: { KRW: 1, RMB: 190.5, USD: 1380 }, note: '1 외화 = N 원. 매주 월요일 고시환율로 갱신.' },
+  { key: 'commission_rate_bp', value: 300, note: '성사 수수료 요율(bp). 기준 = 물류비 합계 − 관세사 보수.' },
+  { key: 'fc_ready_rule', value: { minFcInbound: 60, maxReturnRate30d: 0.035 }, note: 'FC 입고 준비 인증 기준' },
+  { key: 'score_caps', value: { deviationCap: 0.1, fcReturnCap: 0.1 }, note: '이 편차·회송률 이상이면 그 칸 0점' },
+  { key: 'quote_params', value: { volumetricKgPerCbm: 167, palletCbm: 1.5, containerCbm: 28 }, note: '청구 수량 환산 기준' },
+  { key: 'vat_rate_bp', value: 1000, note: '부가세율' },
+  { key: 'insurance_bp', value: 20, note: '보험료를 모를 때 과세가격 산입 비율' },
+  { key: 'sale_fee_bp', value: 1080, note: '판매손익 기본 판매 수수료율 — 화주가 바꿀 수 있다' },
+  { key: 'fulfillment_per_unit', value: 2800, note: '판매손익 기본 개당 풀필먼트 비용(원)' },
+  { key: 'reference_lines', value: REFERENCE_LINES, note: '비교 때 빈 구간을 채우는 참고 요금' },
+  { key: 'expiring_days', value: 10, note: '「곧 만료」로 표시할 남은 날' },
+  // v2 tools — 공개 판매손익 계산기(/tools/pnl) 기준값. 실제 쿠팡 요율을 확인한 값이 아니다(예시). 확인하면 어드민에서 새 판으로.
+  {
+    key: 'tools.coupang_fee_basis',
+    value: {
+      saleFeeBp: 1080,
+      rgInboundPerUnit: 700,
+      rgShippingPerUnit: 2100,
+      adBp: 0,
+      checkedOn: '2026-09-25',
+      example: true,
+      source: '예시 기준값 — 쿠팡 판매 수수료·로켓그로스 요금은 카테고리·크기·기간마다 다릅니다. 쿠팡 WING 과 로켓그로스 요금표에서 확인해 주세요.',
+    },
+    note: '공개 판매손익 계산기의 쿠팡 기준값(예시). 확인한 값으로 바꾸면 checkedOn·example 도 함께 고친다',
+  },
+  {
+    key: 'tools.trait_extra_costs',
+    value: [
+      { trait: 'battery', items: ['MSDS·UN38.3 시험성적서 발급비', '배터리 취급 할증(업체마다 다름)', '항공 불가 — 해상·카페리 기간만큼 재고가 늦게 들어감'] },
+      { trait: 'radio', items: ['전파 적합성평가(KC 전파) 비용 — 번호가 없을 때', '통관 보류 기간의 보관료'] },
+      { trait: 'kc', items: ['KC 안전인증·시험성적서 비용 — 대상일 때', '통관 보류 기간의 보관료'] },
+      { trait: 'food_contact', items: ['기구·용기·포장 수입신고 대행료', '정밀검사가 걸리면 검사비와 5~10일 보관료'] },
+      { trait: 'liquid', items: ['누수 방지 이중 포장비', '받지 않는 카페리 선사가 있어 선택지가 줄어듦'] },
+      { trait: 'cosmetics', items: ['한글 표시사항 라벨 작업비', '화장품책임판매업 등록(없으면 수입 불가)'] },
+      { trait: 'dg', items: ['위험물 할증·전용 적재 비용', 'MSDS 필수 · 항공·카페리 불가'] },
+      { trait: 'kids', items: ['KC 어린이제품 인증 비용', '표시사항 라벨 작업비'] },
+    ],
+    note: '화물 특성마다 생길 수 있는 추가비용 항목(금액 없이 글로). 계산기·비교에서 경고로 보인다',
+  },
+  {
+    key: 'tools.arrival_rule',
+    value: { minSamples: 3, minSpreadSamples: 5, perMinute: 60 },
+    note: '공개 「구간 시세로 도착원가」 — 요금표를 낸 업체가 minSamples 곳 미만이면 플랫폼 참고치로, 요금표가 minSpreadSamples 장 미만이면 최저·싼 쪽 4분의 1 을 싣지 않는다(한 업체 가격이 드러나지 않게) · 비로그인 IP 당 분당 횟수',
+  },
+  {
+    key: 'invoice_check_rule',
+    value: { minSamples: 3, highOverMedianBp: 2000, lowUnderMedianBp: 3000, missingCoverageBp: 5000, publicPerMinute: 20, minSpreadSamples: 5 },
+    note: '청구서 점검 — 구간 표본 최소 요금표 수 · 과함(중간값 +bp, 비싼 쪽 25% 초과) · 낮음(중간값 −bp) · 빠짐(그 구간을 맡는 요금표 비율 bp 이상) · 비로그인 분당 횟수 · 분위·최저를 싣는 최소 표본(그보다 적으면 중간값만)',
+  },
+  { key: 'score_min_sample', value: { days: 30, count: 20 }, note: '추천 점수를 내는 최소 표본 — 최근 days 일 안에 끝난 선적(입고·회송·반려·미도착)이 count 건 미만이면 「표본 부족」' },
+  { key: 'review_lost_after_days', value: 14, note: 'FC 도착 예정일에서 이만큼 지나도 입고되지 않은 선적은 「분실·미도착」으로 보고 평가를 받는다' },
+  { key: 'workspace.invite_days', value: 14, note: '거래처 초대 링크 유효 일수(1~90)' },
+  { key: 'workspace.billing_flag_bp', value: 300, note: '청구가 견적보다 이 비율(bp) 이상 다르면 승인 화면에 「차이 큼」 표시' },
+];
+
+// v2 assure — 확정가·보장 자리. 스위치는 모두 꺼짐으로 시작한다(켜도 실제 계약·결제는 없다).
+export const V2_ASSURE_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  { key: 'v2.firm_price_enabled', value: false, note: '확정가 시범 — 국제물류주선업 등록·초과비용 준비금이 정해지기 전까지 꺼 둔다' },
+  { key: 'v2.coverage_enabled', value: false, note: '회송 보장 시범 — 보험사 제휴가 정해지기 전까지 꺼 둔다' },
+  { key: 'v2.deferred_enabled', value: false, note: '물류비 후불 시범 — 금융사·결제대행 제휴가 정해지기 전까지 꺼 둔다' },
+  { key: 'v2.consolidation_enabled', value: false, note: '공동 혼적 시범 — 콘솔사 물량 단가가 정해지기 전까지 꺼 둔다' },
+  {
+    key: 'v2.firm_price_rates',
+    value: { confidenceBp: 9000, loadingBp: 10000, minPremiumBp: 150, smallSampleMin: 5, smallSamplePremiumBp: 500, maxPremiumBp: 2000, roundTo: 1000, validDays: 7 },
+    note: '확정가 = 중간값 + 초과 위험(신뢰수준 분위 − 중간값) × 배수. 최소·표본 적음 프리미엄, 상한을 넘으면 내지 않음',
+  },
+  {
+    key: 'v2.coverage_rates',
+    value: { priorReturnRateBp: 350, credibilityK: 30, loadingBp: 4000, minFee: 5000, maxInsurableRateBp: 1500, roundTo: 100 },
+    note: '회송 보장료 = 보장 금액 × 신뢰도 가중 회송률 × (1 + 부가율)',
+  },
+  { key: 'v2.deferred_rates', value: { monthlyFeeBp: 150, termDays: 30, maxAmount: 30000000 }, note: '물류비 후불 참고 수수료(30일당 bp)·기간·한도' },
+];
+SETTINGS.push(...V2_ASSURE_SETTINGS);
+// v2 metrics — 목적지 넓히기 ------------------------------------------------------
+/**
+ * 쿠팡 FC 밖의 목적지 — 국내 3PL 창고·다른 쇼핑몰 물류센터. 실제 회사가 아니라 지역만 적은 「예시」다.
+ * 같은 참조표(fcd.fc_centers)에 kind 로 갈라 둔다. 쿠팡 FC 는 kind = 'coupang_fc'(기본값).
+ */
+export const DESTINATIONS = [
+  { code: 'TP-ICN', name: '예시 3PL 창고 · 인천 서구', region: '인천', kind: '3pl', km_incheon: 15, km_pyeongtaek: 95, ord: 1 },
+  { code: 'TP-YIN', name: '예시 3PL 창고 · 경기 용인', region: '경기 남부', kind: '3pl', km_incheon: 70, km_pyeongtaek: 45, ord: 2 },
+  { code: 'TP-BSN', name: '예시 3PL 창고 · 부산', region: '경상', kind: '3pl', km_incheon: 420, km_pyeongtaek: 360, ord: 3 },
+  { code: 'MK-GMP', name: '예시 쇼핑몰 물류센터 · 경기 김포', region: '경기 북부', kind: 'mall_wh', km_incheon: 30, km_pyeongtaek: 100, ord: 1 },
+  { code: 'MK-ICH', name: '예시 쇼핑몰 물류센터 · 경기 이천', region: '경기 동부', kind: 'mall_wh', km_incheon: 88, km_pyeongtaek: 62, ord: 2 },
+  { code: 'MK-CAN', name: '예시 쇼핑몰 물류센터 · 충남 천안', region: '충청', kind: 'mall_wh', km_incheon: 110, km_pyeongtaek: 38, ord: 3 },
+] as const;
+
+/** 목적지·지표 설정 — 키가 한 번도 없을 때만 첫 판을 넣는다(SETTINGS 와 같은 규칙) */
+export const METRICS_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  {
+    key: 'destination_leg',
+    value: { perPalletBase: 25000, perPalletPerKm: 220, minCharge: 50000 },
+    note: '쿠팡 FC 밖 목적지(3PL·쇼핑몰 창고)의 마지막 구간 참고치 — 팔레트당 기본 + km당(원). 업체 요금표의 「FC 운송」은 쿠팡 FC 기준이라 이 값으로 바꿔 계산한다.',
+  },
+];
+
+// v2 2차 wing — 쿠팡 WING 연동 기준치 -------------------------------------------------
+/** 키가 한 번도 없을 때만 첫 판을 넣는다(SETTINGS 와 같은 규칙). 근거는 docs/wing-plan.md §2.4·§8 */
+export const WING_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  {
+    key: 'wing.call_rule',
+    value: { perSecond: 4, perMinute: 40, maxRetries: 3, baseBackoffMs: 1000, maxBackoffMs: 30000, timeoutMs: 10000 },
+    note: '쿠팡 오픈 API 호출 제한·재시도 — 쿠팡 공지(업체 코드당 초당 5회, 로켓그로스 분당 50회, 확인 필요)보다 낮게',
+  },
+  {
+    key: 'wing.match_rule',
+    value: { dateWindowDays: 10, unitsToleranceBp: 2000, minScore: 70 },
+    note: '입고 요청 ↔ 선적 짝 제안 — 날짜 차이 허용 일수 · 수량 차이 허용(bp) · 제안 최소 점수(100점 중)',
+  },
+  { key: 'wing.key_valid_days', value: 180, note: '쿠팡 OPEN API 키 유효기간(일) — 발급일로부터. 만료 14일 전부터 화면에 알린다' },
+];
+SETTINGS.push(...WING_SETTINGS);
+// v2 alliance — 등록 업체와의 제휴 구조(docs/alliance-plan.md). 스위치는 꺼짐으로 시작한다.
+// 비율·금액은 기획 문서의 「제안값」이다(사람이 정할 일). 보증보험 1억 원은 물류정책기본법 시행령 제30조의2(원문 대조 필요).
+export const ALLIANCE_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  { key: 'v2.alliance_enabled', value: false, note: '제휴 주선사 — 법률 검토·첫 제휴사 계약이 정해지기 전까지 꺼 둔다. 켜도 계약서 서명·돈의 이동·외부 연락은 앱이 하지 않는다' },
+  {
+    key: 'alliance.rules',
+    value: { expiryWarnDays: 30, minBondAmount: 100000000, requiredKinds: ['registration_cert', 'guarantee_bond', 'biz_reg', 'incident_history'] },
+    note: '제휴 요건 — 만료 경고 일수, 보증보험 최소 금액(원), 필수 서류',
+  },
+  {
+    key: 'alliance.default_terms',
+    value: {
+      model: 'partner_contract',
+      commissionBp: 300,
+      reserveBp: 3000,
+      liability: { overrun: { platformBp: 5000, capBp: 300 }, return: { platformBp: 0, capBp: 0 }, loss: { platformBp: 0, capBp: 0 }, delay: { platformBp: 0, capBp: 0 } },
+      validDays: 365,
+    },
+    note: '제휴 계약 첫 판 기본값 — 수수료 3%(확정가 − 관세사 보수), 준비금 프리미엄의 30%, 외부 요인 초과비용 플랫폼 50%·건당 확정가 3% 상한',
+  },
+];
+SETTINGS.push(...ALLIANCE_SETTINGS);
+// v2 interview — 셀러 인터뷰 · 먼저 검증할 실험 셋(docs/research-plan.md) ----------------------
+/** 판정선·사다리·보관 기간·링크 일수. 키가 한 번도 없을 때만 첫 판을 넣는다(SETTINGS 와 같은 규칙). */
+export const RESEARCH_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  {
+    key: 'research.rules',
+    value: {
+      ladderBp: [100, 300, 500, 800],
+      thresholdBp: 300,
+      majorityBp: 5000,
+      minSample: 12,
+      uploadTargetBp: 1500,
+      uploadMinVisitors: 100,
+      volumeBucketsCbm: [1, 3, 5, 10, 20, 40],
+      consolidationVolumeCbm: 10,
+      consolidationBaseCbm: 3,
+      consolidationDiscountBp: 1500,
+      consolidationMinQuotes: 3,
+      inviteDays: 14,
+      consentVersion: '2026-09 초안(법률 검토 전)',
+      retentionDays: 180,
+      publicPerMinute: 30,
+    },
+    note: '셀러 인터뷰 판정선(제안값 — 사람이 정한다). 확정가 +3% 이상(반대 질문 통과)이 절반 초과·12명 이상이면 방안 A 기준 충족 · 점검 업로드 15%·방문 100 · 콘솔사 10 CBM 이상이 포워더 3 CBM 이하보다 15% 싸면 충족',
+  },
+];
+SETTINGS.push(...RESEARCH_SETTINGS);
+// v2 2차 고침 — WING 키 만료 알림 시작(일). 화면(연동 페이지)에만 알리고 밖으로 보내지 않는다
+const WING_WARN = { key: 'wing.key_warn_days', value: 14, note: 'WING 키 만료 며칠 전부터 연동 화면에 「곧 만료」를 보일지(일). 메일·문자는 보내지 않는다' };
+WING_SETTINGS.push(WING_WARN);
+SETTINGS.push(WING_WARN);
+// v2 3차 sourcing — 유사상품 중국 소싱처 발굴(패밀리 확장 모듈, docs/sourcing-plan.md). 스위치는 꺼짐으로 시작한다.
+// 수수료는 「가정치」(example: true) — 사람이 정한다. 키가 한 번도 없을 때만 첫 판을 넣는다(SETTINGS 와 같은 규칙).
+export const SOURCING_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  { key: 'sourcing.enabled', value: false, note: '소싱처 찾기 — 현지 소싱 담당·약관·책임의 선이 정해지기 전까지 꺼 둔다. 꺼져 있으면 「준비 중 · 미리보기」, 요청은 기록만. 켜도 앱은 밖으로 연락하지 않는다' },
+  {
+    key: 'sourcing.rules',
+    value: {
+      slaDays: 5,
+      maxOpenPerOrg: 10,
+      maxCandidates: 8,
+      defaultHub: 'YIW',
+      defaultPort: 'ICN',
+      defaultMode: 'LCL',
+      defaultFc: 'FC-ICH',
+      targetCostShareBp: 3000,
+      priceBandBp: 3000,
+      similarity: { wordBp: 5000, categoryBp: 2000, priceBp: 3000, imageBp: 0, minShow: 30 },
+    },
+    note: '소싱 요청 처리 기한(일)·조직당 열린 요청 수·요청당 후보 수 · 도착원가 시뮬 기본 구간 · 유사도(낱말·분류·가격대) 가중치와 가격대(기대 매입가 = 목표 판매가 × targetCostShareBp, ±priceBandBp)',
+  },
+  {
+    key: 'sourcing.fees',
+    value: { example: true, agentFeeBp: 500, sampleHandlingKrw: 30000, inspectionPerDayKrw: 300000, checkedOn: null },
+    note: '소싱 수익 가정치(확인 안 한 값) — 대행 수수료(발주 상품가 대비 bp)·샘플 처리(건당 원)·현지 검품(1일 원)',
+  },
+];
+SETTINGS.push(...SOURCING_SETTINGS);
+// v2 3차 sales — 쿠팡 API 제공 · 판매 분석(docs/sales-plan.md). 키가 한 번도 없을 때만 첫 판을 넣는다(SETTINGS 와 같은 규칙).
+export const SALES_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  {
+    key: 'sales.rules',
+    value: { velocityDays: 28, prepDays: 7, coverDays: 60, abcABp: 8000, abcBBp: 9500, lowStockDays: 21, actualShipments: 5, inboundReflectBp: 5000, roundUnits: 50 },
+    note: '판매 분석 기준(제안값 — 사람이 정한다): 판매 속도 창(일) · 재입고 준비일(생산·집하) · 권장 수량이 덮을 일수 · ABC 누적 매출 경계(bp) · 곧 품절(일) · 실제 도착원가에 쓸 최근 선적 수 · 입고 반영으로 볼 재고 증가 비율(bp) · 권장 수량 올림 단위',
+  },
+  { key: 'wing.egress_ips', value: [], note: 'FC도착이 쿠팡을 부를 때 나가는 고정 IP — 셀러가 WING 키 설정의 연동 IP 칸에 적는다. 비어 있으면 화면에 「준비 중 — 운영이 정하면 표시」' },
+];
+SETTINGS.push(...SALES_SETTINGS);
+// v2 4차 onestop — 원스톱 대행형 구역(docs/onestop-plan.md). 스위치는 꺼짐으로 시작한다(접수 기록만 · 대행 계약 전).
+// 요금은 「가정치」(example: true) — 9구간 참고치(REFERENCE_LINES)에서 혼적 규모 효과를 가정해 잡은 값. 사람이 콘솔사 단가로 바꾼다.
+export const ONESTOP_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  { key: 'onestop.enabled', value: false, note: '원스톱 대행 — 대행 계약·사입 대금·보험이 정해지기 전까지 꺼 둔다. 꺼져 있으면 주문서는 「접수 기록만 · 대행 계약 전」. 켜도 앱은 결제·메일·문자를 보내지 않는다' },
+  {
+    key: 'onestop.tariff',
+    value: {
+      example: true,
+      checkedOn: null,
+      lanes: [
+        { hub: 'YIW', mode: 'LCL', port: 'ICN', perCbmKrw: 219000, daysMin: 12, daysMax: 18 },
+        { hub: 'QDG', mode: 'LCL', port: 'ICN', perCbmKrw: 199000, daysMin: 9, daysMax: 14 },
+        { hub: 'QDG', mode: 'FERRY', port: 'PTK', perCbmKrw: 239000, daysMin: 6, daysMax: 9 },
+        { hub: 'WEH', mode: 'FERRY', port: 'ICN', perCbmKrw: 229000, daysMin: 6, daysMax: 9 },
+        { hub: 'CAN', mode: 'LCL', port: 'ICN', perCbmKrw: 239000, daysMin: 13, daysMax: 20 },
+      ],
+      cbmStepCenti: 10,
+      remoteFc: { codes: ['FC-DGU', 'FC-CWN', 'FC-GWJ'], perCbmKrw: 30000 },
+      handlingPerUnitKrw: 60,
+      barcodePerUnitKrw: 90,
+      inspectionPerUnitKrw: { basic: 120, full: 350 },
+      purchaseFeeBp: 500,
+      minChargeKrw: 150000,
+      cutoffWeekdays: [2, 5],
+      cutoffHourKst: 17,
+    },
+    note: '원스톱 고정 요금표(가정치) — 허브·방식별 공동 혼적 CBM당(공장 입고~FC 입고, 관부가세 별도) · 청구 CBM 0.1 올림 · 원거리 FC 할증 · 개당 작업비·바코드·검품 · 사입 대행 수수료(물품가 bp) · 최소 요금 · 혼적 마감(화·금 17시)',
+  },
+];
+SETTINGS.push(...ONESTOP_SETTINGS);
+
+// v2 5차 tracker — 통관·입고 알리미(docs/tracker-plan.md). 관세청 호출 스위치는 환경변수 UNIPASS_ENABLED(꺼짐).
+// 공휴일 첫 판은 「관공서의 공휴일에 관한 규정」·한국천문연구원 월력요항을 원문 대조하지 못한 목록이다(confirmed: false) — 운영자가 확인해 새 판으로.
+export const TRACKER_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  {
+    key: 'tracker.rules',
+    value: {
+      minSamples: 5,
+      windowDays: 90,
+      cacheMinutes: 20,
+      batchLimit: 40,
+      dailyCallBudget: 500,
+      publicDailyBudget: 150,
+      publicPerMinute: 10,
+      maxTracksPerOrg: 300,
+      assumed: { toClear: { p50: 1, p90: 3 }, toFc: { p50: 2, p90: 4 } },
+      example: true,
+    },
+    note: '통관 알리미 — 공개·업체 화면 최소 표본 · 통계 기간(일) · 같은 번호 다시 부르지 않는 분 · 폴링 한 번 번호 수 · 하루 관세청 호출 상한(한도 확인 전 스스로 묶음) · 그중 비로그인 공개 조회 몫(나머지는 저장한 번호 폴링 몫) · 비로그인 분당 조회 · 조직당 번호 수 · 통계가 모자랄 때 가정치(영업일)',
+  },
+  {
+    key: 'calendar.kr_holidays',
+    value: {
+      confirmed: false,
+      checkedOn: null,
+      source: '관공서의 공휴일에 관한 규정(대통령령) · 한국천문연구원 월력요항 — 첫 판은 원문 대조 전(확인 필요)',
+      days: [
+        { date: '2026-01-01', name: '신정' },
+        { date: '2026-02-16', name: '설날 연휴' },
+        { date: '2026-02-17', name: '설날' },
+        { date: '2026-02-18', name: '설날 연휴' },
+        { date: '2026-03-01', name: '삼일절' },
+        { date: '2026-03-02', name: '삼일절 대체공휴일', substitute: true },
+        { date: '2026-05-05', name: '어린이날' },
+        { date: '2026-05-24', name: '부처님오신날' },
+        { date: '2026-05-25', name: '부처님오신날 대체공휴일', substitute: true },
+        { date: '2026-06-03', name: '전국동시지방선거일', confirmed: false },
+        { date: '2026-06-06', name: '현충일' },
+        { date: '2026-07-17', name: '제헌절(공휴일 재지정 여부 확인 필요)', confirmed: false },
+        { date: '2026-08-15', name: '광복절' },
+        { date: '2026-08-17', name: '광복절 대체공휴일', substitute: true },
+        { date: '2026-09-24', name: '추석 연휴' },
+        { date: '2026-09-25', name: '추석' },
+        { date: '2026-09-26', name: '추석 연휴' },
+        { date: '2026-10-03', name: '개천절' },
+        { date: '2026-10-05', name: '개천절 대체공휴일', substitute: true },
+        { date: '2026-10-09', name: '한글날' },
+        { date: '2026-12-25', name: '성탄절' },
+        { date: '2027-01-01', name: '신정' },
+        { date: '2027-02-05', name: '설날 연휴', confirmed: false },
+        { date: '2027-02-06', name: '설날', confirmed: false },
+        { date: '2027-02-07', name: '설날 연휴', confirmed: false },
+        { date: '2027-02-08', name: '설날 대체공휴일', substitute: true, confirmed: false },
+        { date: '2027-03-01', name: '삼일절' },
+        { date: '2027-05-05', name: '어린이날' },
+        { date: '2027-05-13', name: '부처님오신날', confirmed: false },
+        { date: '2027-06-06', name: '현충일' },
+        { date: '2027-07-17', name: '제헌절(공휴일 재지정 여부 확인 필요)', confirmed: false },
+        { date: '2027-08-15', name: '광복절' },
+        { date: '2027-08-16', name: '광복절 대체공휴일', substitute: true },
+        { date: '2027-09-14', name: '추석 연휴', confirmed: false },
+        { date: '2027-09-15', name: '추석', confirmed: false },
+        { date: '2027-09-16', name: '추석 연휴', confirmed: false },
+        { date: '2027-10-03', name: '개천절' },
+        { date: '2027-10-04', name: '개천절 대체공휴일', substitute: true },
+        { date: '2027-10-09', name: '한글날' },
+        { date: '2027-10-11', name: '한글날 대체공휴일', substitute: true },
+        { date: '2027-12-25', name: '성탄절' },
+        { date: '2027-12-27', name: '성탄절 대체공휴일', substitute: true },
+      ],
+    },
+    note: '한국 영업일 계산용 공휴일·대체공휴일(2026~2027 첫 판, 확인 필요). 원문과 대조하면 confirmed·checkedOn 을 채워 새 판으로. 해마다 다음 해 목록을 덧붙인다',
+  },
+  { key: 'tracker.arrival_promise_enabled', value: false, note: '도착일 약속(실측 p90 넘기면 보상) — 보상 재원·보험·약관이 정해지기 전까지 꺼 둔다. 꺼져 있으면 화면에 「준비 중」 한 줄만' },
+  { key: 'tracker.partner_public_enabled', value: false, note: '업체 화면(/p/[slug])에 실제 「실측 통관 소요」 공개 — 업체 동의·답변권·UNI-PASS 약관(가공·공개) 확인 전까지 꺼 둔다. 꺼져 있으면 예시 판만(DEMO_MODE)' },
+];
+SETTINGS.push(...TRACKER_SETTINGS);
+
+// v2 6차 scorecard — 물류사 성적표(docs/scorecard-plan.md). 기준치는 첫 판 가정치(example: true) — 운영자가 새 판으로.
+export const SCORECARD_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  {
+    key: 'scorecard.rules',
+    value: {
+      minSamples: 5,
+      windowDays: 180,
+      certifiedMinSamples: 10,
+      certifiedSubmissionBp: 8000,
+      outlierDays: 20,
+      trendWeeks: 12,
+      sources: { platform: true, seller: true, partner: true },
+      example: true,
+    },
+    note: '물류사 성적표 — 화면에 싣는 최소 표본 · 기간(수리일 기준 일) · 실측 인증(최소 표본·최소 등록·제출률 bp) · 이상치(입항→수리 영업일, 분위수에서 뺌) · 추이 주 수 · 넣는 번호 출처(플랫폼 선적·셀러 등록·물류사 제출)',
+  },
+  { key: 'scorecard.public_named', value: false, note: '이름 붙은 성적을 비로그인에게도 공개 — 명예훼손·표시광고·UNI-PASS 약관 검토와 업체 고지 전까지 꺼 둔다(docs/scorecard-plan.md 7절)' },
+];
+SETTINGS.push(...SCORECARD_SETTINGS);

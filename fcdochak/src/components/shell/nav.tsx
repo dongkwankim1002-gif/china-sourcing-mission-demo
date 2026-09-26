@@ -1,0 +1,111 @@
+'use client';
+import {
+  BarChart3,
+  Bell,
+  Building2,
+  Calculator,
+  ClipboardCheck,
+  Coins,
+  FileSpreadsheet,
+  FileText,
+  FolderOpen,
+  Gauge,
+  Handshake,
+  Inbox,
+  LayoutDashboard,
+  Megaphone,
+  MessageSquareReply,
+  Package,
+  Palette,
+  Receipt,
+  Scale,
+  ScrollText,
+  Settings,
+  ShieldCheck,
+  Ship,
+  Sparkles,
+  Tags,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
+import { TrendingUp } from 'lucide-react'; // v2 metrics
+import { Plug2 } from 'lucide-react'; // v2 2차 wing
+import { BadgeCheck as AllianceIcon } from 'lucide-react'; // v2 alliance
+import { MessagesSquare } from 'lucide-react'; // v2 interview
+import { PackageSearch } from 'lucide-react'; // v2 3차 sourcing
+import { ChartNoAxesCombined } from 'lucide-react'; // v2 3차 sales
+import { PackageCheck } from 'lucide-react'; // v2 4차 onestop
+import { Radar } from 'lucide-react'; // v2 5차 tracker
+import { Award } from 'lucide-react'; // v2 6차 scorecard
+
+export type AreaKey = 'app' | 'partner' | 'admin';
+export interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  tab?: boolean;
+  exact?: boolean;
+}
+
+export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
+  if (area === 'app')
+    return [
+      { href: '/app', label: '대시보드', icon: LayoutDashboard, tab: true, exact: true },
+      { href: '/app/compare', label: '비교', icon: Scale, tab: true },
+      { href: '/app/requests', label: '견적 요청', icon: FileText, tab: true },
+      { href: '/app/shipments', label: '선적', icon: Ship, tab: true },
+      { href: '/app/docs', label: '서류함', icon: FolderOpen },
+      { href: '/app/integrations/wing', label: '쿠팡 WING 연동', icon: Plug2 },
+      { href: '/app/sales', label: '판매 분석', icon: ChartNoAxesCombined }, // v2 3차 sales
+      { href: '/app/partners', label: '거래처', icon: Users },
+      { href: '/app/pnl', label: '판매손익', icon: Calculator },
+      { href: '/app/checks', label: '청구서 점검', icon: ClipboardCheck },
+      { href: '/app/skus', label: '저장한 SKU', icon: Package },
+      { href: '/app/notifications', label: '알림', icon: Bell },
+      { href: '/app/settings', label: '설정', icon: Settings },
+      { href: '/app/sourcing', label: '소싱처 찾기(미리보기)', icon: PackageSearch }, // v2 3차 sourcing
+      { href: '/app/tracking', label: '통관 알림', icon: Radar }, // v2 5차 tracker
+      { href: '/partners?sort=fast', label: '물류사 성적표', icon: Award }, // v2 6차 scorecard — 성적으로 물류사 고르기
+    ];
+  if (area === 'partner') {
+    const zh = locale === 'zh';
+    return [
+      { href: '/partner', label: zh ? '概览' : '대시보드', icon: LayoutDashboard, tab: true, exact: true },
+      { href: '/partner/inbox', label: zh ? '询价收件箱' : '견적 수신함', icon: Inbox, tab: true },
+      { href: '/partner/shipments', label: zh ? '订舱·货件' : '예약·선적', icon: Ship, tab: true },
+      { href: '/partner/rates', label: zh ? '运价表' : '요금표', icon: FileSpreadsheet, tab: true },
+      { href: '/partner/invoices', label: zh ? '账单' : '청구서', icon: Receipt },
+      { href: '/partner/reviews', label: zh ? '评价·回复' : '후기·답변', icon: MessageSquareReply },
+      { href: '/partner/market', label: zh ? '市场数据' : '시장 데이터', icon: BarChart3 },
+      { href: '/partner/profile', label: zh ? '公司资料' : '회사 프로필', icon: Building2 },
+      { href: '/partner/alliance', label: zh ? '合作货代' : '제휴 주선사', icon: AllianceIcon }, // v2 alliance
+      { href: '/partner/notifications', label: zh ? '通知' : '알림', icon: Bell },
+      { href: '/partner/scorecard', label: zh ? '成绩单' : '성적표', icon: Award }, // v2 6차 scorecard
+    ];
+  }
+  return [
+    { href: '/admin', label: '대시보드', icon: Gauge, tab: true, exact: true },
+    { href: '/admin/metrics', label: '운영 지표', icon: TrendingUp },
+    { href: '/admin/queues', label: '처리 대기', icon: ClipboardCheck, tab: true },
+    { href: '/admin/data', label: '업체·자료', icon: Building2, tab: true },
+    { href: '/admin/grades', label: '등급 기록', icon: Tags },
+    { href: '/admin/ads', label: '광고 자리', icon: Megaphone },
+    { href: '/admin/commission', label: '수수료 기준', icon: Coins },
+    { href: '/admin/related', label: '특수관계 공개', icon: Handshake },
+    { href: '/admin/settings', label: '설정', icon: Settings, tab: true },
+    { href: '/admin/audit', label: '감사 기록', icon: ScrollText },
+    { href: '/admin/demo', label: '데모 관리', icon: Sparkles },
+    { href: '/admin/assure', label: '확정가·보장', icon: ShieldCheck },
+    { href: '/admin/alliance', label: '제휴 주선사', icon: AllianceIcon }, // v2 alliance
+    { href: '/admin/research', label: '셀러 인터뷰', icon: MessagesSquare },
+    { href: '/styleguide', label: '스타일가이드', icon: Palette },
+    { href: '/admin/sourcing', label: '소싱 요청', icon: PackageSearch }, // v2 3차 sourcing
+    { href: '/admin/onestop', label: '원스톱 주문', icon: PackageCheck }, // v2 4차 onestop
+    { href: '/admin/tracking', label: '통관 조회 폴링', icon: Radar }, // v2 5차 tracker
+    { href: '/admin/scorecard', label: '물류사 성적표', icon: Award }, // v2 6차 scorecard
+  ];
+}
+
+export function isActive(pathname: string, item: NavItem) {
+  return item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/');
+}

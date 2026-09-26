@@ -1,0 +1,226 @@
+{
+  "measuredAt": "2026-09-25T10:17:28.618Z",
+  "base": "http://localhost:3100",
+  "rows": [
+    {
+      "preset": "mobile",
+      "page": "/",
+      "performance": 96,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "2.7 s",
+      "cls": "0",
+      "tbt": "90 ms"
+    },
+    {
+      "preset": "mobile",
+      "page": "/lanes",
+      "performance": 97,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "2.5 s",
+      "cls": "0",
+      "tbt": "80 ms"
+    },
+    {
+      "preset": "mobile",
+      "page": "/lanes/yiw-icn-lcl",
+      "performance": 97,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "2.5 s",
+      "cls": "0.002",
+      "tbt": "100 ms"
+    },
+    {
+      "preset": "mobile",
+      "page": "/partners",
+      "performance": 94,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "3.0 s",
+      "cls": "0",
+      "tbt": "90 ms"
+    },
+    {
+      "preset": "mobile",
+      "page": "/p/hanbada",
+      "performance": 97,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "2.2 s",
+      "cls": "0.019",
+      "tbt": "140 ms"
+    },
+    {
+      "preset": "mobile",
+      "page": "/faq",
+      "performance": 99,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "2.0 s",
+      "cls": "0",
+      "tbt": "90 ms"
+    },
+    {
+      "preset": "mobile",
+      "page": "/policy",
+      "performance": 98,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "2.3 s",
+      "cls": "0",
+      "tbt": "100 ms"
+    },
+    {
+      "preset": "mobile",
+      "page": "/join/shipper",
+      "performance": 96,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "2.7 s",
+      "cls": "0",
+      "tbt": "80 ms"
+    },
+    {
+      "preset": "mobile",
+      "page": "/join/partner",
+      "performance": 96,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "2.7 s",
+      "cls": "0",
+      "tbt": "80 ms"
+    },
+    {
+      "preset": "mobile",
+      "page": "/login",
+      "performance": 98,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "2.3 s",
+      "cls": "0",
+      "tbt": "100 ms"
+    },
+    {
+      "preset": "desktop",
+      "page": "/",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "0.5 s",
+      "cls": "0",
+      "tbt": "0 ms"
+    },
+    {
+      "preset": "desktop",
+      "page": "/lanes",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "0.6 s",
+      "cls": "0",
+      "tbt": "0 ms"
+    },
+    {
+      "preset": "desktop",
+      "page": "/lanes/yiw-icn-lcl",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "0.6 s",
+      "cls": "0",
+      "tbt": "0 ms"
+    },
+    {
+      "preset": "desktop",
+      "page": "/partners",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "0.6 s",
+      "cls": "0",
+      "tbt": "0 ms"
+    },
+    {
+      "preset": "desktop",
+      "page": "/p/hanbada",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "0.6 s",
+      "cls": "0",
+      "tbt": "0 ms"
+    },
+    {
+      "preset": "desktop",
+      "page": "/faq",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "0.6 s",
+      "cls": "0",
+      "tbt": "0 ms"
+    },
+    {
+      "preset": "desktop",
+      "page": "/policy",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "0.6 s",
+      "cls": "0",
+      "tbt": "0 ms"
+    },
+    {
+      "preset": "desktop",
+      "page": "/join/shipper",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "0.6 s",
+      "cls": "0",
+      "tbt": "0 ms"
+    },
+    {
+      "preset": "desktop",
+      "page": "/join/partner",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "0.6 s",
+      "cls": "0",
+      "tbt": "0 ms"
+    },
+    {
+      "preset": "desktop",
+      "page": "/login",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "lcp": "0.6 s",
+      "cls": "0",
+      "tbt": "0 ms"
+    }
+  ]
+}

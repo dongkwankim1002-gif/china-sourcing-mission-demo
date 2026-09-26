@@ -1,0 +1,159 @@
+import Link from 'next/link';
+import { Bell, ChevronRight, Radar } from 'lucide-react';
+import { asUser, todayKst } from '@/lib/db';
+import { requireViewer } from '@/lib/server/viewer';
+import { lookupReady, myTracks } from '@/lib/server/tracker';
+import { getReference, nameOf } from '@/lib/server/reference';
+import { TrackAddForm } from '@/components/tracker/controls';
+import { DemoChip } from '@/components/badges';
+import { Button, Chip, EmptyState, PageTitle, Panel, PanelHead } from '@/components/ui/core';
+import { cn } from '@/lib/cn';
+import { ago, dateKo } from '@/lib/format';
+import { TRACK_STAGE_LABEL, stageRank } from '@/lib/unipass/stages';
+import { TRACK_KIND_LABEL } from '@/lib/unipass/validate';
+import { env } from '@/lib/env';
+import { TRACK_ACTION } from '@/lib/terms';
+
+export const metadata = { title: '내 화물 등록 · 통관 알림' };
+
+const DONE_PAGE = 30;
+
+export default async function TrackingPage({ searchParams }: { searchParams: Promise<{ view?: string; done?: string }> }) {
+  const sp = await searchParams;
+  const unlistedView = sp.view === 'unlisted';
+  const doneShown = Math.max(DONE_PAGE, Math.min(300, (Number.parseInt(sp.done ?? '', 10) || DONE_PAGE)));
+  const v = await requireViewer('app', '/app/tracking'); // 비로그인이면 로그인 뒤 이 화면으로(공개 「내 화물 등록」 단추가 곧바로 여기로 온다)
+  const [d, ref] = await Promise.all([
+    asUser(v, async (q) => ({
+      tracks: await myTracks(q, v.org.id, true),
+      ships: await q.query<{ id: string; shipment_no: string; stage: number; port: string; mode: string }>(
+        `select id, shipment_no, stage, port, mode from fcd.shipments where shipper_org_id = $1 and stage < 9 order by created_at desc limit 50`,
+        [v.org.id],
+      ),
+      // v2 6차 scorecard — 등록 때 바로 물류사·관세사를 고르게(고른 업체의 성적표에 보탠다)
+      partners: await q.query<{ id: string; name: string; business_type: string | null }>(
+        `select id, name, business_type from fcd.orgs where kind = 'partner' and status in ('public_info', 'pending_verification', 'official') order by name limit 200`,
+      ),
+    })),
+    getReference(),
+  ]);
+  const shipments = d.ships.map((s) => ({ id: s.id, label: `${s.shipment_no} · ${nameOf(ref, 'port', s.port)} · ${nameOf(ref, 'mode', s.mode)}` }));
+  const listed = d.tracks.filter((t) => !t.archived_at);
+  const unlisted = d.tracks.filter((t) => t.archived_at);
+  const open = listed.filter((t) => stageRank(t.stage) < 7);
+  const done = listed.filter((t) => stageRank(t.stage) >= 7);
+  const ready = lookupReady(v.org.is_demo);
+  const Row = ({ t }: { t: (typeof d.tracks)[number] }) => {
+    const r = stageRank(t.stage);
+    return (
+      <li>
+        <Link href={`/app/tracking/${t.id}`} className="grid gap-2 px-4 py-3 hover:bg-surface-2 sm:grid-cols-[minmax(0,1fr)_auto_20px] sm:items-center">
+          <span className="min-w-0">
+            <span className="flex flex-wrap items-center gap-2">
+              <b className="min-w-0 break-words text-sm">{t.label ?? t.number}</b>
+              {t.is_demo ? <DemoChip /> : null}
+              {t.watching ? <Chip tone="ink" icon={<Bell aria-hidden />}>알림 켬</Chip> : null}
+              {t.last_error ? <Chip tone="caution">확인 필요</Chip> : !lookupReady(t.is_demo) && !t.stage ? <Chip tone="neutral">연결 준비 중</Chip> : null}
+            </span>
+            <span className="mt-0.5 block text-xs text-muted tnum">
+              {TRACK_KIND_LABEL[t.kind]} <span className="font-mono">{t.number}</span>
+              {t.bl_year ? ` · ${t.bl_year}` : ''}
+              {t.port ? ` · ${nameOf(ref, 'port', t.port)}` : ''}
+              {t.mode ? ` · ${nameOf(ref, 'mode', t.mode)}` : ''}
+              {t.shipment_no ? ` · 선적 ${t.shipment_no}` : ''}
+              {t.arrival_on ? ` · 입항 ${dateKo(t.arrival_on, { dow: false })}` : ''}
+            </span>
+          </span>
+          <span className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <span className="flex items-center gap-[2px]" role="img" aria-label={`${r}/9 ${t.stage ? TRACK_STAGE_LABEL[t.stage] : '기록 없음'}`}>
+              {Array.from({ length: 9 }, (_, i) => (
+                <span key={i} className={cn('h-1.5 w-2.5 rounded-[1px]', i < r ? (r >= 7 ? 'bg-ok' : 'bg-[var(--seg-4)]') : 'bg-line')} />
+              ))}
+            </span>
+            <Chip tone={r >= 7 ? 'ok' : r ? 'info' : 'neutral'}>{t.stage ? TRACK_STAGE_LABEL[t.stage] : '기록 없음'}</Chip>
+            <span className="text-2xs text-muted">{t.last_checked_at ? `조회 ${ago(t.last_checked_at)}` : '아직 조회 전'}</span>
+          </span>
+          <ChevronRight className="hidden size-4 text-muted sm:block" aria-hidden />
+        </Link>
+      </li>
+    );
+  };
+  return (
+    <>
+      <PageTitle
+        title="내 화물 등록 · 통관 알림"
+        sub="내 B/L 을 등록하면 관세청 단계가 바뀔 때 알림 센터에 알려 드리고(메일·문자는 보내지 않음), 그 화물이 물류사·관세사 성적표에 보태집니다. 물류사·관세사를 고르거나 FC도착 선적과 이으면 그 업체 성적에 들어갑니다(같은 화물은 한 번)."
+        actions={
+          <span className="flex flex-wrap gap-2">
+            <Button asChild variant="secondary">
+              <Link href="/partners?sort=fast">물류사 성적표</Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link href="/track/stats">{TRACK_ACTION.stats}</Link>
+            </Button>
+          </span>
+        }
+      />
+      {!env.unipassEnabled ? (
+        <p className="mb-4 rounded-md border border-caution/40 bg-caution-bg px-4 py-2.5 text-sm" role="note">
+          관세청 실제 조회는 아직 연결 준비 중입니다 — 예시 계정의 번호만 예시 단계로 움직이고, 새로 넣은 실제 번호는 연결되면 조회를 시작합니다.
+        </p>
+      ) : null}
+      <Panel className="mb-4">
+        <PanelHead
+          title="내 화물 등록 → 성적표에 보탬"
+          sub={ready ? '개인통관고유부호는 받지 않습니다. 저장하면 바로 한 번 조회하고 알림을 켭니다.' : '개인통관고유부호는 받지 않습니다. 저장하면 알림을 켜 두고, 관세청 조회가 연결되면 조회를 시작합니다.'}
+        />
+        <TrackAddForm
+          thisYear={Number(todayKst().slice(0, 4))}
+          shipments={shipments}
+          partners={d.partners.filter((p) => p.business_type !== 'customs_broker').map((p) => ({ id: p.id, label: p.name }))}
+          brokers={d.partners.filter((p) => p.business_type === 'customs_broker').map((p) => ({ id: p.id, label: p.name }))}
+        />
+      </Panel>
+      {unlistedView ? (
+        <Panel>
+          <PanelHead
+            title={`${TRACK_ACTION.showUnlisted} (${unlisted.length})`}
+            sub="목록에서 뺀 번호는 조회·알림이 멈춥니다(기록은 남습니다). 번호를 열어 「다시 지켜보기」를 누르면 목록으로 돌아옵니다."
+            action={<Link href="/app/tracking" className="text-sm font-semibold underline underline-offset-4">목록으로</Link>}
+          />
+          {unlisted.length ? (
+            <ul className="divide-y divide-line-2" data-testid="tracking-unlisted">{unlisted.map((t) => <Row key={t.id} t={t} />)}</ul>
+          ) : (
+            <EmptyState icon={<Radar aria-hidden />} title="목록에서 뺀 번호가 없습니다" body="끝난 번호를 열어 「목록에서 빼기」를 누르면 여기로 옵니다." />
+          )}
+        </Panel>
+      ) : (
+        <>
+          <Panel className="mb-4">
+            <PanelHead title={`진행 중 (${open.length})`} />
+            {open.length ? (
+              <ul className="divide-y divide-line-2" data-testid="tracking-open">{open.map((t) => <Row key={t.id} t={t} />)}</ul>
+            ) : (
+              <EmptyState icon={<Radar aria-hidden />} title="지켜보는 번호가 없습니다" body="위에서 B/L 번호를 넣거나, 공개 통관 조회에서 「내 목록에 저장」을 누르세요." />
+            )}
+          </Panel>
+          {done.length ? (
+            <Panel className="mb-4">
+              <PanelHead title={`반출까지 끝남 (${done.length})`} sub="끝난 번호는 「목록에서 빼기」를 하면 이 목록에서 빠집니다(기록은 남습니다)." />
+              <ul className="divide-y divide-line-2" data-testid="tracking-done">{done.slice(0, doneShown).map((t) => <Row key={t.id} t={t} />)}</ul>
+              {done.length > doneShown ? (
+                <p className="px-4 py-3 text-sm">
+                  <Link href={`/app/tracking?done=${doneShown + DONE_PAGE}`} scroll={false} className="font-semibold underline underline-offset-4">
+                    더 보기 ({done.length - doneShown}건 남음)
+                  </Link>
+                </p>
+              ) : null}
+            </Panel>
+          ) : null}
+          {unlisted.length ? (
+            <p className="text-sm text-muted">
+              <Link href="/app/tracking?view=unlisted" className="font-semibold text-text underline underline-offset-4">{TRACK_ACTION.showUnlisted} {unlisted.length}건 보기</Link>
+            </p>
+          ) : null}
+        </>
+      )}
+    </>
+  );
+}
