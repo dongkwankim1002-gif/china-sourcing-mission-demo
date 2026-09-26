@@ -438,3 +438,23 @@ export const TRACKER_SETTINGS: { key: string; value: unknown; note: string }[] =
   { key: 'tracker.partner_public_enabled', value: false, note: '업체 화면(/p/[slug])에 실제 「실측 통관 소요」 공개 — 업체 동의·답변권·UNI-PASS 약관(가공·공개) 확인 전까지 꺼 둔다. 꺼져 있으면 예시 판만(DEMO_MODE)' },
 ];
 SETTINGS.push(...TRACKER_SETTINGS);
+
+// v2 6차 scorecard — 물류사 성적표(docs/scorecard-plan.md). 기준치는 첫 판 가정치(example: true) — 운영자가 새 판으로.
+export const SCORECARD_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  {
+    key: 'scorecard.rules',
+    value: {
+      minSamples: 5,
+      windowDays: 180,
+      certifiedMinSamples: 10,
+      certifiedSubmissionBp: 8000,
+      outlierDays: 20,
+      trendWeeks: 12,
+      sources: { platform: true, seller: true, partner: true },
+      example: true,
+    },
+    note: '물류사 성적표 — 화면에 싣는 최소 표본 · 기간(수리일 기준 일) · 실측 인증(최소 표본·최소 등록·제출률 bp) · 이상치(입항→수리 영업일, 분위수에서 뺌) · 추이 주 수 · 넣는 번호 출처(플랫폼 선적·셀러 등록·물류사 제출)',
+  },
+  { key: 'scorecard.public_named', value: false, note: '이름 붙은 성적을 비로그인에게도 공개 — 명예훼손·표시광고·UNI-PASS 약관 검토와 업체 고지 전까지 꺼 둔다(docs/scorecard-plan.md 7절)' },
+];
+SETTINGS.push(...SCORECARD_SETTINGS);

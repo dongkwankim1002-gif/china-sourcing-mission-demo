@@ -126,3 +126,8 @@ Object.assign(V2_SETTING_LABEL, ONESTOP_SETTING_LABEL);
 import { TRACKER_SETTING_LABEL, TRACKER_SETTING_SCHEMAS } from './tracker/settings';
 Object.assign(V2_SETTING_SCHEMAS, TRACKER_SETTING_SCHEMAS);
 Object.assign(V2_SETTING_LABEL, TRACKER_SETTING_LABEL);
+
+// v2 6차 scorecard — 물류사 성적표 기준·이름 공개 스위치(읽는 쪽 readScorecardConfig 와 같은 검사)
+import { SCORECARD_SETTING_LABEL, SCORECARD_SETTING_SCHEMAS } from './scorecard/settings';
+Object.assign(V2_SETTING_SCHEMAS, SCORECARD_SETTING_SCHEMAS);
+Object.assign(V2_SETTING_LABEL, SCORECARD_SETTING_LABEL);
