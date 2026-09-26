@@ -336,13 +336,15 @@ export function computeScorecards(samples: readonly MergedSample[], o: ComputeOp
 export type ScoreSort = 'fast' | 'stable' | 'inspect';
 export const SCORE_SORT_LABEL: Record<ScoreSort, string> = { fast: '빠른 통관순', stable: '안정적인 순', inspect: '검사 적은 순' };
 
-type SortRow = Pick<ScoreRow, 'n' | 'metrics'> & { sources?: Pick<SourceCounts, 'seller' | 'platform'> };
+type SortRow = Pick<ScoreRow, 'n' | 'metrics'> & { sources?: Pick<SourceCounts, 'seller' | 'platform'>; submission?: Pick<Submission, 'registered'> | null };
 
 /**
  * 업체와 무관한 출처(셀러 등록·플랫폼 선적)가 말한 화물 수 — 정렬 자격. 물류사가 혼자 낸 번호만으로는 순위에 오르지 못한다
  * (빠른 화물만 골라 내는 업체를 가려내려고 · 검토 고침). sources 가 없으면(옛 행) n 을 쓴다.
  */
 export function independentSamples(r: SortRow): number {
+  // 물류사 판은 제출률의 「등록」(셀러 등록 또는 플랫폼 선적이 말한 화물 수 — 한 화물 한 번)을 쓴다. 관세사 판은 출처별 수의 합(둘 다인 화물은 두 번 셀 수 있다 — 느슨한 쪽)
+  if (r.submission) return r.submission.registered;
   return r.sources ? r.sources.seller + r.sources.platform : r.n;
 }
 

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { getViewer } from '@/lib/server/viewer';
 import { LoginForm } from './login-form';
 import { env } from '@/lib/env';
 import { DemoMenu } from '@/components/public/header-client';
@@ -14,6 +16,10 @@ const DEMO_MSG: Record<string, string> = {
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
+  // 이미 로그인한 사람이 「로그인 뒤 여기로」(next) 주소로 오면 곧장 그리로 — 공개 「내 화물 등록」 같은 단추가 한 단계를 덜 거치게(v2 6차 검토 고침).
+  // next 가 없으면 로그인 화면을 그대로 보인다(다른 계정으로 들어가기). 안의 주소만(session.ts safeNext 와 같은 규칙)
+  const next = sp.next && sp.next.startsWith('/') && !sp.next.startsWith('//') && !sp.next.includes('\\') ? sp.next : null;
+  if (next && (await getViewer())) redirect(next);
   return (
     <div className="mx-auto grid max-w-[960px] gap-8 px-4 py-12 md:grid-cols-2">
       <div>

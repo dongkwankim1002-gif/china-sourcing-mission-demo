@@ -55,10 +55,7 @@ test('공개 — 통관 시장 지표(이름 없음) · /track 은 성적표 안
   await expect(page.getByRole('heading', { level: 1 })).toContainText('물류사 성적표');
   await expect(page.getByTestId('track-scorecard-guide')).toBeVisible();
   const reg = page.getByRole('link', { name: '내 화물 등록' }).first();
-  // 검토 고침 — 로그인한 화주가 로그인 화면을 한 번 더 거치지 않게 곧장(비로그인은 /app/tracking 이 로그인 뒤 돌아오게 보낸다)
-  await expect(reg).toHaveAttribute('href', '/app/tracking');
-  await reg.click();
-  await expect(page).toHaveURL(/\/login\?next=%2Fapp%2Ftracking/);
+  await expect(reg).toHaveAttribute('href', /\/login\?next=%2Fapp%2Ftracking/);
   await noOverflow(page);
   await page.goto('/brokers');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('관세사 찾기');
@@ -76,6 +73,10 @@ test('성적표 API — 비로그인에게는 잠김', async ({ request }) => {
 test('화주 — 성적순 업체 찾기 · 업체 화면 성적표 탭 · 비교 실질 비용', async ({ browser }) => {
   test.skip(!demo, '데모 계정 필요');
   const { page, close } = await as(browser, 'shipper');
+  // 검토 고침 — 이미 로그인한 화주는 「내 화물 등록」(로그인 뒤 여기로)을 누르면 곧장 등록 화면으로
+  await page.goto('/login?next=%2Fapp%2Ftracking');
+  await expect(page).toHaveURL(/\/app\/tracking$/);
+  await expect(page.locator('#add-partner')).toBeVisible();
   await page.goto('/partners?sort=fast');
   await expect(page.getByTestId('score-sort-now')).toContainText('빠른 통관순');
   await expect(page.getByTestId('score-chips').first()).toContainText('통관 보통');
@@ -120,5 +121,9 @@ test('운영 — 성적표 운영 화면 · 새 판', async ({ browser }) => {
   await page.getByRole('button', { name: '성적표 다시 셈' }).click();
   await expect(page.getByRole('status').filter({ hasText: '성적표 새 판' })).toBeVisible();
   if (demo) await expect(page.getByTestId('admin-codes')).toContainText('EX');
+  // 검토 고침 — 390 폭에서 옆으로 넘치지 않는다
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await noOverflow(page);
   await close();
 });
