@@ -34,6 +34,8 @@
   - 제휴 구조(`v2.alliance_enabled`)·셀러 인터뷰(`research.rules`)는 환경변수가 아니라 `fcd.settings` 값이다(어드민 설정 화면).
 - **3차 환경변수: 새로 생긴 것 없음.** 판매 분석·쿠팡 API 제공은 2차의 `WING_ENABLED`(비워 둠 = 꺼짐)·`WING_KEY_ENCRYPTION_KEY`(Sensitive, 서버 쪽만) 두 이름을 그대로 쓴다. 3차 새 표 0017~0019 도 운영 DB 에 들어가지 않는다.
   - 스위치·규칙은 환경변수가 아니라 `fcd.settings` 값(어드민 설정 화면): `sourcing.enabled`(첫 판 꺼짐) · `sourcing.rules` · `sourcing.fees`(가정치) · `sales.rules` · `wing.egress_ips`(연동 IP, 첫 판 빈 목록 → 화면 「준비 중」). Postgres 에서는 참조 시드를 다시 올려야 새 키가 생긴다(덧붙이기만).
+- **4차 환경변수: 새로 생긴 것 없음.** 원스톱 구역(`/onestop`)은 기존 이름만 쓴다(`DEMO_MODE` · `OUTBOUND_ENABLED` 꺼짐 그대로 — 원스톱은 밖으로 나가는 호출이 없다). 4차 새 표 0020~0021 도 운영 DB 에 들어가지 않는다.
+  - 스위치·요금은 환경변수가 아니라 `fcd.settings` 값(어드민 설정 화면): `onestop.enabled`(첫 판 꺼짐 = 접수 기록만 · 대행 계약 전) · `onestop.tariff`(가정치 `example: true`). Postgres 에서는 참조 시드를 다시 올려야 새 키가 생긴다(덧붙이기만).
   - 연동 IP(`wing.egress_ips`)를 채우려면 FC도착의 나가는 호출이 고정 IP 로 나가야 한다. Vercel 에는 프로젝트별 「Static IPs」 설정이 있다(출처: https://vercel.com/docs/rest-api/networking/configures-static-ips-for-a-project) — 요금제·지역·비용은 **확인 필요**. 고정 IP 프록시·작은 서버와 견줘 어디서·얼마는 사람이 정할 일(`docs/V2.md`). 이 작업에서 Vercel 설정은 건드리지 않았다.
 - 로컬에서 같은 모양 보기: `PREVIEW_BANNER=v2 npm run build && PREVIEW_BANNER=v2 npm start` (DATABASE_URL 없이 → PGlite). 캡처는 `node scripts/shots-all.mjs http://localhost:3000`.
 - v2 를 운영으로 옮길지는 사람이 정한다. 옮길 때는 `fcdochak-v2` → `fcdochak` PR, 운영 DB 에는 빌드 앞단 `vercel:prepare` 가 0006~0012 를 덧붙인다(지우거나 덮지 않음) — 먼저 Supabase 백업.

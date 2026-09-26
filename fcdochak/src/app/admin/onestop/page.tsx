@@ -48,7 +48,7 @@ export default async function OnestopAdmin({ searchParams }: { searchParams: Pro
               {r.is_demo ? <DemoChip /> : null}
             </span>
             <span>
-              {r.order_no} · {r.hub_name ?? r.hub} · {ONESTOP_MODE_KO[r.mode]} · {num(r.units)}개 · {num(r.cbm, 2)} CBM · {won(r.total_krw)} · 접수 {dateKo(r.received_at, { dow: false })}
+              {r.order_no} · {r.hub_name ?? r.hub} · {ONESTOP_MODE_KO[r.mode]} · {num(r.units)}개 · {num(r.cbm, 2)} CBM · {won(r.total_krw)} · <span className="whitespace-nowrap">접수 {dateKo(r.received_at, { dow: false })}</span>
               {r.shipment_no ? ` · 선적 ${r.shipment_no}` : ''}
             </span>
             {round(r) ? <span className="font-semibold text-text">{round(r)}</span> : null}
@@ -122,7 +122,15 @@ export default async function OnestopAdmin({ searchParams }: { searchParams: Pro
         </Panel>
       ) : null}
       <p className="mt-6 text-2xs text-muted">
-        견주기(docs/onestop-plan.md 9절): 이 요약과 운영 지표(/admin/metrics)·셀러 인터뷰(/admin/research)를 함께 봅니다. 사람이 정할 일은 8절.
+        v2 와 견주기: 이 요약을{' '}
+        <Link href="/admin/metrics" className="underline underline-offset-4">
+          운영 지표
+        </Link>
+        ·
+        <Link href="/admin/research" className="underline underline-offset-4">
+          셀러 인터뷰
+        </Link>
+        와 함께 봅니다(판정선·사람이 정할 일은 기획 문서 onestop-plan 9·8절).
       </p>
     </>
   );

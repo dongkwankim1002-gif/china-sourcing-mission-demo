@@ -38,7 +38,7 @@ export default async function OnestopOrders() {
                       {o.preview ? <Chip tone="caution">접수 기록만</Chip> : null}
                     </span>
                     <span className="mt-0.5 block text-xs text-muted tnum">
-                      {o.order_no} · {num(o.units)}개 · {num(o.cbm, 2)} CBM · {won(o.total_krw)} · 접수 {dateKo(o.received_at, { dow: false })}
+                      {o.order_no} · {num(o.units)}개 · {num(o.cbm, 2)} CBM · {won(o.total_krw)} · <span className="whitespace-nowrap">접수 {dateKo(o.received_at, { dow: false })}</span>
                     </span>
                   </span>
                   <ArrowRight aria-hidden className="size-4 shrink-0 text-muted" />

@@ -19,7 +19,7 @@ export default async function OnestopLayout({ children }: { children: React.Reac
   const home = v ? (shipper ? '/app' : homeOf(v)) : null;
   const link = 'inline-flex min-h-10 items-center rounded-sm px-3 text-sm font-semibold hover:bg-surface-2';
   return (
-    <>
+    <div className="flex min-h-dvh flex-col bg-paper">
       <DemoBand />
       <header className="sticky top-[var(--banner-h)] z-40 border-b border-line bg-surface">
         <div className="h-1 bg-label" aria-hidden />
@@ -66,7 +66,7 @@ export default async function OnestopLayout({ children }: { children: React.Reac
           </nav>
         </div>
       </header>
-      <main id="main" className="min-h-[60vh] bg-paper">
+      <main id="main" className="min-h-[60vh] flex-1 bg-paper">
         <div className="mx-auto max-w-[1080px] px-4 py-6 sm:py-8">{children}</div>
       </main>
       <footer className="border-t border-line bg-surface">
@@ -83,6 +83,6 @@ export default async function OnestopLayout({ children }: { children: React.Reac
           </p>
         </div>
       </footer>
-    </>
+    </div>
   );
 }

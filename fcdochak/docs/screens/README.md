@@ -1,6 +1,6 @@
 # 화면 캡처
 
-모두 450장 · 390/768/1440 × 밝음/어두움 · 데모 켬 · 재방문 상태(글꼴 적용) · `node scripts/shots-all.mjs`
+모두 492장 · 390/768/1440 × 밝음/어두움 · 데모 켬 · 재방문 상태(글꼴 적용) · `node scripts/shots-all.mjs`
 
 가로 밀림 검사: 모든 화면 0건(`scripts/shots.mjs` 가 문서 폭 > 창 폭이면 알림). Lighthouse 결과는 [lighthouse.md](lighthouse.md).
 
@@ -20,6 +20,11 @@
 | `lanes_yiw-icn-lcl` | [보기](lanes_yiw-icn-lcl.390.light.jpg) | [보기](lanes_yiw-icn-lcl.768.light.jpg) | [보기](lanes_yiw-icn-lcl.1440.light.jpg) | [보기](lanes_yiw-icn-lcl.390.dark.jpg) | [보기](lanes_yiw-icn-lcl.768.dark.jpg) | [보기](lanes_yiw-icn-lcl.1440.dark.jpg) |
 | `login` | [보기](login.390.light.jpg) | [보기](login.768.light.jpg) | [보기](login.1440.light.jpg) | [보기](login.390.dark.jpg) | [보기](login.768.dark.jpg) | [보기](login.1440.dark.jpg) |
 | `no-such-page` | [보기](no-such-page.390.light.jpg) | [보기](no-such-page.768.light.jpg) | [보기](no-such-page.1440.light.jpg) | [보기](no-such-page.390.dark.jpg) | [보기](no-such-page.768.dark.jpg) | [보기](no-such-page.1440.dark.jpg) |
+| `onestop` | [보기](onestop.390.light.jpg) | [보기](onestop.768.light.jpg) | [보기](onestop.1440.light.jpg) | [보기](onestop.390.dark.jpg) | [보기](onestop.768.dark.jpg) | [보기](onestop.1440.dark.jpg) |
+| `onestop_order` | [보기](onestop_order.390.light.jpg) | [보기](onestop_order.768.light.jpg) | [보기](onestop_order.1440.light.jpg) | [보기](onestop_order.390.dark.jpg) | [보기](onestop_order.768.dark.jpg) | [보기](onestop_order.1440.dark.jpg) |
+| `onestop_orders` | [보기](onestop_orders.390.light.jpg) | [보기](onestop_orders.768.light.jpg) | [보기](onestop_orders.1440.light.jpg) | [보기](onestop_orders.390.dark.jpg) | [보기](onestop_orders.768.dark.jpg) | [보기](onestop_orders.1440.dark.jpg) |
+| `onestop_orders_detail` | [보기](onestop_orders_detail.390.light.jpg) | [보기](onestop_orders_detail.768.light.jpg) | [보기](onestop_orders_detail.1440.light.jpg) | [보기](onestop_orders_detail.390.dark.jpg) | [보기](onestop_orders_detail.768.dark.jpg) | [보기](onestop_orders_detail.1440.dark.jpg) |
+| `onestop_price` | [보기](onestop_price.390.light.jpg) | [보기](onestop_price.768.light.jpg) | [보기](onestop_price.1440.light.jpg) | [보기](onestop_price.390.dark.jpg) | [보기](onestop_price.768.dark.jpg) | [보기](onestop_price.1440.dark.jpg) |
 | `p_hanbada` | [보기](p_hanbada.390.light.jpg) | [보기](p_hanbada.768.light.jpg) | [보기](p_hanbada.1440.light.jpg) | [보기](p_hanbada.390.dark.jpg) | [보기](p_hanbada.768.dark.jpg) | [보기](p_hanbada.1440.dark.jpg) |
 | `partners` | [보기](partners.390.light.jpg) | [보기](partners.768.light.jpg) | [보기](partners.1440.light.jpg) | [보기](partners.390.dark.jpg) | [보기](partners.768.dark.jpg) | [보기](partners.1440.dark.jpg) |
 | `policy` | [보기](policy.390.light.jpg) | [보기](policy.768.light.jpg) | [보기](policy.1440.light.jpg) | [보기](policy.390.dark.jpg) | [보기](policy.768.dark.jpg) | [보기](policy.1440.dark.jpg) |
@@ -94,6 +99,8 @@
 | `admin_demo` | [보기](admin_demo.390.light.jpg) | [보기](admin_demo.768.light.jpg) | [보기](admin_demo.1440.light.jpg) | [보기](admin_demo.390.dark.jpg) | [보기](admin_demo.768.dark.jpg) | [보기](admin_demo.1440.dark.jpg) |
 | `admin_grades` | [보기](admin_grades.390.light.jpg) | [보기](admin_grades.768.light.jpg) | [보기](admin_grades.1440.light.jpg) | [보기](admin_grades.390.dark.jpg) | [보기](admin_grades.768.dark.jpg) | [보기](admin_grades.1440.dark.jpg) |
 | `admin_metrics` | [보기](admin_metrics.390.light.jpg) | [보기](admin_metrics.768.light.jpg) | [보기](admin_metrics.1440.light.jpg) | [보기](admin_metrics.390.dark.jpg) | [보기](admin_metrics.768.dark.jpg) | [보기](admin_metrics.1440.dark.jpg) |
+| `admin_onestop` | [보기](admin_onestop.390.light.jpg) | [보기](admin_onestop.768.light.jpg) | [보기](admin_onestop.1440.light.jpg) | [보기](admin_onestop.390.dark.jpg) | [보기](admin_onestop.768.dark.jpg) | [보기](admin_onestop.1440.dark.jpg) |
+| `admin_onestop_detail` | [보기](admin_onestop_detail.390.light.jpg) | [보기](admin_onestop_detail.768.light.jpg) | [보기](admin_onestop_detail.1440.light.jpg) | [보기](admin_onestop_detail.390.dark.jpg) | [보기](admin_onestop_detail.768.dark.jpg) | [보기](admin_onestop_detail.1440.dark.jpg) |
 | `admin_queues` | [보기](admin_queues.390.light.jpg) | [보기](admin_queues.768.light.jpg) | [보기](admin_queues.1440.light.jpg) | [보기](admin_queues.390.dark.jpg) | [보기](admin_queues.768.dark.jpg) | [보기](admin_queues.1440.dark.jpg) |
 | `admin_related` | [보기](admin_related.390.light.jpg) | [보기](admin_related.768.light.jpg) | [보기](admin_related.1440.light.jpg) | [보기](admin_related.390.dark.jpg) | [보기](admin_related.768.dark.jpg) | [보기](admin_related.1440.dark.jpg) |
 | `admin_research` | [보기](admin_research.390.light.jpg) | [보기](admin_research.768.light.jpg) | [보기](admin_research.1440.light.jpg) | [보기](admin_research.390.dark.jpg) | [보기](admin_research.768.dark.jpg) | [보기](admin_research.1440.dark.jpg) |
