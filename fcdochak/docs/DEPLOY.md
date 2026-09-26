@@ -22,6 +22,18 @@
 - 빌드는 미국(iad1)에서 돌아 서울 DB 와 멀다 — 빌드 중 DB 읽기는 한 번에 모아서(DECISIONS.md)
 - 알아 둘 것: 첫 Supabase 시드의 jsonb 값 일부가 글자로 한 겹 더 감싸여 저장돼 있다. 읽을 때 드라이버가 벗기므로 화면은 맞다. 고치는 SQL 은 사람이 판단해 돌린다(여기서 돌리지 않음)
 
+## 버전 비교실 — https://fcdochak.vercel.app/lab
+
+운영·v2·v3… 를 **한 주소에서** 나란히 띄워 비교한다(검색 제외). 판 목록은 `src/lib/lab-versions.ts`(또는 운영 환경변수 `LAB_VERSIONS` JSON).
+
+| 판 | 주소 | Vercel 프로젝트 | DB |
+|---|---|---|---|
+| 운영 | https://fcdochak.vercel.app | `fcdochak`(Production Branch `fcdochak`) | Supabase |
+| v2 | https://fcdochak-v2-live.vercel.app | `fcdochak-v2-public`(가지 `fcdochak-v2` 만 빌드 · 공개) | 임시 PGlite(예시 자료) |
+
+- 기존 프로젝트 `fcdochak` 의 미리보기는 계속 Vercel 로그인으로 잠겨 있고, `fcdochak-v2` 가지는 거기서 빌드하지 않는다(중복 빌드 막기).
+- 새 판(v3)을 더하는 법: 가지 `fcdochak-v3` → 공개 프로젝트 하나(그 가지만 빌드하는 Ignored Build Step, Root `fcdochak`) → 가지 주소 `fcdochak-v3-live.vercel.app` → 환경변수 이름 `DEMO_MODE` · `OUTBOUND_ENABLED` · `SESSION_SECRET` · `DEMO_PASSWORD` · `NEXT_PUBLIC_SITE_URL` · `PREVIEW_BANNER` · `FRAME_ANCESTORS` · `EMBED_COOKIES` · `NEXT_PUBLIC_LAB_ORIGIN` → `lab-versions.ts` 의 v3 줄에서 `planned` 를 뗀다.
+
 ## 로컬
 
 ```bash

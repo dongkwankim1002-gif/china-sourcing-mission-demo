@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
+import { Suspense } from 'react';
 import { Toaster } from '@/components/toaster';
+import { EmbedBridge } from '@/components/lab/embed-bridge';
 import { TooltipProvider } from '@/components/ui/radix';
 import { BRAND } from '@/lib/brand';
 import { env } from '@/lib/env';
@@ -52,6 +54,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </a>
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster />
+        <Suspense fallback={null}>
+          <EmbedBridge />
+        </Suspense>
       </body>
     </html>
   );
