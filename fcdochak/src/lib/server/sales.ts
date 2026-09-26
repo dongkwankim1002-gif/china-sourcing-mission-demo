@@ -9,7 +9,7 @@ import { cache } from 'react';
 import { asUser, todayKst, type Queryable } from '../db';
 import { STANDARD_ROUTE } from '../standard-cargo';
 import { SEGMENTS_TO_KR_PORT, estimateDutyVat, goodsValueKrw, summarizeArrival, type Currency } from '../money';
-import { arrivalPerUnit, median, type ActualShipmentCost, type ArrivalPerUnit, type MarketCost } from '../money/sales';
+import { arrivalPerUnit, marketCostPerUnit, median, type ActualShipmentCost, type ArrivalPerUnit, type MarketCost } from '../money/sales';
 import { analyzeSales, type DeliveredShipment, type SalesAnalysis, type TransitInfo } from '../sales/analyze';
 import { PREVIEW_PRODUCTS, PREVIEW_SALES_SEED, mockSales } from '../sales/mock';
 import { parseEgressIps, parseSalesRules } from '../sales/settings';
@@ -193,8 +193,7 @@ async function marketCost(q: Queryable, s: AppSettings, sku: SkuFact, lane: { hu
   );
   const goodsKrw = goodsValueKrw(cargo, s.fx);
   const duty = estimateDutyVat({ goodsKrw, freightToPortKrw: sum.toPortMedian, insuranceBp: s.insuranceBp, dutyRateBp: dutyRate(s, sku.hs_category), vatRateBp: s.vatRateBp }).duty;
-  const u = Math.max(1, sku.units);
-  return { goodsPerUnit: Math.round(goodsKrw / u), logisticsPerUnit: Math.round(sum.median / u), dutyPerUnit: Math.round(duty / u) };
+  return marketCostPerUnit(goodsKrw, sum.median, duty, sku.units);
 }
 
 async function laneTransit(q: Queryable, lane: { hub: string; port: string; mode: string | null }, today: string): Promise<TransitInfo> {

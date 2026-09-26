@@ -286,3 +286,9 @@ export const SALES_RETURN_REASON_LABEL: Record<'change_of_mind' | 'defect' | 'da
   not_as_described: '설명과 다름',
   other: '기타',
 };
+
+/** v2 3차 고침 — 판매 분석 상품 행에서 하는 일 */
+export const SALES_PRODUCT_ACTION = {
+  linkSku: 'SKU 잇기',
+  sourcing: '비슷한 상품 소싱',
+} as const;

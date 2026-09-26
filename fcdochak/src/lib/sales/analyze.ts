@@ -10,7 +10,7 @@ import {
   changeBp,
   dailySeries,
   daysOfStock,
-  inboundReflectDays,
+  inboundReflectFifo,
   median,
   periodWindows,
   reorderOn,
@@ -20,7 +20,7 @@ import {
   stockoutOn,
   suggestUnits,
   sumRange,
-  velocity,
+  velocityWithStockout,
   type AbcClass,
   type ArrivalPerUnit,
   type FeeLike,
@@ -69,6 +69,8 @@ export interface ProductRow {
   abc: AbcClass;
   shareBp: number;
   perDay: number;
+  /** recent = 최근 창 · before_stockout = 최근 창 내내 품절이라 그 앞 창의 속도 */
+  perDayBasis: 'recent' | 'before_stockout';
   onHand: number | null;
   asOf: string | null;
   daysOfStock: number | null;
@@ -100,6 +102,8 @@ export interface SalesAnalysis {
   returnsWeekly: { d: string; units: number }[];
   inbound: (DeliveredShipment & { productName: string; reflectDays: number | null })[];
   inboundMedianDays: number | null;
+  /** 평균(소수 첫째 자리) */
+  inboundAvgDays: number | null;
   firstDay: string | null;
 }
 
@@ -137,8 +141,10 @@ export function analyzeSales(ds: SalesDataset, c: AnalyzeContext): SalesAnalysis
     const a = abc.get(p.ext)!;
     const inv = [...(invBy.get(p.ext) ?? [])].sort((x, y) => (x.on < y.on ? -1 : 1));
     const last = inv[inv.length - 1] ?? null;
-    const perDay = velocity(os, end, c.rules.velocityDays);
     const onHand = last ? last.onHand : null;
+    // 최근 창 내내 품절이라 판매 0 이면 품절 전 속도로(「판매 없음」으로 숨지 않게)
+    const vel = velocityWithStockout(os, end, c.rules.velocityDays, onHand);
+    const perDay = vel.perDay;
     const dos = onHand == null ? null : daysOfStock(onHand, perDay);
     const asOf = last?.on ?? null;
     const so = asOf ? stockoutOn(asOf, dos) : null;
@@ -167,6 +173,7 @@ export function analyzeSales(ds: SalesDataset, c: AnalyzeContext): SalesAnalysis
       abc: a.cls,
       shareBp: a.shareBp,
       perDay,
+      perDayBasis: vel.basis,
       onHand,
       asOf,
       daysOfStock: dos,
@@ -204,10 +211,24 @@ export function analyzeSales(ds: SalesDataset, c: AnalyzeContext): SalesAnalysis
   const nameBy = new Map(ds.products.map((p) => [p.ext, p.name]));
   // 재고 스냅숏이 있는 기간(첫날 다음 날부터)의 입고만 — 그 전 입고는 반영을 잴 수 없다
   const firstSnap = ds.inventory.reduce<string | null>((m, x) => (m == null || x.on < m ? x.on : m), null);
-  const inbound = c.delivered
-    .filter((s) => firstSnap != null && s.deliveredOn > firstSnap)
-    .map((s) => ({ ...s, productName: nameBy.get(s.productExt) ?? s.productExt, reflectDays: inboundReflectDays(s.deliveredOn, s.units, invBy.get(s.productExt)?.map((x) => ({ on: x.on, onHand: x.onHand })) ?? [], c.rules.inboundReflectBp) }))
-    .sort((a, b) => (a.deliveredOn < b.deliveredOn ? 1 : -1));
+  // 한 상품의 입고는 선입선출로 함께 잰다 — 같은 선적은 한 번만(한 SKU 에 옵션이 여럿이어도)
+  const seen = new Set<string>();
+  const deliveredBy = new Map<string, DeliveredShipment[]>();
+  for (const s of c.delivered) {
+    if (seen.has(s.shipmentId)) continue;
+    seen.add(s.shipmentId);
+    (deliveredBy.get(s.productExt) ?? deliveredBy.set(s.productExt, []).get(s.productExt)!).push(s);
+  }
+  const inbound: SalesAnalysis['inbound'] = [];
+  for (const [ext, list] of deliveredBy) {
+    const days = inboundReflectFifo(list, invBy.get(ext)?.map((x) => ({ on: x.on, onHand: x.onHand })) ?? [], c.rules.inboundReflectBp);
+    list.forEach((s, i) => {
+      // 재고 스냅숏이 있는 기간(첫날 다음 날부터)의 입고만 보인다 — 그 전 입고는 반영을 잴 수 없다(나눠 주기에는 넣는다)
+      if (firstSnap != null && s.deliveredOn > firstSnap) inbound.push({ ...s, productName: nameBy.get(s.productExt) ?? s.productExt, reflectDays: days[i] });
+    });
+  }
+  inbound.sort((a, b) => (a.deliveredOn < b.deliveredOn ? 1 : a.deliveredOn > b.deliveredOn ? -1 : a.shipmentNo < b.shipmentNo ? 1 : -1));
+  const reflected = inbound.map((x) => x.reflectDays).filter((x): x is number => x != null);
 
   return {
     end,
@@ -232,7 +253,8 @@ export function analyzeSales(ds: SalesDataset, c: AnalyzeContext): SalesAnalysis
     reasons,
     returnsWeekly: bucketSeries(retDaily, 'week').map((x) => ({ d: x.d, units: x.units })),
     inbound,
-    inboundMedianDays: median(inbound.map((x) => x.reflectDays).filter((x): x is number => x != null)),
+    inboundMedianDays: median(reflected),
+    inboundAvgDays: reflected.length ? Math.round((reflected.reduce((a, b) => a + b, 0) * 10) / reflected.length) / 10 : null,
     firstDay,
   };
 }

@@ -34,19 +34,20 @@ export default async function SalesPnl({ searchParams }: { searchParams: Promise
             </Link>
           }
         />
+        <p className="px-4 pt-2 text-2xs text-muted md:hidden">표를 옆으로 넘기면 원가 칸(상품·물류·관세·쿠팡 비용)이 더 있습니다.</p>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[960px] text-sm [&_.tnum]:whitespace-nowrap [&_th]:whitespace-nowrap" data-testid="sales-pnl">
             <thead className="bg-surface-2 text-left text-2xs font-semibold text-muted">
               <tr>
                 <th className="px-3 py-2">상품</th>
+                <th className="px-3 py-2 text-right">개당 이익</th>
+                <th className="px-3 py-2 text-right">마진</th>
                 <th className="px-3 py-2 text-right">실판매가</th>
                 <th className="px-3 py-2">원가 근거</th>
                 <th className="px-3 py-2 text-right">상품</th>
                 <th className="px-3 py-2 text-right">물류(9구간)</th>
                 <th className="px-3 py-2 text-right">관세</th>
                 <th className="px-3 py-2 text-right">쿠팡 비용</th>
-                <th className="px-3 py-2 text-right">개당 이익</th>
-                <th className="px-3 py-2 text-right">마진</th>
                 <th className="px-3 py-2 text-right">기간 이익</th>
               </tr>
             </thead>
@@ -63,14 +64,14 @@ export default async function SalesPnl({ searchParams }: { searchParams: Promise
                       </p>
                       <p className="text-2xs text-muted tnum">{num(p.units)}개 판매</p>
                     </td>
+                    <td className={`px-3 py-2 text-right font-semibold tnum ${loss ? 'text-stamp' : ''}`}>{p.pnl ? won(p.pnl.profit) : '—'}</td>
+                    <td className="px-3 py-2 text-right tnum">{p.pnl ? `${num(p.pnl.marginBp / 100, 1)}%` : '—'}</td>
                     <td className="px-3 py-2 text-right tnum">{won(p.avgPrice)}</td>
                     <td className="px-3 py-2">{basisChip(p.arrival.basis, p.arrival.samples)}</td>
                     <td className="px-3 py-2 text-right tnum">{p.arrival.basis === 'none' ? '—' : won(p.arrival.goodsPerUnit)}</td>
                     <td className="px-3 py-2 text-right tnum">{p.arrival.basis === 'none' ? '—' : won(p.arrival.logisticsPerUnit)}</td>
                     <td className="px-3 py-2 text-right tnum">{p.arrival.basis === 'none' ? '—' : won(p.arrival.dutyPerUnit)}</td>
                     <td className="px-3 py-2 text-right tnum">{won(coupang)}</td>
-                    <td className={`px-3 py-2 text-right font-semibold tnum ${loss ? 'text-stamp' : ''}`}>{p.pnl ? won(p.pnl.profit) : '—'}</td>
-                    <td className="px-3 py-2 text-right tnum">{p.pnl ? `${num(p.pnl.marginBp / 100, 1)}%` : '—'}</td>
                     <td className={`px-3 py-2 text-right tnum ${loss ? 'text-stamp' : ''}`}>{p.periodProfit == null ? '—' : won(p.periodProfit)}</td>
                   </tr>
                 );
@@ -80,6 +81,13 @@ export default async function SalesPnl({ searchParams }: { searchParams: Promise
         </div>
         <div className="grid gap-1 border-t border-line-2 px-4 py-3 text-2xs text-muted">
           <p>개당 이익 = 부가세 뺀 실판매가 − 쿠팡 판매 수수료·광고(부가세 포함 판매가 기준) − (상품 + 물류 + 관세) − 로켓그로스 비용 — 판매손익 계산기와 같은 식입니다.</p>
+          <p>
+            「원가 없음」 = 저장한 SKU 와 이어지지 않은 상품입니다 —{' '}
+            <Link className="underline underline-offset-4" href="/app/sales/products">
+              상품별 화면
+            </Link>
+            에서 SKU 를 이으면 도착원가가 붙습니다.
+          </p>
           <p>「실제 N건」 = 이 SKU 로 올린 견적 요청의 선적 최근 {view.rules.actualShipments}건(청구서 현재 판, 없으면 고른 응찰) · 「구간 시세」 = 같은 화물로 비교한 업체들의 9구간 합계 중간값.</p>
           <p>
             정산: 쿠팡 정산 API 의 응답 모양(로켓그로스 포함 여부)은 <b>확인 필요</b>합니다. 확인 전에는 위 기준값으로 수수료를 추정하고, 정산과 맞춰 본 기록은{' '}

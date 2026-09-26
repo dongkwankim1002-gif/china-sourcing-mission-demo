@@ -4,7 +4,7 @@ import { asUser, todayKst } from '@/lib/db';
 import { requireViewer } from '@/lib/server/viewer';
 import { candidatesFor, mySampleInterests, requestById, simContext } from '@/lib/server/sourcing';
 import { candidateViews, mockViews } from '@/lib/server/sourcing-views';
-import { skusForSourcing } from '@/lib/sourcing/seeds';
+import { sourcingSeeds } from '@/lib/sourcing/seeds';
 import { dueState } from '@/lib/sourcing/settings';
 import { SourcingPreviewNotice } from '@/components/sourcing/preview';
 import { CandidateTable, SimCard } from '@/components/sourcing/candidates';
@@ -39,7 +39,7 @@ export default async function SourcingRequestPage({ params, searchParams }: { pa
     const stored = await candidateViews(q, ctx, req, rows, { qty, price, hubName, sampleDone: done });
     let mock: Awaited<ReturnType<typeof mockViews>> = [];
     if (!stored.length) {
-      const sku = req.origin === 'sku' && req.origin_ref ? (await skusForSourcing(q, v.org.id)).find((s) => s.ref === req.origin_ref) : undefined;
+      const sku = req.origin !== 'manual' && req.origin_ref ? (await sourcingSeeds(q, v.org.id)).find((s) => s.origin === req.origin && s.ref === req.origin_ref) : undefined;
       mock = await mockViews(q, ctx, req, { qty, price, hubName, unitKg: sku?.unitKg, unitCbm: sku?.unitCbm });
     }
     const category = (await q.query<{ name_ko: string }>(`select name_ko from fcd.v_current_duty_rates where category = $1`, [req.category]))[0]?.name_ko ?? req.category;
@@ -110,7 +110,7 @@ export default async function SourcingRequestPage({ params, searchParams }: { pa
             <PanelHead
               id="cc-h"
               title={d.stored.length ? `후보 공급처 ${d.stored.length}곳` : '예시 후보 3곳 — 담당이 후보를 넣기 전 미리보기'}
-              sub={d.stored.length ? '현지 소싱 담당이 넣은 후보입니다. 조건이 바뀌면 새 판으로 쌓입니다.' : '흉내 제공자가 만든 가짜 후보입니다(실제 공장 아님). 화면과 계산이 어떻게 보이는지만 보여 드립니다.'}
+              sub={d.stored.length ? '현지 소싱 담당이 넣은 후보입니다. 조건이 바뀌면 새 판으로 쌓입니다.' : 'FC도착이 만든 가짜 예시 후보입니다(실제 공장 아님). 화면과 계산이 어떻게 보이는지만 보여 드립니다.'}
             />
             <CandidateTable items={items} caption="후보 공급처 비교" />
             <p className="border-t border-line-2 px-4 py-2 text-2xs text-muted">
@@ -127,7 +127,7 @@ export default async function SourcingRequestPage({ params, searchParams }: { pa
                 c={c}
                 action={
                   c.id && !c.withdrawn && open ? (
-                    <SampleButton requestId={req.id} candidateId={c.id} label={c.label} done={d.done.has(c.id)} qty={d.qty} arrivalPerUnit={c.sim?.sim.arrivalPerUnit ?? null} version={c.version} />
+                    <SampleButton requestId={req.id} candidateId={c.id} label={c.label} done={d.done.has(c.id)} qty={d.qty} price={d.price ?? null} />
                   ) : c.id ? null : (
                     <span className="text-2xs text-muted">예시 후보는 샘플 요청을 받지 않습니다</span>
                   )

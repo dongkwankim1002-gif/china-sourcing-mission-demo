@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { asUser, todayKst, type Queryable } from '@/lib/db';
 import { requireViewer } from '@/lib/server/viewer';
 import { newNo } from '@/lib/server/rate-cards';
-import { candidatesFor, loadSourcingConfig, openRequestCount, requestById, scoreCandidate } from '@/lib/server/sourcing';
+import { candidatesFor, loadSourcingConfig, openRequestCount, requestById, rowToSimQuote, scoreCandidate, simContext, simulate } from '@/lib/server/sourcing';
 import { loadSettings } from '@/lib/server/settings';
 import { dueOn, SOURCING_STATUSES } from '@/lib/sourcing/settings';
 import { getSourcingProvider } from '@/lib/sourcing/providers';
@@ -111,11 +111,13 @@ const Sample = z.object({
   requestId: z.string().uuid(),
   candidateId: z.string().uuid(),
   qty: z.number().int().min(1).max(10_000_000).nullable().optional(),
-  arrivalPerUnit: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
-  version: z.number().int().min(1).max(10_000).nullable().optional(),
+  price: z.number().int().min(100).max(100_000_000).nullable().optional(),
 });
 
-/** 샘플 요청 — 관심 등록만(스위치 꺼짐). 한 사람이 후보마다 한 번 */
+/**
+ * 샘플 요청 — 관심 등록만(스위치 꺼짐). 한 사람이 후보마다 한 번.
+ * 기록(detail)의 판 번호·개당 도착원가는 보낸 값을 믿지 않고 서버가 지금 판 조건으로 다시 셈한다. 내린 후보에는 못 남긴다.
+ */
 export async function registerSampleInterest(input: z.infer<typeof Sample>): Promise<R> {
   const v = await requireViewer('app');
   const p = Sample.safeParse(input);
@@ -124,10 +126,24 @@ export async function registerSampleInterest(input: z.infer<typeof Sample>): Pro
   const out = await asUser(v, async (q): Promise<R> => {
     const r = await requestById(q, d.requestId);
     if (!r || r.org_id !== v.org.id) return { ok: false, error: '요청을 찾지 못했습니다' };
+    const cand = (await candidatesFor(q, r.id)).find((c) => c.id === d.candidateId);
+    if (!cand?.quote) return { ok: false, error: '후보를 찾지 못했습니다' };
+    if (cand.quote.status !== 'active') return { ok: false, error: '내린 후보라 샘플 요청을 남길 수 없습니다' };
+    const qty = d.qty ?? r.first_order_units ?? 500;
+    const price = d.price ?? r.target_price;
+    let arrivalPerUnit: number | null = null;
+    if (price != null) {
+      try {
+        const ctx = await simContext(q, todayKst());
+        arrivalPerUnit = (await simulate(q, ctx, { hub: cand.hub ?? r.hub, category: r.category, qty, price, quote: rowToSimQuote(cand.quote) })).sim.arrivalPerUnit;
+      } catch {
+        arrivalPerUnit = null;
+      }
+    }
     const ins = await q.query<{ id: string }>(
       `insert into fcd.sourcing_sample_interests (org_id, user_id, request_id, candidate_id, detail)
        values ($1,$2,$3,$4,$5::jsonb) on conflict (user_id, candidate_id) do nothing returning id`,
-      [v.org.id, v.id, d.requestId, d.candidateId, JSON.stringify({ qty: d.qty ?? null, arrivalPerUnit: d.arrivalPerUnit ?? null, version: d.version ?? null })],
+      [v.org.id, v.id, d.requestId, d.candidateId, JSON.stringify({ qty, price, arrivalPerUnit, version: cand.quote.version, by: 'server' })],
     );
     if (!ins[0]) return { ok: true, already: true };
     await audit(q, v.id, v.org.id, 'sourcing.sample_interest', `sourcing_candidate:${d.candidateId}`, { requestId: d.requestId });

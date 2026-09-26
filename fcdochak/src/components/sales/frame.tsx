@@ -20,6 +20,13 @@ export const SALES_TABS = [
   { href: '/app/sales/inbound', label: '입고 성과' },
 ] as const;
 
+const RUN_STATUS: Record<SalesView['runs'][number]['status'], string> = {
+  ok: '가져옴',
+  blocked: '연동 꺼짐으로 막힘',
+  failed: '쿠팡 오류',
+  unsupported: '응답 칸 확인 필요',
+};
+
 export function SalesFrame({ view, active, title, sub, children }: { view: SalesView; active: (typeof SALES_TABS)[number]['href']; title: string; sub: string; children: React.ReactNode }) {
   const lastOk = view.runs.find((r) => r.status === 'ok');
   const lastRun = view.runs[0];
@@ -62,12 +69,14 @@ export function SalesFrame({ view, active, title, sub, children }: { view: Sales
         </div>
       ) : view.preview ? (
         <p className="mb-4 rounded-md border border-caution/40 bg-caution-bg px-4 py-3 text-sm text-caution" role="status" data-testid="sales-test-mode">
-          시험 모드 — 키는 맡겼지만 쿠팡 연동이 아직 꺼져 있어 가져온 판매 기록이 없습니다. 아래는 「예시」 미리보기입니다.
-          {lastRun ? ` 마지막 시도 ${dateTimeKo(lastRun.created_at)}.` : ''}
+          {view.enabled
+            ? '키는 맡겼고 연동도 켜졌지만, 쿠팡 응답 칸을 확인하기 전이라 판매 기록을 아직 가져오지 않았습니다(확인 필요). 아래는 「예시」 미리보기입니다.'
+            : '시험 모드 — 키는 맡겼지만 쿠팡 연동이 아직 꺼져 있어 가져온 판매 기록이 없습니다. 아래는 「예시」 미리보기입니다.'}
+          {lastRun ? ` 마지막 시도 ${dateTimeKo(lastRun.created_at)} · ${RUN_STATUS[lastRun.status]}.` : ''}
         </p>
       ) : view.access === 'example' ? (
         <p className="mb-4 rounded-md border border-line bg-surface-2 px-4 py-3 text-xs text-muted" role="status" data-testid="sales-example-note">
-          데모 조직 — 흉내 어댑터가 만든 180일 「예시」 판매 기록입니다. 실제 쿠팡 자료가 아닙니다.
+          데모 조직 — 데모용으로 만든 180일 「예시」 판매 기록입니다. 실제 쿠팡 자료가 아닙니다.
           {lastOk ? ` 마지막 가져오기 ${dateTimeKo(lastOk.created_at)}.` : ''}
         </p>
       ) : lastOk ? (

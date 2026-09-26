@@ -43,7 +43,7 @@ export function WingKeyPanel({ current, canStore, enabled, today, warnDays, canM
       <PanelHead
         id="wk-h"
         title="WING 키"
-        sub="넣은 키는 암호화해 보관하고 끝 4자리만 보입니다. 운영자도 키를 볼 수 없습니다."
+        sub="넣은 키는 서버의 별도 암호화 키로 잠가 보관하고 끝 4자리만 보입니다. 운영 화면에서 키 값을 보는 기능은 없고, 꺼낼 때마다 기록이 남습니다."
         action={current ? <Chip tone={STATUS_TONE[current.status]}>{WING_STATUS_LABEL[current.status]}</Chip> : null}
       />
       {live ? (

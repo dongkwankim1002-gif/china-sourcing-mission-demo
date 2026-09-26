@@ -64,7 +64,7 @@ export default async function SalesOverview({ searchParams }: { searchParams: Pr
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <Panel aria-labelledby="stop-h">
-          <PanelHead id="stop-h" title="매출 상위" action={<Link className="text-xs font-semibold hover:underline" href="/app/sales/products">상품별 전체</Link>} />
+          <PanelHead id="stop-h" title="매출 상위" action={<Link className="text-xs font-semibold hover:underline" href={`/app/sales/products${view.periodDays !== 30 ? `?p=${view.periodDays}` : ''}`}>상품별 전체</Link>} />
           <ol className="divide-y divide-line-2">
             {a.products.slice(0, 5).map((p) => (
               <li key={p.ext} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2 text-sm">

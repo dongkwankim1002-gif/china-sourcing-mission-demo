@@ -12,6 +12,7 @@ import { currentConnection, logWing, wingSettings } from '@/lib/server/wing';
 import { consentOk, egressIps, latestConsent } from '@/lib/server/sales';
 import { SALES_CONSENT, consentScopes } from '@/lib/sales/consent';
 import { SalesHttpSource } from '@/lib/sales/http';
+import { LIVE_BLOCK_MESSAGE, liveCallBlock } from '@/lib/sales/gate';
 import { DEMO_SALES_SEED, mockSales } from '@/lib/sales/mock';
 import { storeSalesDataset, type StoreSummary } from '@/lib/sales/store';
 import { addDays } from '@/lib/money/sales';
@@ -98,6 +99,12 @@ export async function testWingConnection(): Promise<SalesResult<TestResult>> {
       }
       if (!isAdmin(v)) return { error: '쿠팡에 물어보는 연결 시험은 조직 관리자만 할 수 있습니다(키를 꺼내야 해서)' };
       if (!cur?.has_key || !kek) return { mode: 'live' as const, passed: false, checks, message: '먼저 키를 넣어 주세요' };
+      // 동의(지금 판)·저장·암호화가 모두 되고 만료되지 않은 키만 꺼낸다 — 동의 없이는 쿠팡을 부르지 않는다
+      const block = liveCallBlock({ consent: consentOk(consent), hasKey: !!cur.has_key, kekOk: checks[2].ok, expiry: st });
+      if (block) {
+        await logWing(q, { orgId: v.org.id, actorId: v.id, kind: 'wing_api_blocked', connectionId: cur.id, detail: { reason: block } });
+        return { mode: 'live' as const, passed: false, checks, message: `${LIVE_BLOCK_MESSAGE[block]} 쿠팡을 부르지 않았습니다.` };
+      }
       const blob = (await q.query<{ b: string | null }>(`select fcd.wing_key_blob($1) b`, [cur.id]))[0]?.b;
       if (!blob) return { error: '키를 꺼내지 못했습니다 — 키를 다시 넣어 주세요' };
       const src = new SalesHttpSource(new WingHttpAdapter({ enabled: env.wingEnabled, credentials: decryptCredentials(blob, v.org.id, kek), rule: set.call }), env.wingEnabled);
@@ -162,6 +169,15 @@ export async function syncSales(): Promise<SalesResult<StoreSummary | null>> {
         await logWing(q, { orgId: v.org.id, actorId: v.id, kind: 'wing_api_blocked', connectionId: cur.id, detail: { reason: 'sales_sync_test_mode' } });
         return { error: '시험 모드 — 쿠팡 연동이 아직 꺼져 있어 판매 기록을 가져오지 않았습니다. 켜지면 이 버튼으로 가져옵니다.', recorded: true };
       }
+      // 실제 경로 — 지금 판 동의가 없거나 키가 만료됐으면 부르지 않는다(시험 연결과 같은 규칙)
+      const consent = await latestConsent(q, v.org.id);
+      const set = await wingSettings(q);
+      const st = keyExpiryState(keyExpiry(cur.issued_on, set.keyValidDays), today, set.keyWarnDays);
+      const block = liveCallBlock({ consent: consentOk(consent), hasKey: !!cur.has_key, kekOk: true, expiry: st });
+      if (block) {
+        await record('blocked', { reason: block });
+        return { error: `${LIVE_BLOCK_MESSAGE[block]} 판매 기록을 읽지 않았습니다(쿠팡 연동 화면에서 고칠 수 있습니다).`, recorded: true };
+      }
       // 켜져 있어도 주문·반품·상품 응답 칸을 확인하기 전에는 부르지 않는다(키도 꺼내지 않는다)
       try {
         await new SalesHttpSource(null, env.wingEnabled).fetchDataset(range);
@@ -180,5 +196,43 @@ export async function syncSales(): Promise<SalesResult<StoreSummary | null>> {
     return { ok: true, data: r.s };
   } catch {
     return { ok: false, error: '가져오지 못했습니다 — 화면을 새로 고쳐 주세요' };
+  }
+}
+
+/**
+ * 판매 상품 ↔ 우리 SKU 잇기 — 고치지 않고 새 판(sku_id 만 바꾼 다음 판)을 쌓는다. 같은 조직 SKU 만(0017 정책 함수가 한 번 더 본다).
+ * 이어야 도착원가·「지금 견적 요청」·입고 성과가 그 상품에 붙는다. 가져오기가 나중에 다시 돌아도 사람이 이은 연결은 이어 간다(store.ts).
+ */
+export async function linkSalesProductSku(input: { ext: string; skuId: string | null }): Promise<SalesResult> {
+  const v = await requireViewer('app');
+  const ext = String(input?.ext ?? '');
+  const skuId = input?.skuId ?? null;
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{2,39}$/.test(ext) || (skuId != null && !/^[0-9a-f-]{36}$/i.test(skuId))) return { ok: false, error: '요청을 읽지 못했습니다' };
+  try {
+    const r = await asUser(v, async (q) => {
+      const cur = (
+        await q.query<{ id: string; version: number; source: string; name: string; option_name: string | null; list_price: number | null; sku_id: string | null }>(
+          `select id, version, source, name, option_name, list_price, sku_id from fcd.v_sales_products_current where org_id = $1 and external_id = $2`,
+          [v.org.id, ext],
+        )
+      )[0];
+      if (!cur) return { error: '상품을 찾지 못했습니다' };
+      if ((cur.sku_id ?? null) === skuId) return { same: true };
+      if (skuId) {
+        const ok = (await q.query<{ n: number }>(`select count(*)::int n from fcd.skus where id = $1 and org_id = $2 and not archived`, [skuId, v.org.id]))[0].n > 0;
+        if (!ok) return { error: '저장한 SKU 에서 골라 주세요' };
+      }
+      await q.query(
+        `insert into fcd.sales_products (org_id, source, external_id, name, option_name, list_price, sku_id, version, supersedes_id, created_by)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [v.org.id, cur.source, ext, cur.name, cur.option_name, cur.list_price, skuId, Number(cur.version) + 1, cur.id, v.id],
+      );
+      return { same: false };
+    });
+    if ('error' in r) return { ok: false, error: r.error };
+    refresh();
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'SKU 를 잇지 못했습니다 — 화면을 새로 고쳐 주세요' };
   }
 }

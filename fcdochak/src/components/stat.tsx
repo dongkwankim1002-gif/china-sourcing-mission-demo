@@ -44,7 +44,7 @@ export function StatTile({
         {delta != null ? (
           <span className={cn('inline-flex flex-wrap items-center gap-x-0.5 text-xs font-semibold tnum', tone)}>
             <Icon className="size-3.5" aria-hidden />
-            {format === 'pct' ? `${(delta * 100).toFixed(1)}%p` : `${(Math.abs(delta) * 100).toFixed(0)}%`}
+            {format === 'pct' ? `${dir === 0 || Number((delta * 100).toFixed(1)) === 0 ? '0.0' : (delta * 100).toFixed(1)}%p` : `${(Math.abs(delta) * 100).toFixed(0)}%`}
             <span className="whitespace-nowrap font-normal text-muted">지난 기간 대비</span>
           </span>
         ) : (

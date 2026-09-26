@@ -34,6 +34,12 @@ export default async function SalesInbound({ searchParams }: { searchParams: Pro
               </p>
             </div>
             <div className="rounded-md border border-line bg-surface p-4">
+              <p className="text-xs font-semibold text-muted">반영까지 평균</p>
+              <p className="display mt-1.5 text-[26px] leading-none tnum" data-testid="sales-inbound-avg">
+                {a.inboundAvgDays == null ? '—' : `${a.inboundAvgDays}일`}
+              </p>
+            </div>
+            <div className="col-span-2 rounded-md border border-line bg-surface p-4 md:col-span-1">
               <p className="text-xs font-semibold text-muted">입고 끝난 선적</p>
               <p className="display mt-1.5 text-[26px] leading-none tnum">{num(a.inbound.length)}건</p>
             </div>
@@ -81,13 +87,20 @@ export default async function SalesInbound({ searchParams }: { searchParams: Pro
               )}
             </Panel>
           </div>
-          <p className="mt-2 text-2xs text-muted">추천 점수에는 아직 넣지 않았습니다(다음 단계). 쿠팡 재고 스냅숏이 하루 한 번이라 하루 단위로 셉니다.</p>
+          <p className="mt-2 text-2xs text-muted">한 상품에 입고가 몰리면 재고 증가를 먼저 들어온 입고부터 차례로 나눠 셉니다(선입선출). 쿠팡 재고 스냅숏이 하루 한 번이라 하루 단위로 셉니다. 추천 점수에는 아직 넣지 않았습니다(다음 단계).</p>
         </>
       ) : (
         <Panel>
           <EmptyState
             title={view.preview ? '예시에는 FC도착 선적이 없습니다' : '입고 끝난 선적이 아직 없습니다'}
-            body="판매 기록의 상품을 저장한 SKU 와 잇고, 그 SKU 로 올린 견적 요청이 선적돼 FC 에 입고되면 여기에 보입니다."
+            body="판매 기록의 상품을 저장한 SKU 와 잇고(상품별 화면의 「SKU 잇기」), 그 SKU 로 올린 견적 요청이 선적돼 FC 에 입고되면 여기에 보입니다."
+            action={
+              view.preview ? undefined : (
+                <Link className="text-sm font-semibold underline underline-offset-4" href="/app/sales/products">
+                  상품별 화면에서 SKU 잇기
+                </Link>
+              )
+            }
           />
         </Panel>
       )}

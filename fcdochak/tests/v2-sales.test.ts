@@ -16,6 +16,8 @@ import {
   daysBetween,
   daysOfStock,
   inboundReflectDays,
+  inboundReflectFifo,
+  marketCostPerUnit,
   median,
   periodWindows,
   reorderOn,
@@ -26,7 +28,10 @@ import {
   suggestUnits,
   sumRange,
   velocity,
+  velocityWithStockout,
 } from '@/lib/money/sales';
+import { LIVE_BLOCK_MESSAGE, liveCallBlock } from '@/lib/sales/gate';
+import { salesProductsForSourcing } from '@/lib/sourcing/seeds';
 import { unitPnl } from '@/lib/money/pnl';
 import { analyzeSales } from '@/lib/sales/analyze';
 import { DEMO_SALES_SEED, PREVIEW_PRODUCTS, PREVIEW_SALES_SEED, mockReflectLag, mockSales } from '@/lib/sales/mock';
@@ -201,6 +206,81 @@ describe('도착원가 근거 · 마진', () => {
     expect(inboundReflectDays('2026-09-10', 500, snaps, 5000)).toBe(3);
     expect(inboundReflectDays('2026-09-10', 5000, snaps, 5000)).toBeNull();
     expect(inboundReflectDays('2026-09-10', 0, snaps, 5000)).toBeNull();
+  });
+});
+
+describe('3차 검토 고침 — 입고 선입선출 · 품절 속도 · 개당 시세 · 호출 문턱', () => {
+  it('입고 여럿은 선입선출 — 하루 앞선 입고의 반영을 뒤 입고가 제 것으로 세지 않는다', () => {
+    const snaps = [
+      { on: '2026-09-20', onHand: 100 },
+      { on: '2026-09-21', onHand: 90 },
+      { on: '2026-09-22', onHand: 580 }, // 9/21 입고 500개(A)가 반영 — 그날 10개 팔림
+      { on: '2026-09-23', onHand: 570 },
+      { on: '2026-09-24', onHand: 860 }, // 9/22 입고 300개(B)가 반영
+      { on: '2026-09-25', onHand: 850 },
+    ];
+    const ships = [
+      { deliveredOn: '2026-09-22', units: 300 }, // B — 넘긴 순서가 날짜순이 아니어도 된다
+      { deliveredOn: '2026-09-21', units: 500 }, // A
+    ];
+    // 예전 방식은 B 를 9/22(0일)로 잘못 센다
+    expect(inboundReflectDays('2026-09-22', 300, snaps, 5000)).toBe(0);
+    expect(inboundReflectFifo(ships, snaps, 5000)).toEqual([2, 1]);
+  });
+  it('k = 0(입고일 당일 반영)은 제 입고일 때만 센다 · 못 찾은 입고는 null 이고 뒤 입고를 막지 않는다', () => {
+    const snaps = [
+      { on: '2026-09-01', onHand: 40 },
+      { on: '2026-09-02', onHand: 240 }, // 9/02 입고 200개가 당일 반영
+      { on: '2026-09-03', onHand: 230 },
+    ];
+    expect(inboundReflectFifo([{ deliveredOn: '2026-09-02', units: 200 }], snaps, 5000)).toEqual([0]);
+    const long = [{ on: '2026-08-01', onHand: 10 }, ...Array.from({ length: 45 }, (_, i) => ({ on: addDays('2026-08-02', i), onHand: i === 40 ? 400 : 10 }))];
+    // 8/01 입고 1000개는 30일 안에 못 찾음(null) → 9/10 입고 300개가 9/11 증가(+390)를 가져간다
+    const r = inboundReflectFifo([{ deliveredOn: '2026-08-01', units: 1000 }, { deliveredOn: '2026-09-10', units: 300 }], long, 5000);
+    expect(r).toEqual([null, 1]);
+    expect(inboundReflectFifo([{ deliveredOn: '2026-09-02', units: 0 }], snaps, 5000)).toEqual([null]);
+  });
+  it('최근 창 내내 품절이라 판매 0 이면 그 앞 창 속도 → 「늦음」, 재고가 있으면 최근 속도 그대로', () => {
+    const end = '2026-09-25';
+    const rows = Array.from({ length: 28 }, (_, i) => ({ on: addDays(end, -(28 + i)), units: 5, amount: 50_000, orders: 1, cancelled: false }));
+    expect(velocityWithStockout(rows, end, 28, 0)).toEqual({ perDay: 5, basis: 'before_stockout' });
+    expect(velocityWithStockout(rows, end, 28, 30)).toEqual({ perDay: 0, basis: 'recent' });
+    expect(velocityWithStockout([], end, 28, 0)).toEqual({ perDay: 0, basis: 'recent' });
+    const ds = {
+      products: [{ ext: 'EX-VI-10000001', name: '예시 품절 상품', optionName: null, listPrice: 10_000, skuId: null }],
+      orders: rows.map((r, i) => ({ ext: `EX-OD-9${i}`, productExt: 'EX-VI-10000001', on: r.on, units: r.units, amount: r.amount, orders: 1, cancelled: false })),
+      inventory: Array.from({ length: 30 }, (_, i) => ({ productExt: 'EX-VI-10000001', on: addDays(end, -i), onHand: 0, inbound: null })),
+      returns: [],
+    };
+    const a = analyzeSales(ds, { today: '2026-09-26', periodDays: 30, rules: RULES, fee: FEE, vatRateBp: 1000, arrival: {}, transit: { 'EX-VI-10000001': { days: 12, basis: 'market', lane: 'YIW→ICN' } }, delivered: [] });
+    expect(a.products[0]).toMatchObject({ perDay: 5, perDayBasis: 'before_stockout', daysOfStock: 0, stockout: end, reorderState: 'late' });
+    expect(a.products[0].suggestUnits).toBeGreaterThan(0);
+  });
+  it('같은 선적은 입고 성과에 한 번만(한 SKU 에 옵션이 여럿이어도) · 평균도 낸다', () => {
+    const ds = mockSales({ seed: 'dup', today: '2026-09-26', days: 30, products: [{ name: 'A', skuId: null, price: 9_900, baseDaily: 3, inbounds: [{ on: '2026-09-10', units: 200 }] }] });
+    const ext = ds.products[0].ext;
+    const one = { productExt: ext, shipmentId: 's1', shipmentNo: 'SH-EX-1', deliveredOn: '2026-09-10', units: 200, partner: '예시 물류' };
+    const a = analyzeSales(ds, { today: '2026-09-26', periodDays: 30, rules: RULES, fee: FEE, vatRateBp: 1000, arrival: {}, transit: {}, delivered: [one, { ...one }] });
+    expect(a.inbound).toHaveLength(1);
+    expect(a.inbound[0].reflectDays).toBe(mockReflectLag('dup', 0, '2026-09-10'));
+    expect(a.inboundAvgDays).toBe(a.inbound[0].reflectDays);
+  });
+  it('구간 시세 합계 → 개당(원 반올림, 수량 0 은 1 로)', () => {
+    expect(marketCostPerUnit(1_000_000, 333_333, 50_001, 300)).toEqual({ goodsPerUnit: 3333, logisticsPerUnit: 1111, dutyPerUnit: 167 });
+    expect(marketCostPerUnit(1_000, 500, 10, 0)).toEqual({ goodsPerUnit: 1000, logisticsPerUnit: 500, dutyPerUnit: 10 });
+  });
+  it('쿠팡을 부르기 전 문턱 — 동의 없는 키(2차에 넣은 키·문구 판이 오른 뒤의 키)는 꺼내지 않는다', () => {
+    expect(liveCallBlock({ consent: false, hasKey: true, kekOk: true, expiry: 'ok' })).toBe('no_consent');
+    expect(liveCallBlock({ consent: true, hasKey: false, kekOk: true, expiry: 'ok' })).toBe('no_key');
+    expect(liveCallBlock({ consent: true, hasKey: true, kekOk: false, expiry: 'ok' })).toBe('kek_mismatch');
+    expect(liveCallBlock({ consent: true, hasKey: true, kekOk: true, expiry: 'expired' })).toBe('key_expired');
+    expect(liveCallBlock({ consent: true, hasKey: true, kekOk: true, expiry: 'soon' })).toBeNull();
+    expect(liveCallBlock({ consent: true, hasKey: true, kekOk: true, expiry: 'unknown' })).toBeNull();
+    for (const m of Object.values(LIVE_BLOCK_MESSAGE)) expect(m).not.toMatch(/[A-Za-z0-9+/]{20,}/);
+  });
+  it('동의 문구는 「운영자도 볼 수 없다」고 단정하지 않고, 판이 올랐다', () => {
+    expect(SALES_CONSENT.version).not.toBe('sales-consent-2026-09(법률 검토 전)');
+    expect(SALES_CONSENT.notes.join(' ')).not.toMatch(/운영자도 키를 볼 수 없/);
   });
 });
 
@@ -489,6 +569,52 @@ describe('DB — RLS·권한·새 판·데모(메모리 PGlite)', () => {
       expect(rv.preview).toBe(true);
       expect(rv.example).toBe(true);
       expect(rv.analysis.products[0].name).toMatch(/^예시/);
+    } finally {
+      setDbForTests(undefined);
+    }
+  });
+
+  it('0019 — 사용자 경로로는 정산 verified = true · source api 주문·반품·재고 · 「api 가져옴」 기록을 못 넣는다', async () => {
+    const ins = (sql: string, params: unknown[]) => asRole(db, 'fcd_user', REAL_USER, true, (q) => q.query(sql, params));
+    await expect(
+      ins(`insert into fcd.sales_settlements (org_id, source, period_from, period_to, gross, fee, payout, verified, created_by) values ($1,'file',current_date - 30,current_date - 1,1000,100,900,true,$2)`, [REAL_SHIPPER, REAL_USER]),
+    ).rejects.toThrow();
+    await ins(`insert into fcd.sales_settlements (org_id, source, period_from, period_to, gross, fee, payout, created_by) values ($1,'file',current_date - 30,current_date - 1,1000,100,900,$2)`, [REAL_SHIPPER, REAL_USER]);
+    await expect(
+      ins(`insert into fcd.sales_orders (org_id, source, external_id, product_ext, ordered_on, units, amount, created_by) values ($1,'api','API-OD-001','API-VI-001',current_date - 1,1,1000,$2)`, [REAL_SHIPPER, REAL_USER]),
+    ).rejects.toThrow();
+    await expect(ins(`insert into fcd.sales_returns (org_id, source, external_id, product_ext, returned_on, units, reason, created_by) values ($1,'api','API-RT-001','API-VI-001',current_date - 1,1,'other',$2)`, [REAL_SHIPPER, REAL_USER])).rejects.toThrow();
+    await expect(ins(`insert into fcd.sales_inventory_snapshots (org_id, source, product_ext, snap_on, on_hand, created_by) values ($1,'api','API-VI-001',current_date - 1,5,$2)`, [REAL_SHIPPER, REAL_USER])).rejects.toThrow();
+    await expect(ins(`insert into fcd.sales_sync_runs (org_id, source, status, created_by) values ($1,'api','ok',$2)`, [REAL_SHIPPER, REAL_USER])).rejects.toThrow();
+    await ins(`insert into fcd.sales_sync_runs (org_id, source, status, created_by) values ($1,'api','blocked',$2)`, [REAL_SHIPPER, REAL_USER]);
+    // 'api' 상품: 사용자가 새로 못 넣지만, 신뢰 경로가 넣은 줄의 다음 판으로 SKU 잇기(이름·옵션·판매가 그대로)는 된다
+    await expect(ins(`insert into fcd.sales_products (org_id, source, external_id, name, created_by) values ($1,'api','API-VI-002','가짜 api 상품',$2)`, [REAL_SHIPPER, REAL_USER])).rejects.toThrow();
+    const root = (await db.query<{ id: string }>(`insert into fcd.sales_products (org_id, source, external_id, name, list_price, created_by) values ($1,'api','API-VI-003','api 상품',9900,$2) returning id`, [REAL_SHIPPER, REAL_USER]))[0].id;
+    await expect(
+      ins(`insert into fcd.sales_products (org_id, source, external_id, name, list_price, version, supersedes_id, created_by) values ($1,'api','API-VI-003','이름 바꿈',9900,2,$2,$3)`, [REAL_SHIPPER, root, REAL_USER]),
+    ).rejects.toThrow();
+    await ins(`insert into fcd.sales_products (org_id, source, external_id, name, list_price, sku_id, version, supersedes_id, created_by) values ($1,'api','API-VI-003','api 상품',9900,null,2,$2,$3)`, [REAL_SHIPPER, root, REAL_USER]);
+  });
+
+  it('소싱 시작점 — 데모 화주는 판매 분석 상품(판매량 순), 판매 분석이 안 열린 실제 화주는 빈 목록', async () => {
+    const demo = await asRole(db, 'fcd_user', shipperUser, true, (q) => salesProductsForSourcing(q, shipperOrg));
+    expect(demo.length).toBeGreaterThanOrEqual(3);
+    expect(demo.every((x) => x.origin === 'sales')).toBe(true);
+    for (let i = 1; i < demo.length; i++) expect(demo[i - 1].monthlyUnits!).toBeGreaterThanOrEqual(demo[i].monthlyUnits!);
+    // 실제 화주는 파일로 넣은 판매 기록이 있어도 키가 없으면(access none) 시작점에 안 나온다
+    expect(await asRole(db, 'fcd_user', REAL_USER, true, (q) => salesProductsForSourcing(q, REAL_SHIPPER))).toEqual([]);
+  });
+
+  it('입고 성과(데모 화주) — 한 선적은 한 번, 반영 일수는 흉내 지연(1~4일) 안', async () => {
+    setDbForTests(db);
+    try {
+      const org = (await db.query<{ id: string; name: string; is_demo: boolean }>(`select id, name, is_demo from fcd.orgs where id = $1`, [shipperOrg]))[0];
+      const viewer = { id: shipperUser, name: 'x', email: DEMO_ACCOUNTS.shipper.email, locale: 'ko', orgs: [], unread: 0, org: { ...org, kind: 'shipper', role: 'shipper_admin', status: 'active', slug: null, name_zh: null, default_locale: 'ko' } } as unknown as Viewer;
+      const vw = await loadSalesView(viewer, 90, false);
+      const ids = vw.analysis.inbound.map((x) => x.shipmentId);
+      expect(new Set(ids).size).toBe(ids.length);
+      const found = vw.analysis.inbound.filter((x) => x.reflectDays != null);
+      expect(found.length).toBeGreaterThan(0);
     } finally {
       setDbForTests(undefined);
     }

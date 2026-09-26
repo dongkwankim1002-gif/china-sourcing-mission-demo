@@ -140,6 +140,20 @@ export function velocity(rows: readonly OrderLike[], end: string, window: number
   return Math.round((u * 100) / window) / 100;
 }
 
+/**
+ * 품절로 최근 창에 판매가 0 이면 — 그 앞 창(최대 lookback 개)을 거슬러 처음 판매가 있던 창의 속도를 쓴다.
+ * 최근 창에 판매가 있거나 재고가 남아 있으면 최근 속도 그대로(basis 'recent'). 앞 창에도 판매가 없으면 0.
+ */
+export function velocityWithStockout(rows: readonly OrderLike[], end: string, window: number, onHand: number | null, lookback = 3): { perDay: number; basis: 'recent' | 'before_stockout' } {
+  const recent = velocity(rows, end, window);
+  if (recent > 0 || onHand == null || onHand > 0) return { perDay: recent, basis: 'recent' };
+  for (let k = 1; k <= lookback; k++) {
+    const v = velocity(rows, addDays(end, -window * k), window);
+    if (v > 0) return { perDay: v, basis: 'before_stockout' };
+  }
+  return { perDay: 0, basis: 'recent' };
+}
+
 /** 재고 일수 = 재고 ÷ 하루 판매량(내림). 판매가 없으면 null(「팔리지 않음」) */
 export function daysOfStock(onHand: number, perDay: number): number | null {
   if (!(perDay > 0)) return null;
@@ -194,6 +208,12 @@ export interface MarketCost {
   logisticsPerUnit: number;
   goodsPerUnit: number;
   dutyPerUnit: number;
+}
+
+/** 구간 시세 한 묶음(SKU 한 선적 분량)의 합계를 개당으로 — 수량 0 이하는 1 로 보고, 각각 원 단위 반올림 */
+export function marketCostPerUnit(goodsKrw: number, logisticsTotal: number, duty: number, units: number): MarketCost {
+  const u = Math.max(1, Math.round(units));
+  return { goodsPerUnit: Math.round(goodsKrw / u), logisticsPerUnit: Math.round(logisticsTotal / u), dutyPerUnit: Math.round(duty / u) };
 }
 
 export interface ArrivalPerUnit {
@@ -275,6 +295,38 @@ export function inboundReflectDays(deliveredOn: string, units: number, snaps: re
     if (cur - prev >= need) return k;
   }
   return null;
+}
+
+/**
+ * 한 상품의 입고 여럿을 함께 잰다(선입선출) — 날짜순(같은 날이면 넘긴 순)으로 두고, 재고가 전날보다 늘어난 날마다
+ * 그 증가분을 아직 반영되지 않은 가장 앞 입고부터 차례로 나눠 준다. 앞 입고의 몫(수량 × reflectBp 이상)이 채워져야 다음 입고로 넘어가고,
+ * 채운 입고는 늘어난 양에서 제 수량만큼(모자라면 남은 만큼) 가져간다. 그래서 하루 앞서 들어온 다른 입고의 반영을 제 것으로 세지 않는다.
+ * 입고일에서 maxDays 가 지나도 못 찾으면 null 로 두고 다음 입고로 넘어간다. 결과는 넘긴 순서 그대로.
+ */
+export function inboundReflectFifo(ships: readonly { deliveredOn: string; units: number }[], snaps: readonly { on: string; onHand: number }[], reflectBp: number, maxDays = 30): (number | null)[] {
+  const out: (number | null)[] = ships.map(() => null);
+  const queue = ships
+    .map((s, i) => ({ i, on: s.deliveredOn, units: s.units, need: Math.ceil((s.units * reflectBp) / 10_000) }))
+    .filter((s) => s.units > 0)
+    .sort((a, b) => (a.on < b.on ? -1 : a.on > b.on ? 1 : a.i - b.i));
+  if (!queue.length) return out;
+  const by = new Map(snaps.map((s) => [s.on, s.onHand]));
+  const last = queue.reduce((m, s) => (s.on > m ? s.on : m), queue[0].on);
+  let head = 0;
+  for (let d = queue[0].on; d <= addDays(last, maxDays) && head < queue.length; d = addDays(d, 1)) {
+    // 기한 넘긴 입고는 못 찾음(null)으로 넘긴다
+    while (head < queue.length && daysBetween(queue[head].on, d) > maxDays) head++;
+    const cur = by.get(d);
+    const prev = by.get(addDays(d, -1));
+    if (cur == null || prev == null) continue;
+    let pool = cur - prev;
+    while (head < queue.length && queue[head].on <= d && pool >= queue[head].need) {
+      out[queue[head].i] = daysBetween(queue[head].on, d);
+      pool -= Math.min(pool, queue[head].units);
+      head++;
+    }
+  }
+  return out;
 }
 
 /** 중간값(정수 반올림). 비면 null */

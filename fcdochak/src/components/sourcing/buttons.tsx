@@ -7,7 +7,7 @@ import { cancelSourcingRequest, registerSampleInterest } from '@/app/actions/sou
 import { Button } from '@/components/ui/core';
 import { SOURCING_ACTION } from '@/lib/terms';
 
-export function SampleButton({ requestId, candidateId, label, done: initial, qty, arrivalPerUnit, version }: { requestId: string; candidateId: string; label: string; done: boolean; qty: number; arrivalPerUnit: number | null; version: number | null }) {
+export function SampleButton({ requestId, candidateId, label, done: initial, qty, price }: { requestId: string; candidateId: string; label: string; done: boolean; qty: number; price: number | null }) {
   const [done, setDone] = React.useState(initial);
   const [pending, start] = React.useTransition();
   if (done)
@@ -24,7 +24,7 @@ export function SampleButton({ requestId, candidateId, label, done: initial, qty
       aria-label={`${label} ${SOURCING_ACTION.sample}`}
       onClick={() =>
         start(async () => {
-          const r = await registerSampleInterest({ requestId, candidateId, qty, arrivalPerUnit, version });
+          const r = await registerSampleInterest({ requestId, candidateId, qty, price });
           if (!r.ok) return void toast.error(r.error ?? '샘플 요청을 남기지 못했습니다');
           setDone(true);
           toast.success(r.already ? '이미 샘플 요청을 남기셨습니다' : `${label} 샘플 요청(관심 등록)을 남겼습니다 — 연락은 가지 않습니다`);

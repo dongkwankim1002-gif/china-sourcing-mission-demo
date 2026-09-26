@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { env } from '@/lib/env';
+import { asUser } from '@/lib/db';
 import { requireViewer } from '@/lib/server/viewer';
 import { loadSalesView, parsePeriod } from '@/lib/server/sales';
 import { SalesFrame } from '@/components/sales/frame';
 import { Button, Chip, Panel, PanelHead, type Tone } from '@/components/ui/core';
 import { dateKo, num, won } from '@/lib/format';
 import { quoteRequestHref } from '@/lib/sales/quote-link';
-import { SALES_ACTION } from '@/lib/terms';
+import { SALES_ACTION, SALES_PRODUCT_ACTION } from '@/lib/terms';
+import { SkuLinkForm } from '@/components/sales/sku-link';
 import type { ReorderState } from '@/lib/money/sales';
 
 export const metadata = { title: '판매 분석 · 상품별' };
@@ -25,14 +27,16 @@ export default async function SalesProducts({ searchParams }: { searchParams: Pr
   const view = await loadSalesView(v, parsePeriod(sp.p), env.wingEnabled);
   const a = view.analysis;
   const r = view.rules;
+  const skus = view.preview ? [] : await asUser(v, (q) => q.query<{ id: string; name: string }>(`select id, name from fcd.skus where org_id = $1 and not archived order by name limit 100`, [v.org.id]));
   return (
     <SalesFrame view={view} active="/app/sales/products" title="상품별" sub={`매출 순위 · ABC · 판매 속도(최근 ${r.velocityDays}일 평균) · 재고 일수 · 품절 예상일 · 재입고 권장일`}>
       <Panel aria-labelledby="sp-h">
         <PanelHead
           id="sp-h"
           title={`상품 ${a.products.length}개`}
-          sub={`ABC = 누적 매출 ${r.abcABp / 100}% 까지 A · ${r.abcBBp / 100}% 까지 B · 나머지 C. 재입고 권장일 = 품절 예상일 − (구간 시세 운송일 + 준비 ${r.prepDays}일).`}
+          sub={`ABC = 누적 매출 ${r.abcABp / 100}% 까지 A · ${r.abcBBp / 100}% 까지 B · 나머지 C. 재입고 권장일 = 품절 예상일 − (운송일(구간 시세, 없으면 방식 기준) + 준비 ${r.prepDays}일).`}
         />
+        <p className="px-4 pt-2 text-2xs text-muted md:hidden">표를 옆으로 넘기면 재고·품절·재입고 칸이 더 있습니다.</p>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm [&_.tnum]:whitespace-nowrap [&_th]:whitespace-nowrap" data-testid="sales-products">
             <thead className="bg-surface-2 text-left text-2xs font-semibold text-muted">
@@ -74,7 +78,10 @@ export default async function SalesProducts({ searchParams }: { searchParams: Pr
                       {p.changeBp != null ? <span className={`block text-2xs ${p.changeBp >= 0 ? 'text-ok' : 'text-stamp'}`}>{p.changeBp >= 0 ? '▲' : '▼'} {Math.abs(p.changeBp / 100).toFixed(0)}%</span> : null}
                     </td>
                     <td className="px-3 py-2 text-right tnum">{num(p.units)}</td>
-                    <td className="px-3 py-2 text-right tnum">{num(p.perDay, 2)}개</td>
+                    <td className="px-3 py-2 text-right tnum">
+                      {num(p.perDay, 2)}개
+                      {p.perDayBasis === 'before_stockout' ? <span className="block text-2xs text-stamp">품절 전 속도</span> : null}
+                    </td>
                     <td className="px-3 py-2 text-right tnum">{p.onHand == null ? '—' : num(p.onHand)}</td>
                     <td className="px-3 py-2 text-right tnum">{p.daysOfStock == null ? '—' : `${num(p.daysOfStock)}일`}</td>
                     <td className="px-3 py-2 tnum">{p.stockout ? dateKo(p.stockout, { dow: false }) : '—'}</td>
@@ -91,14 +98,23 @@ export default async function SalesProducts({ searchParams }: { searchParams: Pr
                     </td>
                     <td className="px-3 py-2 text-right tnum">{p.suggestUnits ? `${num(p.suggestUnits)}개` : '—'}</td>
                     <td className="px-3 py-2 text-right">
-                      {cargo && !view.preview ? (
-                        <Button asChild size="sm" variant={p.reorderState === 'late' || p.reorderState === 'soon' ? 'primary' : 'secondary'}>
-                          <Link href={quoteRequestHref(cargo, p.suggestUnits)} data-testid="sales-quote-link">
-                            {SALES_ACTION.quote}
-                          </Link>
-                        </Button>
+                      {view.preview ? (
+                        <span className="text-2xs text-muted">예시</span>
                       ) : (
-                        <span className="text-2xs text-muted">{view.preview ? '예시' : 'SKU 연결 필요'}</span>
+                        <span className="flex flex-col items-end gap-1">
+                          {cargo ? (
+                            <Button asChild size="sm" variant={p.reorderState === 'late' || p.reorderState === 'soon' ? 'primary' : 'secondary'}>
+                              <Link href={quoteRequestHref(cargo, p.suggestUnits)} data-testid="sales-quote-link">
+                                {SALES_ACTION.quote}
+                              </Link>
+                            </Button>
+                          ) : (
+                            <SkuLinkForm ext={p.ext} productName={p.name} skus={skus} />
+                          )}
+                          <Link href={`/app/sourcing?from=${encodeURIComponent(`sales:${p.ext}`)}`} className="text-2xs font-semibold text-muted underline-offset-4 hover:text-text hover:underline" data-testid="sales-sourcing-link">
+                            {SALES_PRODUCT_ACTION.sourcing}
+                          </Link>
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -108,7 +124,7 @@ export default async function SalesProducts({ searchParams }: { searchParams: Pr
           </table>
         </div>
         <p className="border-t border-line-2 px-4 py-3 text-2xs text-muted">
-          권장 수량 = 하루 판매 × (운송 + 준비 + {r.coverDays}일) − 지금 재고, {r.roundUnits}개 단위 올림. 「{SALES_ACTION.quote}」는 이 수량으로 SKU 의 박스·무게·부피를 늘려 견적 요청 화면에 채워 넘깁니다(올리기 전에 고칠 수 있습니다). 판매 속도는 품절이던 날도 0 으로 세어 보수적입니다.
+          권장 수량 = 하루 판매 × (운송 + 준비 + {r.coverDays}일) − 지금 재고, {r.roundUnits}개 단위 올림. 「{SALES_ACTION.quote}」는 이 수량으로 SKU 의 박스·무게·부피를 늘려 견적 요청 화면에 채워 넘깁니다(올리기 전에 고칠 수 있습니다). 판매 속도는 품절이던 날도 0 으로 세어 보수적입니다. 다만 최근 {r.velocityDays}일 내내 품절이라 판매가 0 이면 그 앞 기간의 속도(「품절 전 속도」)로 셈해 「늦음」으로 보입니다. SKU 와 이어지지 않은 상품은 그 칸에서 저장한 SKU 를 골라 이을 수 있습니다(새 판으로 쌓임).
         </p>
       </Panel>
     </SalesFrame>

@@ -87,13 +87,20 @@ export function SourcingRequestForm({
 
   return (
     <form onSubmit={submit} className="grid gap-4 p-4" aria-label="소싱 요청" data-testid="sourcing-form">
-      <Field label="시작점" htmlFor="sr-from" hint="잘 팔리는 내 상품에서 고르면 조건을 미리 채웁니다. 판매 분석 상품은 판매 분석과 합쳐지면 여기에 나옵니다.">
+      <Field label="시작점" htmlFor="sr-from" hint={
+          seeds.some((s) => s.origin === 'sales')
+            ? '판매 분석에서 잘 팔리는 상품(최근 30일 판매량 순)이나 저장한 SKU 에서 고르면 조건을 미리 채웁니다.'
+            : '저장한 SKU 에서 고르면 조건을 미리 채웁니다. 쿠팡 키를 맡기면 판매 분석 상품도 여기에 나옵니다.'
+        }>
         <NativeSelect id="sr-from" value={from} onChange={(e) => setFrom(e.target.value)}>
           <option value="manual">직접 입력</option>
           {seeds.some((s) => s.origin === 'sales') ? (
             <optgroup label="판매 분석 상품">
               {seeds.filter((s) => s.origin === 'sales').map((s) => (
-                <option key={s.ref} value={`sales:${s.ref}`}>{s.name}</option>
+                <option key={s.ref} value={`sales:${s.ref}`}>
+                  {s.name}
+                  {s.monthlyUnits ? ` — 30일 ${s.monthlyUnits.toLocaleString('ko-KR')}개` : ''}
+                </option>
               ))}
             </optgroup>
           ) : null}

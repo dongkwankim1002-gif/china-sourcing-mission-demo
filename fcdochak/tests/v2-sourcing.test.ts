@@ -336,11 +336,21 @@ describe('데모 자료·시작점·서버 시뮬', () => {
     const cands = await asRole(db, 'fcd_user', ids.shipper, true, (x) => candidatesFor(x, r1.id));
     expect(cands.every((c) => c.source === 'mock' && /^예시 /.test(c.label) && c.quote?.version === 1)).toBe(true);
   });
-  it('시작점: 저장한 SKU(개당 무게·부피), 판매 분석 연결 지점은 합치기 전 빈 목록', async () => {
+  it('시작점: 판매 분석 상품(최근 30일 판매량 순, SKU 분류·개당 무게) 다음 저장한 SKU · 판매 분석이 안 열린 조직은 빈 목록', async () => {
     const seeds = await asRole(db, 'fcd_user', ids.shipper, true, (x) => sourcingSeeds(x, shipperOrg));
     const skus = await asRole(db, 'fcd_user', ids.shipper, true, (x) => skusForSourcing(x, shipperOrg));
-    expect(await asRole(db, 'fcd_user', ids.shipper, true, (x) => salesProductsForSourcing(x, shipperOrg))).toEqual([]);
-    expect(seeds).toEqual(skus);
+    const sales = await asRole(db, 'fcd_user', ids.shipper, true, (x) => salesProductsForSourcing(x, shipperOrg));
+    expect(sales.length).toBeGreaterThanOrEqual(3);
+    expect(sales.every((x) => x.origin === 'sales' && /^EX-VI-/.test(x.ref) && x.monthlyUnits != null)).toBe(true);
+    for (let i = 1; i < sales.length; i++) expect(sales[i - 1].monthlyUnits!).toBeGreaterThanOrEqual(sales[i].monthlyUnits!);
+    expect(sales[0].monthlyUnits!).toBeGreaterThan(0);
+    // 데모 상품은 SKU 와 이어져 있어 분류·개당 무게가 SKU 에서 온다
+    expect(sales.every((x) => x.category !== '' && x.unitKg != null && x.unitKg > 0)).toBe(true);
+    const skuCats = new Set(skus.map((x) => x.category));
+    expect(sales.every((x) => skuCats.has(x.category))).toBe(true);
+    expect(seeds).toEqual([...sales, ...skus]);
+    // 다른 화주(판매 기록·키 없음)는 판매 분석 시작점이 없다
+    expect(await asRole(db, 'fcd_user', other.user, true, (x) => salesProductsForSourcing(x, other.org))).toEqual([]);
     expect(skus.length).toBeGreaterThan(0);
     expect(skus[0].unitKg).toBeGreaterThan(0);
   });
@@ -359,6 +369,58 @@ describe('데모 자료·시작점·서버 시뮬', () => {
     expect(out.sim.arrivalPerUnit).toBe(out.sim.pnl.goodsPerUnit + out.sim.pnl.logisticsPerUnit + out.sim.pnl.extraPerUnit + out.sim.pnl.dutyPerUnit);
     expect(out.compareHref).toMatch(/^\/app\/compare\?hub=YIW&port=ICN&mode=LCL&units=600&/);
     expect(['market', 'reference']).toContain(out.logisticsBasis);
+  });
+});
+
+describe('0019 — 3차 검토 고침(요청·샘플·기록 남기기)', () => {
+  it('스위치가 꺼져 있으면 preview = false 요청을 못 넣고, SKU 시작점은 같은 조직 SKU 만', async () => {
+    await expect(
+      asRole(db, 'fcd_user', ids.shipper, true, (q) =>
+        q.query(`insert into fcd.sourcing_requests (request_no, org_id, created_by, origin, product_name, category, due_on, preview) values ('SR-T-0101',$1,$2,'manual','시험 상품','general',current_date + 5,false)`, [shipperOrg, ids.shipper]),
+      ),
+    ).rejects.toThrow();
+    const otherSku = (await db.query<{ id: string }>(`select id from fcd.skus where org_id <> $1 limit 1`, [shipperOrg]))[0]?.id;
+    if (otherSku) {
+      await expect(
+        asRole(db, 'fcd_user', ids.shipper, true, (q) =>
+          q.query(`insert into fcd.sourcing_requests (request_no, org_id, created_by, origin, origin_ref, product_name, category, due_on) values ('SR-T-0102',$1,$2,'sku',$3,'시험 상품','general',current_date + 5)`, [shipperOrg, ids.shipper, otherSku]),
+        ),
+      ).rejects.toThrow();
+    }
+    const mySku = (await db.query<{ id: string }>(`select id from fcd.skus where org_id = $1 limit 1`, [shipperOrg]))[0].id;
+    const ok = await asRole(db, 'fcd_user', ids.shipper, true, (q) =>
+      q.query<{ id: string }>(`insert into fcd.sourcing_requests (request_no, org_id, created_by, origin, origin_ref, product_name, category, due_on) values ('SR-T-0103',$1,$2,'sku',$3,'시험 상품','general',current_date + 5) returning id`, [shipperOrg, ids.shipper, mySku]),
+    );
+    expect(ok[0].id).toBeTruthy();
+    await expect(
+      asRole(db, 'fcd_user', ids.shipper, true, (q) =>
+        q.query(`insert into fcd.sourcing_requests (request_no, org_id, created_by, origin, origin_ref, product_name, category, due_on) values ('SR-T-0104',$1,$2,'sales','EX-VI-00000000','시험 상품','general',current_date + 5)`, [shipperOrg, ids.shipper]),
+      ),
+    ).rejects.toThrow();
+  });
+  it('내린 후보(지금 판 withdrawn)에는 샘플 관심 등록을 못 넣는다', async () => {
+    const r1 = (await db.query<{ id: string }>(`select id from fcd.sourcing_requests where request_no = 'SR-EX-0001'`))[0].id;
+    const c = (await db.query<{ id: string }>(`select id from fcd.sourcing_candidates where request_id = $1 order by label desc limit 1`, [r1]))[0].id;
+    const cur = (await db.query<{ id: string; version: number }>(`select id, version from fcd.v_candidate_quotes_current where candidate_id = $1`, [c]))[0];
+    await asRole(db, 'fcd_user', ids.admin, true, (q) =>
+      q.query(
+        `insert into fcd.candidate_quotes (candidate_id, org_id, version, supersedes_id, status, currency, tiers, moq, lead_days_min, lead_days_max, unit_kg, unit_cbm, units_per_carton, created_by)
+         values ($1,$2,$3,$4,'withdrawn','RMB','[{"minQty":100,"unitPrice":10}]'::jsonb,100,10,20,0.3,0.002,40,$5)`,
+        [c, shipperOrg, cur.version + 1, cur.id, ids.admin],
+      ),
+    );
+    await expect(
+      asRole(db, 'fcd_user', ids.shipper, true, (q) => q.query(`insert into fcd.sourcing_sample_interests (org_id, user_id, request_id, candidate_id) values ($1,$2,$3,$4)`, [shipperOrg, ids.shipper, r1, c])),
+    ).rejects.toThrow();
+  });
+  it('사람(프로필)을 지워도 그 사람이 쌓은 소싱 기록은 남고 「누가」 칸만 빈다', async () => {
+    const TMP = '51000000-0000-4000-8000-0000000000cc';
+    await db.exec(`insert into fcd.profiles (id, home_org_id, email, name) values ('${TMP}', '${shipperOrg}', 'tmp-sourcing@example.com', '시험 사람');
+      insert into fcd.memberships (user_id, org_id, role) values ('${TMP}', '${shipperOrg}', 'shipper_member');`);
+    const r = await asRole(db, 'fcd_user', TMP, true, (q) => newReq(q, shipperOrg, TMP, 'SR-T-0105'));
+    await db.exec(`delete from fcd.memberships where user_id = '${TMP}'; delete from fcd.profiles where id = '${TMP}';`);
+    const left = await db.query<{ created_by: string | null }>(`select created_by from fcd.sourcing_requests where id = $1`, [r[0].id]);
+    expect(left).toEqual([{ created_by: null }]);
   });
 });
 

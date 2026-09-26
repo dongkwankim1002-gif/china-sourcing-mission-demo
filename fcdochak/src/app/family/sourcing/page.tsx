@@ -143,7 +143,7 @@ export default async function FamilySourcing() {
         <PanelHead
           id="fam-ex"
           title={`후보 비교 예시 — 실리콘 서랍 정리함(예시) · 600개 · 목표 ${won(19900)}`}
-          sub="흉내 제공자가 만든 가짜 후보입니다(「예시 공장 A」는 실제 회사가 아닙니다). 로그인하면 후보마다 도착원가·개당 마진까지 셈합니다."
+          sub="FC도착이 만든 가짜 예시 후보입니다(「예시 공장 A」는 실제 회사가 아닙니다). 로그인하면 후보마다 도착원가·개당 마진까지 셈합니다."
         />
         <CandidateTable items={ex} caption="후보 공급처 비교 예시" />
       </Panel>

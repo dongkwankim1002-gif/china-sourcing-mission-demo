@@ -153,7 +153,8 @@ export default async function WingPage() {
             )}
           </Panel>
         </div>
-        <div className="grid min-w-0 content-start gap-4">
+        {/* 키를 아직 맡기지 않았으면 좁은 화면에서 동의·키·연결 시험 묶음을 단계 안내 바로 아래로(긴 입고 목록 위) */}
+        <div id="wing-key-setup" className={`grid min-w-0 scroll-mt-20 content-start gap-4 ${live ? '' : 'order-first xl:order-none'}`}>
           <ConsentPanel consented={consented} at={d.consent?.agreed ? d.consent.created_at : null} who={d.consent?.agreed ? d.consent.who : null} canManage={canManage} />
           {consented || live || !canManage ? (
           <WingKeyPanel current={key} canStore={!!env.wingKeyEncryptionKey} enabled={env.wingEnabled} today={today} warnDays={d.set.keyWarnDays} canManage={canManage} />
