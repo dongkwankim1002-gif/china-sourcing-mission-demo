@@ -11,6 +11,10 @@ const groups = [
   { login: 'partner', paths: ['/partner', '/partner/inbox', '/partner/inbox>/partner/inbox/', '/partner/rates', '/partner/rates>/partner/rates/', '/partner/rates/new', '/partner/rates/upload', '/partner/shipments', '/partner/shipments>/partner/shipments/', '/partner/invoices', '/partner/market', '/partner/profile', '/partner/notifications', '/partner/reviews', '/partner/alliance'] },
   { login: 'partner', extra: ['--widths', '390,1440', '--themes', 'light', '--locale', 'zh', '--suffix', '.zh', '--quality', '55'], paths: ['/partner', '/partner/inbox', '/partner/inbox>/partner/inbox/', '/partner/rates/new', '/partner/shipments>/partner/shipments/', '/partner/alliance'] },
   { login: 'admin', paths: ['/admin', '/admin/queues', '/admin/data', '/admin/grades', '/admin/ads', '/admin/commission', '/admin/related', '/admin/settings', '/admin/audit', '/admin/demo', '/styleguide', '/admin/metrics', '/admin/assure', '/admin/alliance', '/admin/research', '/admin/research>/admin/research/'] },
+  // v2 3차 sourcing — 패밀리 소개(공개) · 화주 코너 · 운영 대기열
+  { paths: ['/family/sourcing'] },
+  { login: 'shipper', paths: ['/app/sourcing', '/app/sourcing>/app/sourcing/'] },
+  { login: 'admin', paths: ['/admin/sourcing', '/admin/sourcing>/admin/sourcing/'] },
 ];
 let bad = 0;
 for (const g of groups) {

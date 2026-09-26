@@ -294,3 +294,30 @@ SETTINGS.push(...RESEARCH_SETTINGS);
 const WING_WARN = { key: 'wing.key_warn_days', value: 14, note: 'WING 키 만료 며칠 전부터 연동 화면에 「곧 만료」를 보일지(일). 메일·문자는 보내지 않는다' };
 WING_SETTINGS.push(WING_WARN);
 SETTINGS.push(WING_WARN);
+// v2 3차 sourcing — 유사상품 중국 소싱처 발굴(패밀리 확장 모듈, docs/sourcing-plan.md). 스위치는 꺼짐으로 시작한다.
+// 수수료는 「가정치」(example: true) — 사람이 정한다. 키가 한 번도 없을 때만 첫 판을 넣는다(SETTINGS 와 같은 규칙).
+export const SOURCING_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  { key: 'sourcing.enabled', value: false, note: '소싱처 찾기 — 현지 소싱 담당·약관·책임의 선이 정해지기 전까지 꺼 둔다. 꺼져 있으면 「준비 중 · 미리보기」, 요청은 기록만. 켜도 앱은 밖으로 연락하지 않는다' },
+  {
+    key: 'sourcing.rules',
+    value: {
+      slaDays: 5,
+      maxOpenPerOrg: 10,
+      maxCandidates: 8,
+      defaultHub: 'YIW',
+      defaultPort: 'ICN',
+      defaultMode: 'LCL',
+      defaultFc: 'FC-ICH',
+      targetCostShareBp: 3000,
+      priceBandBp: 3000,
+      similarity: { wordBp: 5000, categoryBp: 2000, priceBp: 3000, imageBp: 0, minShow: 30 },
+    },
+    note: '소싱 요청 처리 기한(일)·조직당 열린 요청 수·요청당 후보 수 · 도착원가 시뮬 기본 구간 · 유사도(낱말·분류·가격대) 가중치와 가격대(기대 매입가 = 목표 판매가 × targetCostShareBp, ±priceBandBp)',
+  },
+  {
+    key: 'sourcing.fees',
+    value: { example: true, agentFeeBp: 500, sampleHandlingKrw: 30000, inspectionPerDayKrw: 300000, checkedOn: null },
+    note: '소싱 수익 가정치(확인 안 한 값) — 대행 수수료(발주 상품가 대비 bp)·샘플 처리(건당 원)·현지 검품(1일 원)',
+  },
+];
+SETTINGS.push(...SOURCING_SETTINGS);
