@@ -19,8 +19,6 @@ import { JsonLd } from '@/components/json-ld';
 import { env } from '@/lib/env';
 import { dateKo, notFuture, num, pct, won, ymdDots } from '@/lib/format';
 import { BIZ_TYPE_LABEL } from '@/lib/terms';
-import { partnerLeadTimes } from '@/lib/server/tracker'; // v2 5차 tracker
-import { PartnerLeadTime } from '@/components/tracker/partner-lead';
 import { EntityTabs } from '@/components/scorecard/entity-tabs'; // v2 6차 scorecard — 「성적표」 탭(5차 실측 칸을 이 탭으로 합침)
 
 export const revalidate = 3600;
@@ -53,7 +51,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
   const { partner: p, caps, metrics, fcReady, publicCards, trust, scoreCaps } = d;
   const official = p.status === 'official' || p.status === 'pending_verification';
   const reviews = official ? await partnerPageReviews(p.id) : [];
-  const leadTimes = official ? await asPublic((q) => partnerLeadTimes(q, p.id)) : [];
+  // v2 5차 「실측 통관 소요」 칸은 6차 성적표 탭이 같은 내용을 더 자세히 싣는다 — 정적 페이지(RSC)에 이름 붙은 숫자를 넣지 않으려고 뺐다(검토 고침)
 
   // 공개가 요금표 — 기준 화물로 계산(비로그인이 볼 수 있는 것만)
   const priced = official
@@ -120,6 +118,11 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
             {p.related_party_note ? <RelatedChip note={p.related_party_note} /> : null}
             {p.is_demo ? <Chip tone="label">예시 업체</Chip> : null}
           </div>
+          {p.business_type === 'customs_broker' ? (
+            <p className="mt-2 text-xs">
+              <Link href={`/brokers/${p.id}`} className="font-semibold underline underline-offset-4">관세사 화면에서 주 세관·항구·통관 성적 보기</Link>
+            </p>
+          ) : null}
         </div>
       </header>
 
@@ -138,7 +141,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
           next={`/p/${p.slug}#scorecard`}
           ports={Object.fromEntries(ref.ports.map((x) => [x.code, x.name_ko]))}
           modes={Object.fromEntries(ref.modes.map((x) => [x.code, x.name_ko]))}
-          extra={<PartnerLeadTime rows={leadTimes} portName={(c) => nameOf(ref, 'port', c)} modeName={(c) => nameOf(ref, 'mode', c)} />}
+          entityKind={p.business_type === 'customs_broker' ? 'broker' : 'partner'}
           overview={
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="grid min-w-0 gap-6">

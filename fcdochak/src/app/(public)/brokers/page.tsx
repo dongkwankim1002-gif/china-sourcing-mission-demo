@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { getViewer } from '@/lib/server/viewer';
 import { asPublic } from '@/lib/db';
 import { getReference, nameOf } from '@/lib/server/reference';
-import { indexSnaps, listBrokers, snapKey, snapsFor } from '@/lib/server/scorecard';
+import { indexSnaps, listBrokers, snapKey, snapsForSafe } from '@/lib/server/scorecard';
 import { SCORE_SORT_LABEL, sortByScore, type ScoreSort } from '@/lib/scorecard/engine';
 import { LockedScore, ScoreChips } from '@/components/scorecard/parts';
 import { LetterMark } from '@/components/brand-mark';
@@ -22,12 +22,14 @@ export const metadata: Metadata = {
 export default async function BrokersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
   const viewer = await getViewer();
-  const [brokers, ref, score] = await Promise.all([asPublic(listBrokers), getReference(), snapsFor(viewer)]);
+  const [brokers, ref, score] = await Promise.all([asPublic(listBrokers), getReference(), snapsForSafe(viewer)]);
   const port = ref.ports.some((p) => p.code === sp.port) ? sp.port! : '';
   const sort = (['fast', 'stable', 'inspect'].includes(sp.sort ?? '') ? sp.sort : null) as ScoreSort | null;
   const idx = indexSnaps(score.snaps);
   const minN = score.config.rules.minSamples;
-  const snapOf = (b: { id: string }) => idx.get(snapKey('broker', b.id, null, null)) ?? null;
+  // 이름 붙은 성적은 입점 관세사(공식·인증 대기)만 — 공개정보 기준은 알림·답변권·이의가 없다(기획 7-4)
+  const listed = (b: { status: string }) => b.status === 'official' || b.status === 'pending_verification';
+  const snapOf = (b: { id: string; status: string }) => (listed(b) ? idx.get(snapKey('broker', b.id, null, null)) ?? null : null);
   const canSee = (id: string) => score.named === 'all' || (score.named === 'own' && !!viewer?.orgs.some((o) => o.id === id));
   const filtered = brokers.filter((b) => !port || (b.ports ?? []).includes(port));
   const list = sort && score.named === 'all' ? sortByScore(filtered, snapOf, sort, minN) : filtered;
@@ -77,7 +79,13 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
                   {(b.customs_offices ?? []).join(' · ') || '주 세관 미입력'} · {(b.ports ?? []).map((p) => nameOf(ref, 'port', p)).join('·') || '항구 미입력'}
                   {b.registration_no ? ` · ${b.registration_no}` : ''}
                 </p>
-                {canSee(b.id) ? <ScoreChips s={snapOf(b)} minSamples={minN} compact /> : <LockedScore plain next="/brokers" />}
+                {!listed(b) ? (
+                  <p className="text-2xs text-muted">공개정보 기준 — 입점하면 성적표가 붙습니다</p>
+                ) : canSee(b.id) ? (
+                  <ScoreChips s={snapOf(b)} minSamples={minN} compact />
+                ) : (
+                  <LockedScore plain next="/brokers" />
+                )}
               </Link>
             </li>
           ))}

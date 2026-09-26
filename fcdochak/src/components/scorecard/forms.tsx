@@ -216,7 +216,7 @@ export function AdminScorecardButtons() {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<string | null>(null);
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
       <Button
         variant="primary"
         disabled={!!busy}
@@ -224,7 +224,7 @@ export function AdminScorecardButtons() {
           setBusy('r');
           const r = await adminRecomputeScorecards();
           setBusy(null);
-          setMsg(r.ok ? `성적표 새 판 ${r.rows}줄` : r.error ?? '셈하지 못했습니다');
+          setMsg(r.ok ? `성적표 새 판 ${r.rows}줄${r.withSamples ? '' : ' — 표본 없음(옛 숫자는 더 보이지 않습니다)'}` : r.error ?? '셈하지 못했습니다');
           router.refresh();
         }}
       >

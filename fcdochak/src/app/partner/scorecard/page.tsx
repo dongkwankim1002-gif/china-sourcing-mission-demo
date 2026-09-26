@@ -3,10 +3,10 @@ import { getLocale } from 'next-intl/server';
 import { asUser, todayKst } from '@/lib/db';
 import { requireViewer } from '@/lib/server/viewer';
 import { getReference, nameOf } from '@/lib/server/reference';
-import { DISPUTE_METRIC_LABEL, DISPUTE_STATUS_LABEL, disputes, indexSnaps, loadScorecardConfig, mySubmissions, namedSnaps, snapKey } from '@/lib/server/scorecard';
+import { DISPUTE_METRIC_LABEL, DISPUTE_STATUS_LABEL, disputes, indexSnaps, loadScorecardConfig, mySubmissions, namedSnaps, quoteResponseHours, snapKey } from '@/lib/server/scorecard';
 import { lookupReady } from '@/lib/server/tracker';
 import { daysLine } from '@/lib/scorecard/engine';
-import { CertifiedChip, ScorecardDetail } from '@/components/scorecard/parts';
+import { CertifiedChip, ScorecardDetail, TradeMetrics } from '@/components/scorecard/parts';
 import { DisputeForm, SubmitNumbersForm, WithdrawButton } from '@/components/scorecard/forms';
 import { DemoChip } from '@/components/badges';
 import { Chip, EmptyState, PageTitle, Panel, PanelHead } from '@/components/ui/core';
@@ -26,11 +26,16 @@ export default async function PartnerScorecard() {
     snaps: await namedSnaps(q),
     subs: await mySubmissions(q, v.org.id, 20),
     disputes: await disputes(q, v.org.id, 20),
+    metrics: (await q.query<Record<string, number | null>>('select * from fcd.v_partner_metrics where org_id = $1', [v.org.id]))[0] ?? null,
+    biz: (await q.query<{ business_type: string | null }>('select business_type from fcd.orgs where id = $1', [v.org.id]))[0]?.business_type ?? null,
   }));
+  const quote = (await quoteResponseHours([v.org.id]).catch(() => new Map())).get(v.org.id) ?? null;
   const idx = indexSnaps(d.snaps);
-  // 물류사면 partner 판, 관세사 조직이면 broker 판
-  const all = d.snaps.find((s) => s.entity_org_id === v.org.id && s.port == null && s.mode == null) ?? null;
-  const rows = d.snaps.filter((s) => s.entity_org_id === v.org.id && s.port != null && s.mode != null);
+  // 물류사면 partner 판, 관세사 조직이면 broker 판 — 두 판이 섞이지 않게 종류로도 거른다(검토 고침)
+  const kind = d.biz === 'customs_broker' ? 'broker' : 'partner';
+  const all = d.snaps.find((s) => s.entity_org_id === v.org.id && s.entity_kind === kind && s.port == null && s.mode == null) ?? null;
+  const rows = d.snaps.filter((s) => s.entity_org_id === v.org.id && s.entity_kind === kind && s.port != null && s.mode != null);
+  // 「평균」은 모든 항구·방식 전체 판이다 — 내 항구·방식 구성과 다를 수 있어 그렇게 적고, 같은 항구·방식 대비는 아래 표의 칸으로 본다
   const overall = idx.get(snapKey('overall', null)) ?? null;
   const r = d.cfg.rules;
   const sub = all?.submission ?? null;
@@ -47,13 +52,13 @@ export default async function PartnerScorecard() {
       <Panel className="mb-4">
         <PanelHead
           title={L('내 성적 대 평균', '我的成绩 vs 平均')}
-          sub={`${L('최근', '近')} ${r.windowDays}${zh ? '天' : '일'} · ${L('표본 기준', '最少样本')} ${r.minSamples}`}
+          sub={`${L('최근', '近')} ${r.windowDays}${zh ? '天' : '일'} · ${L('표본 기준', '最少样本')} ${r.minSamples} · ${L('평균 = 모든 항구·방식 전체(같은 항구·방식 대비는 아래 표)', '平均 = 全部港口·方式整体(同港口·方式对比见下表)')}`}
           action={<span className="flex flex-wrap gap-1">{all?.certified ? <CertifiedChip zh={zh} /> : null}{all?.is_example ? <DemoChip /> : null}</span>}
         />
         <dl className="grid grid-cols-2 gap-px bg-line-2 lg:grid-cols-4" data-testid="partner-score-vs">
           {[
-            [L('입항 → 수리 보통', '通关中位'), all?.metrics.clear ? `${daysLine(all.metrics.clear).usual}일` : '—', overall?.metrics.clear ? `${L('평균', '平均')} ${daysLine(overall.metrics.clear).usual}일` : ''],
-            [L('늦으면', '慢时(90%)'), all?.metrics.clear ? `${daysLine(all.metrics.clear).late}일` : '—', overall?.metrics.clear ? `${L('평균', '平均')} ${daysLine(overall.metrics.clear).late}일` : ''],
+            [L('입항 → 수리 보통', '通关中位'), all?.metrics.clear ? `${daysLine(all.metrics.clear).usual}${zh ? '天' : '일'}` : '—', overall?.metrics.clear ? `${L('전체 평균', '整体平均')} ${daysLine(overall.metrics.clear).usual}${zh ? '天' : '일'}` : ''],
+            [L('늦으면', '慢时(90%)'), all?.metrics.clear ? `${daysLine(all.metrics.clear).late}${zh ? '天' : '일'}` : '—', overall?.metrics.clear ? `${L('전체 평균', '整体平均')} ${daysLine(overall.metrics.clear).late}${zh ? '天' : '일'}` : ''],
             [L('검사 비율', '查验率'), pct(all?.metrics.inspectRate ?? null, 1), overall ? `${L('평균', '平均')} ${pct(overall.metrics.inspectRate, 1)}` : ''],
             [L('제출률', '提交率'), sub?.rate != null ? pct(sub.rate, 0) : '—', sub ? `${L('등록', '登记')} ${sub.registered} · ${L('제출', '提交')} ${sub.submitted} · ${L('인증 기준', '认证标准')} ${pct(needRate, 0)}` : L('셀러 등록 화물이 아직 없습니다', '暂无卖家登记货物')],
           ].map(([k, val, s]) => (
@@ -70,7 +75,10 @@ export default async function PartnerScorecard() {
         </p>
       </Panel>
       <div className="mb-4">
-        <ScorecardDetail all={all} rows={rows} minSamples={r.minSamples} portName={(c) => nameOf(ref, 'port', c, zh)} modeName={(c) => nameOf(ref, 'mode', c, zh)} title={L('항구·방식별', '按港口·方式')} />
+        <ScorecardDetail all={all} rows={rows} minSamples={r.minSamples} portName={(c) => nameOf(ref, 'port', c, zh)} modeName={(c) => nameOf(ref, 'mode', c, zh)} title={L('항구·방식별', '按港口·方式')} zh={zh} />
+      </div>
+      <div className="mb-4">
+        <TradeMetrics metrics={d.metrics} quote={quote} minSamples={r.minSamples} zh={zh} />
       </div>
       <Panel className="mb-4">
         <PanelHead

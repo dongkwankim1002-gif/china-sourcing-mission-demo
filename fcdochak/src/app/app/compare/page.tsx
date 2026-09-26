@@ -27,8 +27,8 @@ import { AssurePanel } from '@/components/assure/assure-panel';
 import { contractParty } from '@/lib/server/alliance';
 import { cargoToSearch } from '@/lib/cargo-params';
 // v2 6차 scorecard — 성적 칩 · 실질 비용(견적가 + 예상 지연 비용)
-import { indexSnaps, loadScorecardConfig, namedSnaps, snapKey, type Snap } from '@/lib/server/scorecard';
-import { delayBaseline, realCost, type RealCostResult } from '@/lib/money';
+import { indexSnaps, loadScorecardConfig, namedSnaps, SCORECARD_FALLBACK, snapKey, type Snap } from '@/lib/server/scorecard';
+import { delayBaseline, realCost, sortByRealCost, type RealCostResult } from '@/lib/money';
 import { loadSalesView } from '@/lib/server/sales';
 import { env } from '@/lib/env';
 import { ScoreChips } from '@/components/scorecard/parts';
@@ -49,6 +49,8 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   const ref = await getReference();
   const cq = parseCargoQuery(sp);
   const view = (['rows', 'cards', 'table'].includes(sp.view ?? '') ? sp.view : 'rows') as 'rows' | 'cards' | 'table';
+  // v2 6차 scorecard — 「실질 비용순」은 순위 함수(추천순) 위에서 실질 비용(평소)으로 다시 줄 세운다
+  const realSort = sp.sort === 'real';
   const sort = (SORTS.some(([k]) => k === sp.sort) ? sp.sort : 'recommend') as SortKey;
   const f = { confirmedOnly: sp.conf === '1', fcReadyOnly: sp.fcr === '1', officialOnly: sp.off === '1' };
   const withRelated = sp.rel === '1';
@@ -65,14 +67,21 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
     const assureBasis = basisFromOffers(result.offers);
     const party = await contractParty(q, assureBasis.lead?.partnerId); // v2 alliance — 확정가 계약 상대(꺼짐이면 null)
     const assure = { view: assureView(config, assureBasis), mine: [...mine], current, party };
-    const score = { snaps: await namedSnaps(q), cfg: await loadScorecardConfig(q) };
+    // 성적표 설정·보기를 읽지 못해도 비교는 뜬다(빈 성적 · 검토 고침)
+    const score = await (async () => {
+      try {
+        return { snaps: await namedSnaps(q), cfg: await loadScorecardConfig(q) };
+      } catch (e) {
+        console.error(`[scorecard] 비교 화면 성적표를 읽지 못했습니다: ${(e as Error).message}`);
+        return { snaps: [] as Snap[], cfg: SCORECARD_FALLBACK };
+      }
+    })();
     return { result, skus, traitNotes, assure, score };
   });
   // 특수관계 업체는 기본으로 순위에서 뺀다 — 「특수관계 포함」을 켜면 넣고, 1위가 특수관계면 경고 띠
   const ranked = rankOffers(filterOffers(result.offers, f), { sort, includeRelated: withRelated });
-  const offers = ranked.list;
   const ad = result.ad && filterOffers([result.ad], f).length && (withRelated || !result.ad.partner.related_party_note) ? result.ad : null;
-  const list = ad ? offers.filter((o) => o.cardId !== ad.cardId) : offers;
+  let offers = ranked.list;
   const scaleMax = Math.max(1, ...offers.map((o) => o.quote.total));
 
   // v2 6차 scorecard — 업체 성적(이 항구 × 방식 판) · 실질 비용. 판매량·마진: 셀러가 넣은 값 → 판매 분석(고른 SKU) → 없으면 지연 일수만
@@ -83,6 +92,13 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
     return r && r.n >= minN && r.metrics.clear ? r : null;
   };
   const allOf = (o: Offer): Snap | null => sIdx.get(snapKey('partner', o.partner.id)) ?? null;
+  // 칩: 이 항구 × 방식 판이 표본 기준을 넘으면 그 판, 아니면 모든 항구·방식 판으로 물러서고 그렇다고 적는다(검토 고침)
+  const chipOf = (o: Offer): { s: Snap | null; scope?: string } => {
+    const pm = statOf(o);
+    if (pm) return { s: pm, scope: `${nameOf(ref, 'port', cq.port)} · ${nameOf(ref, 'mode', o.mode)} 기준` };
+    const a = allOf(o);
+    return { s: a, scope: a && a.n >= minN ? `이 항구·방식은 표본 부족 — 모든 항구·방식 기준(실질 비용에는 쓰지 않음)` : undefined };
+  };
   const num0 = (x: string | undefined, max: number) => {
     const n = Number(x);
     return x != null && x !== '' && Number.isFinite(n) && n >= 0 && n <= max ? n : null;
@@ -107,6 +123,8 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
       return [o.cardId, realCost({ quote: o.quote.total, stat: st, baselineDays: baseline?.days ?? null, perDay: salesBasis ? perDay : null, marginPerUnit: salesBasis ? margin : null })];
     }),
   );
+  if (realSort) offers = sortByRealCost(offers, (o) => ({ quote: o.quote.total, real: real.get(o.cardId) ?? null }));
+  const list = ad ? offers.filter((o) => o.cardId !== ad.cardId) : offers;
 
   const qs = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams(Object.entries(sp).filter(([, x]) => x != null) as [string, string][]);
@@ -174,10 +192,13 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
         </div>
         <div className="inline-flex flex-wrap rounded-sm border border-line bg-surface p-0.5" role="group" aria-label="정렬">
           {SORTS.map(([k, l]) => (
-            <Link key={k} href={qs({ sort: k === 'recommend' ? null : k })} scroll={false} aria-current={sort === k ? 'true' : undefined} className={cn('h-8 rounded-[4px] px-3 text-sm font-semibold leading-8', sort === k ? 'bg-ink text-on-ink' : 'text-muted hover:text-text')}>
+            <Link key={k} href={qs({ sort: k === 'recommend' ? null : k })} scroll={false} aria-current={!realSort && sort === k ? 'true' : undefined} className={cn('h-8 rounded-[4px] px-3 text-sm font-semibold leading-8', !realSort && sort === k ? 'bg-ink text-on-ink' : 'text-muted hover:text-text')}>
               {l}
             </Link>
           ))}
+          <Link href={qs({ sort: 'real' })} scroll={false} aria-current={realSort ? 'true' : undefined} title="견적가 + 예상 지연 비용(평소). 판매량·마진을 넣지 않았으면 예상 지연일 → 견적가 순" className={cn('h-8 rounded-[4px] px-3 text-sm font-semibold leading-8', realSort ? 'bg-ink text-on-ink' : 'text-muted hover:text-text')}>
+            실질 비용순
+          </Link>
         </div>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="필터">
           {([
@@ -197,11 +218,11 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
         </div>
       </div>
       <p className="mt-3 text-xs text-muted" data-testid="compare-sort-now">
-        현재 기준: <b className="text-text">{SORT_LABEL[sort]}</b> · 비교 {offers.length}곳 · 제외 {result.excluded.length}곳 · 만료 요금표 {result.expired.length}장
+        현재 기준: <b className="text-text">{realSort ? '실질 비용순(견적가 + 예상 지연 비용 · 평소)' : SORT_LABEL[sort]}</b> · 비교 {offers.length}곳 · 제외 {result.excluded.length}곳 · 만료 요금표 {result.expired.length}장
         {ranked.relatedHidden ? ` · 특수관계 업체 ${ranked.relatedHidden}곳은 순위에서 뺐습니다(「특수관계 포함」으로 보기)` : ''} · 추천 점수 = 정시 입고 30 · 청구 편차 25 · FC 회송률 25 · 가격 확실성 20 (광고·특수관계는 점수 밖)
         {offers.some((o) => !o.sampleEnough) ? ` · 최근 ${offers[0].trust.sample.days}일 끝난 선적이 ${offers[0].trust.sample.min}건 미만인 업체는 점수 대신 「표본 부족」으로 적고${sort === 'recommend' ? ' 추천순에서 뒤에 둡니다' : ''}` : ''}
       </p>
-      {ranked.relatedTop && offers[0] ? (
+      {ranked.relatedTop && offers[0] && !realSort ? (
         <p role="alert" className="mt-3 flex items-start gap-2 rounded-md border border-caution/40 bg-caution-bg px-4 py-2.5 text-sm font-semibold text-caution">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
@@ -218,7 +239,8 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
           basis={salesBasis}
           baseline={baseline}
           portName={nameOf(ref, 'port', cq.port)}
-          rows={list.slice(0, 6).map((o) => ({ name: o.partner.name, quote: o.quote.total, real: real.get(o.cardId) ?? null }))}
+          sortHref={realSort ? null : qs({ sort: 'real' })}
+          rows={list.slice(0, 6).map((o) => ({ id: o.cardId, name: o.partner.name, mode: nameOf(ref, 'mode', o.mode), quote: o.quote.total, real: real.get(o.cardId) ?? null }))}
         />
       ) : null}
       {offers.length === 0 ? (
@@ -278,9 +300,9 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
         </Panel>
       ) : (
         <div className={cn('mt-3', view === 'cards' ? 'grid gap-3 md:grid-cols-2 xl:grid-cols-3' : 'grid gap-2')}>
-          {ad ? <OfferItem o={ad} rank={0} ad scaleMax={scaleMax} card={view === 'cards'} requestHref={requestHref(ad)} modeName={nameOf(ref, 'mode', ad.mode)} score={statOf(ad) ?? allOf(ad)} certified={!!allOf(ad)?.certified} minN={minN} real={real.get(ad.cardId) ?? null} /> : null}
+          {ad ? <OfferItem o={ad} rank={0} ad scaleMax={scaleMax} card={view === 'cards'} requestHref={requestHref(ad)} modeName={nameOf(ref, 'mode', ad.mode)} score={chipOf(ad)} certified={!!allOf(ad)?.certified} minN={minN} real={real.get(ad.cardId) ?? null} /> : null}
           {list.map((o, i) => (
-            <OfferItem key={o.cardId} o={o} rank={i + 1} scaleMax={scaleMax} card={view === 'cards'} requestHref={requestHref(o)} modeName={nameOf(ref, 'mode', o.mode)} score={statOf(o) ?? allOf(o)} certified={!!allOf(o)?.certified} minN={minN} real={real.get(o.cardId) ?? null} />
+            <OfferItem key={o.cardId} o={o} rank={i + 1} scaleMax={scaleMax} card={view === 'cards'} requestHref={requestHref(o)} modeName={nameOf(ref, 'mode', o.mode)} score={chipOf(o)} certified={!!allOf(o)?.certified} minN={minN} real={real.get(o.cardId) ?? null} />
           ))}
         </div>
       )}
@@ -339,7 +361,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   );
 }
 
-function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName, score, certified, minN, real }: { o: Offer; rank: number; ad?: boolean; scaleMax: number; card: boolean; requestHref: string; modeName: string; score: Snap | null; certified: boolean; minN: number; real: RealCostResult | null }) {
+function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName, score, certified, minN, real }: { o: Offer; rank: number; ad?: boolean; scaleMax: number; card: boolean; requestHref: string; modeName: string; score: { s: Snap | null; scope?: string }; certified: boolean; minN: number; real: RealCostResult | null }) {
   const certainty = o.quote.total ? o.raw.confirmedTotal / o.quote.total : 0;
   const m = o.metrics;
   const t = totalsBreakdown(o.quote.segments);
@@ -370,10 +392,16 @@ function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName, score, 
             {o.fuelSeparate ? ' · 유류할증 별도' : ''} · {dateKo(o.validTo, { dow: false })}까지{o.daysLeft <= 10 ? <span className="font-semibold text-caution">(곧 만료)</span> : null} · 제공 {dateKo(o.createdAt, { dow: false })} · {o.cardNo} v{o.version}
           </p>
           <ScoreBreakdown variant="inline" className="mt-1" parts={o.parts} score={o.score} trust={o.trust} metrics={m} certainty={certainty} />
-          <ScoreChips s={score} minSamples={minN} compact certified={certified} className="mt-1.5" />
+          <ScoreChips s={score.s} scope={score.scope} minSamples={minN} compact certified={certified} className="mt-1.5" />
           {real?.usual ? (
             <p className="mt-1 text-2xs text-muted tnum" data-testid="offer-real-cost">
-              실질 비용 평소 {real.usual.total != null ? <b className="text-text">{won(real.usual.total)}</b> : '—'}(지연 {real.usual.delayDays}일) · 늦을 때 {real.late?.total != null ? <b className="text-text">{won(real.late.total)}</b> : '—'}(지연 {real.late?.delayDays}일)
+              {real.priced ? (
+                <>
+                  실질 비용 평소 <b className="text-text">{won(real.usual.total ?? 0)}</b>(지연 {real.usual.delayDays}일) · 늦을 때 <b className="text-text">{won(real.late?.total ?? 0)}</b>(지연 {real.late?.delayDays}일)
+                </>
+              ) : (
+                <>예상 지연 평소 {real.usual.delayDays}일 · 늦을 때 {real.late?.delayDays}일 — 판매량·마진을 넣으면 실질 비용(원)</>
+              )}
             </p>
           ) : null}
         </div>
@@ -403,7 +431,7 @@ function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName, score, 
                 </span>
               }
             >
-              <button type="button" className="h-8 shrink-0 whitespace-nowrap rounded-xs border border-line px-2 text-xs font-bold tnum hover:border-muted/60">{o.sampleEnough ? `추천 ${o.score}` : `표본 부족(${o.trust.sample.n}건)`}</button>
+              <button type="button" className="h-8 shrink-0 whitespace-nowrap rounded-xs border border-line px-2 text-xs font-bold tnum hover:border-muted/60">{o.sampleEnough ? `추천 ${o.score}` : `추천 점수 표본 부족(${o.trust.sample.n}건)`}</button>
             </Tooltip>
             <Button asChild size="sm" variant="primary">
               <a href={requestHref}>견적 요청</a>

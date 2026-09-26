@@ -26,8 +26,17 @@ export const ScorecardRulesSchema = z.object({
   sources: z.object({ platform: z.boolean(), seller: z.boolean(), partner: z.boolean() }),
   /** 첫 판 가정치면 true — 화면에 「기준 가정치」 */
   example: z.boolean(),
+  // ─ 검토 고침(0025 뒤) — 첫 판 설정에 없어도 되게 기본값을 둔다(참조 시드를 다시 올리지 않아도 안전한 쪽으로 돈다)
+  /** 물류사 한 조직이 하루(KST)에 낼 수 있는 번호 수 */
+  partnerDailySubmit: z.number().int().min(1).max(10_000).default(400),
+  /** 제출 번호를 예약 경로·운영 버튼이 다시 조회하는 기간(일) — 이보다 오래된 반출 전 번호는 더 조회하지 않는다 */
+  submittedMaxAgeDays: z.number().int().min(1).max(365).default(45),
+  /** 없는 번호(조회 결과 없음)를 다시 보기까지 쉬는 시간(시간) */
+  notFoundRetryHours: z.number().int().min(1).max(24 * 30).default(72),
+  /** 5차 저장 번호 하루 호출 몫 가운데 물류사 제출 번호가 쓸 수 있는 비율(bp) — 나머지는 셀러 알림 폴링 몫으로 남긴다 */
+  partnerPollShareBp: z.number().int().min(0).max(10_000).default(3000),
 });
-export type ScorecardRules = z.infer<typeof ScorecardRulesSchema>;
+export type ScorecardRules = z.output<typeof ScorecardRulesSchema>;
 
 export const SCORECARD_SETTING_SCHEMAS: Record<string, z.ZodTypeAny> = {
   [SCORECARD_RULES_KEY]: ScorecardRulesSchema,

@@ -2,6 +2,7 @@
  * 비교 화면의 「실질 비용」 칸(v2 6차 scorecard) — 견적가 + 예상 지연 비용, 「평소」·「늦을 때」 두 값.
  * 식은 src/lib/money/realcost.ts(순수 함수). 판매량·마진은 GET 폼(셀러가 넣는 값) — 저장하지 않는다.
  */
+import Link from 'next/link';
 import { Info } from 'lucide-react';
 import { Button, Field, Input, Panel, PanelHead } from '@/components/ui/core';
 import type { RealCostResult } from '@/lib/money';
@@ -15,6 +16,7 @@ export function RealCostPanel({
   baseline,
   portName,
   rows,
+  sortHref,
 }: {
   hidden: [string, string][];
   perDay: number | null;
@@ -22,13 +24,16 @@ export function RealCostPanel({
   basis: 'input' | 'sales' | null;
   baseline: { days: number; basis: 'fastest' | 'overall' } | null;
   portName: string;
-  rows: { name: string; quote: number; real: RealCostResult | null }[];
+  rows: { id: string; name: string; mode: string; quote: number; real: RealCostResult | null }[];
+  /** 「실질 비용순으로 보기」 주소(이미 그 순서면 null) */
+  sortHref?: string | null;
 }) {
   const measured = rows.filter((r) => r.real?.usual);
   return (
     <Panel className="mt-3" data-testid="real-cost-panel">
       <PanelHead
         title="실질 비용 = 견적가 + 예상 지연 비용"
+        action={sortHref && measured.length ? <Link href={sortHref} scroll={false} className="text-xs font-semibold underline underline-offset-4">실질 비용순으로 줄 세우기</Link> : null}
         sub={
           baseline
             ? `예상 지연일 = 그 업체 통관 실측(${portName} · 이 방식, 보통 p50 · 늦을 때 p90) − ${baseline.basis === 'fastest' ? `후보 중 가장 빠른 보통 ${baseline.days}일` : `같은 항구·방식 전체 중앙값 ${baseline.days}일`} · 한국 영업일`
@@ -61,8 +66,11 @@ export function RealCostPanel({
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.name} className="border-b border-line-2 last:border-0">
-                  <th scope="row" className="px-4 py-2 text-left font-semibold">{r.name}</th>
+                <tr key={r.id} className="border-b border-line-2 last:border-0">
+                  <th scope="row" className="px-4 py-2 text-left font-semibold">
+                    {r.name}
+                    <span className="block text-2xs font-normal text-muted">{r.mode}</span>
+                  </th>
                   <td className="px-4 py-2 text-right">{won(r.quote)}</td>
                   {r.real?.usual ? (
                     <>

@@ -17,10 +17,10 @@ export const SAMPLE_KEY_SQL = `coalesce(t.cargo_no, t.kind || ':' || t.number ||
 
 export async function scorecardSamples(q: Queryable, demo: boolean): Promise<RawSample[]> {
   const rows = await q.query<{
-    key: string; source: RawSample['source']; registrant: string; partner: string | null; broker: string | null; port: string | null; mode: string | null;
+    key: string; number: string; cargo_no: string | null; source: RawSample['source']; registrant: string; partner: string | null; broker: string | null; port: string | null; mode: string | null;
     evs: { stage: TrackStage | null; at: string; raw: string }[] | string | null; fc: string | null;
   }>(
-    `select ${SAMPLE_KEY_SQL} key,
+    `select ${SAMPLE_KEY_SQL} key, t.number, t.cargo_no,
             case when o.kind = 'partner' then 'partner' when s.id is not null then 'platform' else 'seller' end source,
             t.org_id registrant,
             case when o.kind = 'partner' then t.org_id when s.id is not null then s.partner_org_id else t.partner_org_id end partner,
@@ -51,30 +51,50 @@ export async function scorecardSamples(q: Queryable, demo: boolean): Promise<Raw
       released: y(st.first.released),
       fc: y(r.fc),
       inspected: hasInspection(evs.map((e) => e.raw)),
+      // 이의 cargo_ref 는 셀러·업체가 아는 번호(B/L 번호)나 화물관리번호로 적힌다 — 둘 다 맞출 수 있게(열쇠가 화물관리번호로 바뀌어도)
+      refs: [r.number, r.cargo_no].filter((x): x is string => !!x),
     };
   });
 }
 
-/** 받아들인 이의의 화물번호(마지막 줄이 accepted 인 이의) */
+/** 받아들인 이의의 화물번호 — 덧붙이기(note)를 뺀 마지막 줄이 accepted 인 이의(화면의 disputes() 와 같은 규칙) */
 export async function acceptedDisputeRefs(q: Queryable, demo: boolean): Promise<string[]> {
   const r = await q.query<{ cargo_ref: string }>(
     `select d.cargo_ref from fcd.scorecard_disputes d join fcd.orgs o on o.id = d.partner_org_id
       where d.root_id is null and d.cargo_ref is not null and o.is_demo = $1::boolean
-        and (select x.kind from fcd.scorecard_disputes x where x.root_id = d.id order by x.created_at desc, x.id desc limit 1) = 'accepted'`,
+        and (select x.kind from fcd.scorecard_disputes x where x.root_id = d.id and x.kind <> 'note' order by x.created_at desc, x.id desc limit 1) = 'accepted'`,
     [demo],
   );
   return r.map((x) => x.cargo_ref);
 }
 
-export async function computeFor(q: Queryable, demo: boolean, cfg: { rules: ScorecardRules; calendar: HolidaySet }, today: string): Promise<ScoreRow[]> {
-  const [raw, excluded] = await Promise.all([scorecardSamples(q, demo), acceptedDisputeRefs(q, demo)]);
-  return computeScorecards(mergeSamples(raw), { holidays: cfg.calendar, today, rules: cfg.rules, excluded });
+/**
+ * 이름 붙은 판을 만들 수 있는 업체 — 입점(공식·인증 대기)해 이의를 낼 수 있는 업체만. 공개정보 기준(public_info) 업체는
+ * 계정이 없어 알림·답변권·이의가 없으므로 이름 붙은 성적을 만들지 않는다(기획 7-4 · 검토 고침). 그 화물은 전체 판에는 들어간다.
+ */
+export async function scorecardEligibleOrgs(q: Queryable, demo: boolean): Promise<Set<string>> {
+  const r = await q.query<{ id: string }>(
+    `select id from fcd.orgs where kind = 'partner' and status in ('official', 'pending_verification') and is_demo = $1::boolean`,
+    [demo],
+  );
+  return new Set(r.map((x) => x.id));
 }
 
-export async function recomputeScorecards(q: Queryable, cfg: { rules: ScorecardRules; calendar: HolidaySet }, today: string): Promise<{ batchId: string; rows: number }> {
+export async function computeFor(q: Queryable, demo: boolean, cfg: { rules: ScorecardRules; calendar: HolidaySet }, today: string): Promise<ScoreRow[]> {
+  const [raw, excluded, eligible] = await Promise.all([scorecardSamples(q, demo), acceptedDisputeRefs(q, demo), scorecardEligibleOrgs(q, demo)]);
+  const rows = computeScorecards(mergeSamples(raw), { holidays: cfg.calendar, today, rules: cfg.rules, excluded });
+  return rows.filter((r) => r.entityKind === 'overall' || (r.entity != null && eligible.has(r.entity)));
+}
+
+/**
+ * 새 판 — 한 트랜잭션(부르는 쪽 asSystem)에서 모든 줄을 넣는다. 표본이 없어도 전체 판 한 줄(n = 0)은 늘 들어간다(엔진이 만든다) —
+ * 그래서 「최근 판」이 늘 이번 계산이고, 옛 숫자가 남아 보이지 않는다(검토 고침). withSamples = 표본이 한 건이라도 있는 줄 수.
+ */
+export async function recomputeScorecards(q: Queryable, cfg: { rules: ScorecardRules; calendar: HolidaySet }, today: string): Promise<{ batchId: string; rows: number; withSamples: number }> {
   const batch = (await q.query<{ id: string }>(`select gen_random_uuid()::text id`))[0].id;
   const demoOrg = (await q.query<{ id: string }>(`select id from fcd.orgs where is_demo order by created_at, id limit 1`))[0]?.id ?? null;
   let n = 0;
+  let withSamples = 0;
   for (const demo of [false, true]) {
     if (demo && !demoOrg) continue;
     const rows = await computeFor(q, demo, cfg, today);
@@ -90,7 +110,8 @@ export async function recomputeScorecards(q: Queryable, cfg: { rules: ScorecardR
           r.submission ? JSON.stringify(r.submission) : null, r.certified, demo ? demoOrg : null, demo],
       );
       n++;
+      if (r.n > 0) withSamples++;
     }
   }
-  return { batchId: batch, rows: n };
+  return { batchId: batch, rows: n, withSamples };
 }

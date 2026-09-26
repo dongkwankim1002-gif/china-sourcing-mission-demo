@@ -75,3 +75,25 @@ export function realCost(i: RealCostInput): RealCostResult {
   };
   return { usual: one(d.usual), late: one(d.late), priced };
 }
+
+/**
+ * 실질 비용순(평소) — 판매량·마진이 있으면 견적가 + 지연 비용(평소), 없으면 예상 지연일(평소) → 견적가 순.
+ * 실측이 없는 후보(usual = null)는 원래 순서대로 뒤에 둔다(모르는 지연을 0 으로 치지 않는다). 같으면 늦을 때 → 원래 순서.
+ */
+export function sortByRealCost<T>(items: readonly T[], of: (t: T) => { quote: number; real: RealCostResult | null }): T[] {
+  const idx = new Map(items.map((t, i) => [t, i]));
+  const key = (t: T): [number, number, number] | null => {
+    const { quote, real } = of(t);
+    if (!real?.usual) return null;
+    if (real.priced && real.usual.total != null) return [real.usual.total, real.late?.total ?? real.usual.total, 0];
+    return [real.usual.delayDays, real.late?.delayDays ?? real.usual.delayDays, quote];
+  };
+  return [...items].sort((a, b) => {
+    const ka = key(a);
+    const kb = key(b);
+    if (!ka && !kb) return idx.get(a)! - idx.get(b)!;
+    if (!ka) return 1;
+    if (!kb) return -1;
+    return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2] || idx.get(a)! - idx.get(b)!;
+  });
+}

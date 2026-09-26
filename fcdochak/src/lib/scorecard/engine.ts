@@ -2,7 +2,8 @@
  * 물류사 성적표 지표 엔진 — 순수 함수(브라우저·서버·시드 공용). 기획 docs/scorecard-plan.md 3·4·5절.
  *
  *   · 표본 합치기(mergeSamples): 같은 화물(관세청 화물관리번호 또는 종류·번호·연도)을 한 번만 — 출처(플랫폼 선적·셀러 등록·물류사 제출)를 모으고
- *     둘 이상이면 교차 확인. 업체 귀속은 플랫폼 선적 > 물류사 제출 > 셀러 등록 순, 서로 다르면 「귀속 충돌」로 센다.
+ *     둘 이상이면 교차 확인. 업체 귀속은 플랫폼 선적 > 셀러 등록 > 물류사 제출 순(물류사가 번호만 내서 남의 화물을 가져가지 못하게),
+ *     서로 다르면 「귀속 충돌」로 센다.
  *   · 지표(computeScorecards): (전체 · 물류사 · 관세사) × (모든 항구·방식 · 항구 × 방식) 판마다
  *     입항→수리 p50·p90·늦는 폭·분포 · 검사 비율 · 반입→반출 · 반출→FC 입고 · 주별 추이 · 전체 평균 대비 · 출처별 수 · 제출률 · 실측 인증.
  *   · 단계 시각은 5차 stageTimes 가 접은 한국 날짜(관세청 기록)만 받는다 — 누가 손으로 넣은 숫자가 아니다.
@@ -34,9 +35,13 @@ export interface RawSample {
   fc: Ymd | null;
   /** 진행 단계에 검사 낱말이 있는가(hasInspection) */
   inspected: boolean;
+  /** 이의 cargo_ref 와 맞출 번호들(B/L 번호 · 화물관리번호) — 연도 조각은 넣지 않는다 */
+  refs?: readonly string[];
 }
 
-export interface MergedSample extends Omit<RawSample, 'source' | 'registrant'> {
+export interface MergedSample extends Omit<RawSample, 'source' | 'registrant' | 'refs'> {
+  /** 이 화물을 가리키는 번호들(정규화 — 대문자·하이픈 뺌) */
+  refs: string[];
   sources: NumberSource[];
   registrants: string[];
   /** 이 화물을 스스로 제출한 물류사들 */
@@ -50,7 +55,13 @@ export function hasInspection(rawTypes: readonly string[]): boolean {
   return rawTypes.some((t) => /검사/.test(t.replace(/\s+/g, '')) && !/보세운송/.test(t));
 }
 
-const PRIORITY: Record<NumberSource, number> = { platform: 0, partner: 1, seller: 2 };
+// 셀러가 고른 업체가 물류사가 스스로 낸 것보다 앞선다 — 제출만으로 남의 화물을 가져가지 못하게(검토 고침)
+const PRIORITY: Record<NumberSource, number> = { platform: 0, seller: 1, partner: 2 };
+
+/** 이의 번호·화물 번호 맞추기용 정규화 — NFKC · 대문자 · 공백·하이픈 뺌 */
+export function normRef(x: string): string {
+  return x.normalize('NFKC').toUpperCase().replace(/[\s-]+/g, '');
+}
 
 export function mergeSamples(raw: readonly RawSample[]): MergedSample[] {
   const groups = new Map<string, RawSample[]>();
@@ -66,6 +77,7 @@ export function mergeSamples(raw: readonly RawSample[]): MergedSample[] {
     const partners = new Set(s.map((x) => x.partner).filter((x): x is string => !!x));
     out.push({
       key,
+      refs: [...new Set(s.flatMap((x) => x.refs ?? []).map(normRef).filter(Boolean))].sort(),
       sources: NUMBER_SOURCES.filter((src) => s.some((x) => x.source === src)),
       registrants: [...new Set(s.map((x) => x.registrant))].sort(),
       submittedBy: [...new Set(s.filter((x) => x.source === 'partner').map((x) => x.registrant))].sort(),
@@ -147,7 +159,7 @@ export interface ComputeOptions {
   holidays: HolidaySet;
   today: Ymd;
   rules: Pick<ScorecardRules, 'windowDays' | 'outlierDays' | 'trendWeeks' | 'sources' | 'minSamples' | 'certifiedMinSamples' | 'certifiedSubmissionBp'>;
-  /** 이의가 받아들여져 뺄 화물 열쇠(번호 그대로도 받는다 — 열쇠 안에 번호가 있으면 뺀다) */
+  /** 이의가 받아들여져 뺄 화물 — 열쇠 그대로이거나 그 화물의 번호(B/L 번호·화물관리번호)와 똑같은 값. 연도 조각과는 맞추지 않는다 */
   excluded?: readonly string[];
   histCap?: number;
 }
@@ -158,11 +170,23 @@ export function weekStart(d: Ymd): Ymd {
   return addDays(d, -((weekday(d) + 6) % 7));
 }
 
-/** 이의로 뺄 화물인가 — 열쇠가 같거나, 열쇠의 번호 조각이 이의 번호와 같다 */
-export function isExcluded(key: string, excluded: readonly string[]): boolean {
+/**
+ * 이의로 뺄 화물인가 — 열쇠 전체가 같거나, 그 화물의 번호(refs: B/L 번호·화물관리번호) 하나와 똑같다.
+ * 열쇠를 「:」로 쪼개 맞추지 않는다 — 「2026」 같은 연도 조각이 맞아 그해 표본이 모두 빠지는 일을 막는다(검토 고침).
+ * refs 가 없으면(옛 호출) 열쇠의 번호 조각(kind:번호:연도 의 가운데)만 본다.
+ */
+export function isExcluded(s: string | Pick<MergedSample, 'key' | 'refs'>, excluded: readonly string[]): boolean {
   if (!excluded.length) return false;
+  const key = typeof s === 'string' ? s : s.key;
   const parts = key.split(':');
-  return excluded.some((x) => x === key || parts.includes(x));
+  const refs = new Set<string>(typeof s === 'string' || !s.refs.length ? (parts.length === 3 ? [normRef(parts[1])] : [normRef(key)]) : s.refs);
+  return excluded.some((x) => x === key || refs.has(normRef(x)));
+}
+
+/** 이의 번호로 받을 만한가 — 네 자 이상이고, 숫자만이면 여섯 자 이상(연도 「2026」 같은 짧은 숫자는 화물 하나를 가리키지 못한다) */
+export function disputeRefOk(ref: string): boolean {
+  const bare = normRef(ref);
+  return /^[A-Z0-9]{4,40}$/.test(bare) && !(/^\d+$/.test(bare) && bare.length < 6);
 }
 
 interface Prepared {
@@ -184,7 +208,7 @@ export function computeScorecards(samples: readonly MergedSample[], o: ComputeOp
   for (const s of samples) {
     const srcs = s.sources.filter((x) => rules.sources[x]);
     if (!srcs.length) continue;
-    if (isExcluded(s.key, excluded)) continue;
+    if (isExcluded(s, excluded)) continue;
     if (!s.cleared || s.cleared < fromOn || s.cleared > o.today) continue;
     const clearDays = bd(s.arrival, s.cleared);
     prepared.push({
@@ -283,6 +307,8 @@ export function computeScorecards(samples: readonly MergedSample[], o: ComputeOp
       if (pm) add('broker', x.s.broker, x.s.port, x.s.mode, x);
     }
   }
+  // 표본이 하나도 없어도 전체 판(모든 항구·방식) 한 줄은 늘 남긴다 — 새 판이 0줄이면 옛 판이 「최근 판」으로 남는 일을 막는다(검토 고침)
+  if (!groups.has(['overall', null, null, null].join('|'))) groups.set(['overall', null, null, null].join('|'), { kind: 'overall', entity: null, port: null, mode: null, xs: [] });
   // 물류사가 낸 화물이 기간 안에 없어도, 제출률 판은 그 업체가 귀속된 화물이 있으면 생긴다(위 add 가 이미 만든다)
   const rows = [...groups.values()].map((g) => build(g.kind, g.entity, g.port, g.mode, g.xs));
   const overall = new Map(rows.filter((r) => r.entityKind === 'overall').map((r) => [`${r.port}|${r.mode}`, r]));
@@ -310,16 +336,32 @@ export function computeScorecards(samples: readonly MergedSample[], o: ComputeOp
 export type ScoreSort = 'fast' | 'stable' | 'inspect';
 export const SCORE_SORT_LABEL: Record<ScoreSort, string> = { fast: '빠른 통관순', stable: '안정적인 순', inspect: '검사 적은 순' };
 
-/** 성적 행에서 정렬 값(작을수록 앞) — 표본 기준 미만·값 없음은 null(뒤로) */
-export function sortValue(r: Pick<ScoreRow, 'n' | 'metrics'> | null | undefined, by: ScoreSort, minSamples: number): number | null {
-  if (!r || r.n < minSamples || !r.metrics.clear) return null;
-  if (by === 'fast') return r.metrics.clear.p50;
+type SortRow = Pick<ScoreRow, 'n' | 'metrics'> & { sources?: Pick<SourceCounts, 'seller' | 'platform'> };
+
+/**
+ * 업체와 무관한 출처(셀러 등록·플랫폼 선적)가 말한 화물 수 — 정렬 자격. 물류사가 혼자 낸 번호만으로는 순위에 오르지 못한다
+ * (빠른 화물만 골라 내는 업체를 가려내려고 · 검토 고침). sources 가 없으면(옛 행) n 을 쓴다.
+ */
+export function independentSamples(r: SortRow): number {
+  return r.sources ? r.sources.seller + r.sources.platform : r.n;
+}
+
+/**
+ * 성적 행에서 정렬 값(작을수록 앞) — 표본 기준 미만·독립 출처 표본 기준 미만·값 없음은 null(뒤로).
+ * 빠른 통관순은 화면에 보이는 값(보통 = p50 반올림)으로 먼저 가르고, 같으면 늦으면(p90 올림)으로 — 보이는 숫자와 순서가 어긋나지 않게.
+ */
+export function sortValue(r: SortRow | null | undefined, by: ScoreSort, minSamples: number): number | null {
+  if (!r || r.n < minSamples || !r.metrics.clear || independentSamples(r) < minSamples) return null;
+  if (by === 'fast') {
+    const d = daysLine(r.metrics.clear);
+    return d.usual * 1000 + d.late;
+  }
   if (by === 'stable') return r.metrics.clear.spread;
   return r.metrics.inspectRate;
 }
 
-/** 업체 id 들을 성적으로 줄 세운다 — 값이 같으면 p50 · 표본 많은 순, 값 없는 업체는 원래 순서대로 뒤에 */
-export function sortByScore<T>(items: readonly T[], rowOf: (t: T) => Pick<ScoreRow, 'n' | 'metrics'> | null | undefined, by: ScoreSort, minSamples: number): T[] {
+/** 업체 id 들을 성적으로 줄 세운다 — 값이 같으면 p50 · p90 · 표본 많은 순, 값 없는 업체는 원래 순서대로 뒤에 */
+export function sortByScore<T>(items: readonly T[], rowOf: (t: T) => SortRow | null | undefined, by: ScoreSort, minSamples: number): T[] {
   const idx = new Map(items.map((t, i) => [t, i]));
   return [...items].sort((a, b) => {
     const ra = rowOf(a);
@@ -329,7 +371,13 @@ export function sortByScore<T>(items: readonly T[], rowOf: (t: T) => Pick<ScoreR
     if (va == null && vb == null) return idx.get(a)! - idx.get(b)!;
     if (va == null) return 1;
     if (vb == null) return -1;
-    return va - vb || (ra!.metrics.clear!.p50 - rb!.metrics.clear!.p50) || rb!.n - ra!.n || idx.get(a)! - idx.get(b)!;
+    return (
+      va - vb ||
+      ra!.metrics.clear!.p50 - rb!.metrics.clear!.p50 ||
+      ra!.metrics.clear!.p90 - rb!.metrics.clear!.p90 ||
+      rb!.n - ra!.n ||
+      idx.get(a)! - idx.get(b)!
+    );
   });
 }
 

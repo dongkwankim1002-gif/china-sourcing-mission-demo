@@ -425,7 +425,7 @@ export function lookupReady(isDemo: boolean) {
  * 번호 하나 다시 보기(신뢰 경로). 꺼짐이면 흉내 — 단, 실제 조직 번호는 흉내 기록을 쌓지 않는다(실측이 섞이지 않게).
  * 꺼짐 때문에 못 본 것은 오류(last_error)로 적지 않는다 — 화면이 스위치·예시 여부로 「연결 준비 중」을 따로 보인다.
  */
-export async function refreshTrack(id: string, o: { trigger: 'save' | 'manual'; actorId: string | null; cfg?: TrackerConfig }) {
+export async function refreshTrack(id: string, o: { trigger: 'save' | 'manual'; actorId: string | null; cfg?: TrackerConfig; reservePollBp?: number }) {
   const pre = await asSystem(async (q) => {
     const cfg = o.cfg ?? (await loadTrackerConfig(q));
     const t = (await q.query<TrackCore>(
@@ -439,7 +439,9 @@ export async function refreshTrack(id: string, o: { trigger: 'save' | 'manual'; 
       return null;
     }
     const http = env.unipassEnabled && !t.is_demo;
-    if (http && pollBudgetLeft(cfg, await callsToday(q)) <= 0) {
+    // v2 6차 scorecard — 물류사 제출 번호는 하루 몫의 일부만 쓴다(reservePollBp = 셀러 알림 폴링 몫으로 남길 비율)
+    const floor = o.reservePollBp ? Math.ceil((callBudgets(cfg.rules).poll * o.reservePollBp) / 10_000) : 0;
+    if (http && pollBudgetLeft(cfg, await callsToday(q)) <= floor) {
       await recordRun(q, { trigger: o.trigger, mode: 'http', seen: 1, skipped: 1, actor: o.actorId, note: '하루 호출 상한' });
       return null;
     }

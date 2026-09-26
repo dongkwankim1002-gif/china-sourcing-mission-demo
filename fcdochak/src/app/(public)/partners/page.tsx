@@ -9,7 +9,7 @@ import { BIZ_TYPE_LABEL } from '@/lib/terms';
 import { cn } from '@/lib/cn';
 // v2 6차 scorecard — 성적순 정렬 · 카드 성적 칩(이름 붙은 성적은 로그인 화주에게만)
 import { getViewer } from '@/lib/server/viewer';
-import { indexSnaps, snapKey, snapsFor } from '@/lib/server/scorecard';
+import { indexSnaps, snapKey, snapsForSafe } from '@/lib/server/scorecard';
 import { SCORE_SORT_LABEL, sortByScore, type ScoreSort } from '@/lib/scorecard/engine';
 import { LockedScore, ScoreChips } from '@/components/scorecard/parts';
 
@@ -26,10 +26,13 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
   const hub = sp.hub ?? '';
   const q = (sp.q ?? '').trim();
   const sort = (['fast', 'stable', 'inspect'].includes(sp.sort ?? '') ? sp.sort : null) as ScoreSort | null;
-  const score = await snapsFor(viewer);
+  const score = await snapsForSafe(viewer);
   const idx = indexSnaps(score.snaps);
   const minN = score.config.rules.minSamples;
-  const snapOf = (p: { id: string; business_type: string | null }) => idx.get(snapKey(p.business_type === 'customs_broker' ? 'broker' : 'partner', p.id)) ?? null;
+  // 이름 붙은 성적은 입점 업체(공식·인증 대기)만 — 공개정보 기준 업체는 알림·답변권·이의가 없어 성적을 싣지 않고 정렬에도 넣지 않는다(기획 7-4)
+  const listed = (p: { status: string }) => p.status === 'official' || p.status === 'pending_verification';
+  const snapOf = (p: { id: string; business_type: string | null; status: string }) =>
+    listed(p) ? idx.get(snapKey(p.business_type === 'customs_broker' ? 'broker' : 'partner', p.id)) ?? null : null;
   const canSee = (p: { id: string }) => score.named === 'all' || (score.named === 'own' && !!viewer?.orgs.some((o) => o.id === p.id));
   const filtered = all.filter(
     (p) =>
@@ -74,6 +77,8 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
           </Link>
         ))}
         <Link href="/market/customs" className="ml-1 text-xs font-semibold underline underline-offset-4">항구·방식 통관 추이</Link>
+        <Link href="/market/customs#method" className="text-xs font-semibold underline underline-offset-4">계산 방법</Link>
+        {type === 'customs_broker' ? <Link href="/brokers" className="text-xs font-semibold underline underline-offset-4">관세사 찾기(세관·항구별)</Link> : null}
       </div>
       {sort && score.named !== 'all' ? (
         <p className="mb-2 rounded-sm border border-line bg-surface-2 px-3 py-2 text-xs text-muted" role="note" data-testid="score-sort-locked">
@@ -81,7 +86,7 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
         </p>
       ) : sort ? (
         <p className="mb-2 text-xs text-muted" data-testid="score-sort-now">
-          {SCORE_SORT_LABEL[sort]} — 관세청 단계 기록으로 셈한 최근 {score.config.rules.windowDays}일 실측 · 표본 {minN}건 미만 업체는 뒤에 둡니다 · 광고·돈으로 순서를 바꾸지 않습니다
+          {SCORE_SORT_LABEL[sort]} — 관세청 단계 기록으로 셈한 최근 {score.config.rules.windowDays}일 실측(모든 항구·방식) · 표본 {minN}건 미만이거나 셀러 등록·플랫폼 선적 표본이 {minN}건 미만인 업체(물류사가 혼자 낸 번호만 있는 업체)는 뒤에 둡니다 · 같으면 늦으면 · 표본 많은 순 · 공개정보 기준 업체는 넣지 않습니다 · 광고·돈으로 순서를 바꾸지 않습니다
         </p>
       ) : null}
       <div className="mb-6 flex flex-wrap gap-1.5" role="group" aria-label="거점">
@@ -107,8 +112,10 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
                   <PartnerStatusChip status={p.status} />
                   {p.related_party_note ? <RelatedChip note={p.related_party_note} /> : null}
                 </div>
-                {p.status === 'official' || p.status === 'pending_verification' || snapOf(p) ? (
+                {listed(p) ? (
                   canSee(p) ? <ScoreChips s={snapOf(p)} minSamples={minN} compact /> : <LockedScore plain next="/partners" />
+                ) : sort ? (
+                  <p className="text-2xs text-muted" data-testid="score-unlisted">공개정보 기준 업체 — 입점해 이의를 낼 수 있게 되면 성적표가 붙습니다</p>
                 ) : null}
                 <p className="text-xs text-muted">
                   {BIZ_TYPE_LABEL[p.business_type ?? ''] ?? ''} · {(p.hubs ?? []).map((h) => ref.hubs.find((x) => x.code === h)?.name_ko ?? h).join('·')} ·{' '}

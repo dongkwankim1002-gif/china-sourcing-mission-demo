@@ -9,9 +9,10 @@ import 'server-only';
  */
 import { asPublic, asSystem, asUser, todayKst, type Queryable } from '../db';
 import { env } from '../env';
-import { readScorecardConfig, type ScorecardConfig } from '../scorecard/settings';
-import { recomputeScorecards } from '../scorecard/store';
-import type { EntityKind, ScoreMetrics, SourceCounts, Submission } from '../scorecard/engine';
+import { readScorecardConfig, ScorecardRulesSchema, type ScorecardConfig } from '../scorecard/settings';
+import { acceptedDisputeRefs, recomputeScorecards, scorecardSamples } from '../scorecard/store';
+import { businessDaysBetween } from '../tracker/calendar';
+import { isExcluded, mergeSamples, normRef, type EntityKind, type ScoreMetrics, type SourceCounts, type Submission } from '../scorecard/engine';
 import { loadTrackerConfig, lookupReady, refreshTrack } from './tracker';
 import { HttpForwarderAdapter, MockForwarderAdapter, type ForwarderAdapter } from '../unipass/forwarders';
 import { validateTrackInput } from '../unipass/validate';
@@ -61,8 +62,32 @@ export async function publicSnaps(q: Queryable): Promise<Snap[]> {
   return norm(await q.query<Snap>(`select ${SNAP_COLS} from fcd.v_scorecard_public`));
 }
 
+/**
+ * 설정·보기를 읽지 못할 때(참조 시드를 안 올렸거나 0024 전) 쓰는 자리 — 성적은 비우고 화면은 그대로 뜨게(검토 고침).
+ * 숫자를 싣지 않으므로 이 규칙 값은 화면 문구(표본 기준·기간)에만 쓰인다. 실제 기준은 늘 fcd.settings 의 scorecard.rules.
+ */
+export const SCORECARD_FALLBACK: ScorecardConfig = {
+  rules: ScorecardRulesSchema.parse({
+    minSamples: 5, windowDays: 180, certifiedMinSamples: 10, certifiedSubmissionBp: 8000, outlierDays: 20, trendWeeks: 12,
+    sources: { platform: true, seller: true, partner: true }, example: true,
+  }),
+  publicNamed: false,
+};
+
+export type ScoreView = { snaps: Snap[]; named: 'all' | 'own' | 'none'; config: ScorecardConfig; unavailable?: boolean };
+
+/** snapsFor 를 부르되, 실패하면 빈 성적(이름 없음·기본 규칙)으로 — 업체 찾기·비교처럼 1차부터 있던 화면이 성적표 때문에 멈추지 않게 */
+export async function snapsForSafe(v: Viewer | null): Promise<ScoreView> {
+  try {
+    return await snapsFor(v);
+  } catch (e) {
+    console.error(`[scorecard] 성적표를 읽지 못해 빈 성적으로 보입니다: ${(e as Error).message}`);
+    return { snaps: [], named: 'none', config: SCORECARD_FALLBACK, unavailable: true };
+  }
+}
+
 /** 보는 사람에 맞춰 — 로그인이면 named, 아니면 public. named = 이름 붙은 성적을 볼 수 있는가 */
-export async function snapsFor(v: Viewer | null): Promise<{ snaps: Snap[]; named: 'all' | 'own' | 'none'; config: ScorecardConfig }> {
+export async function snapsFor(v: Viewer | null): Promise<ScoreView> {
   if (!v) {
     return asPublic(async (q) => {
       const config = await loadScorecardConfig(q);
@@ -163,24 +188,40 @@ export async function submitCargoNumbers(v: Viewer, partnerOrgId: string, lines:
   const rejected = lines.filter((l) => !l.ok).map((l) => ({ line: l.line, raw: l.raw, error: l.error ?? '틀린 줄' }));
   const org = v.orgs.find((o) => o.id === partnerOrgId && o.kind === 'partner');
   if (!org) throw new Error('물류사 조직 구성원만 제출할 수 있습니다');
-  // ① 제출 기록(RLS — 그 물류사 구성원만)
+  const rules = (await asUser(v, loadScorecardConfig)).rules;
+  // ① 제출 기록(RLS — 그 물류사 구성원만). 한 조직 하루 제출 상한(scorecard.rules.partnerDailySubmit) — 없는 번호를 쏟아 넣어 하루 호출 몫을 다 쓰지 못하게
   const batch = (await asUser(v, (q) => q.query<{ id: string }>(`select gen_random_uuid()::text id`)))[0].id;
   const inserted = await asUser(v, async (q) => {
+    const today = (await q.query<{ n: number }>(
+      `select count(*)::int n from fcd.partner_cargo_submissions
+        where partner_org_id = $1 and created_at >= (date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul')`,
+      [partnerOrgId],
+    ))[0].n;
+    let room = Math.max(0, rules.partnerDailySubmit - today);
     const out: TrackQuery[] = [];
     for (const l of ok) {
+      if (room <= 0) {
+        rejected.push({ line: l.line, raw: l.raw, error: `하루 제출 상한(${rules.partnerDailySubmit}건)을 넘었습니다 — 내일 다시 / 超过每日上限` });
+        continue;
+      }
       const r = await q.query<{ id: string }>(
         `insert into fcd.partner_cargo_submissions (partner_org_id, submitted_by, batch_id, kind, number, bl_year, port, mode)
          values ($1,$2,$3::uuid,$4,$5,$6,$7,$8) on conflict do nothing returning id`,
         [partnerOrgId, v.id, batch, l.query!.kind, l.query!.number, l.query!.year, meta.port, meta.mode],
       );
-      if (r[0]) out.push(l.query!);
+      if (r[0]) {
+        out.push(l.query!);
+        room--;
+      }
     }
     return out;
   });
-  // ② 단계 기록을 쌓을 번호(물류사 조직 소유) — 신뢰 경로. 사용자 넣기 정책은 화주 조직만 허용하므로 서버가 만든다
+  // ② 단계 기록을 쌓을 번호(물류사 조직 소유) — 신뢰 경로. 사용자 넣기 정책은 화주 조직만 허용하므로 서버가 만든다.
+  //    이미 낸 번호도 번호 줄이 없으면 만든다(앞 제출에서 ①만 되고 ②가 실패했을 때 다시 내면 채워지게 · 검토 고침)
+  const accepted = ok.filter((l) => !rejected.some((x) => x.line === l.line)).map((l) => l.query!);
   const ids = await asSystem(async (q) => {
     const out: string[] = [];
-    for (const t of inserted) {
+    for (const t of accepted) {
       const r = await q.query<{ id: string }>(
         `insert into fcd.cargo_tracks (org_id, created_by, kind, number, bl_year, mode, port) values ($1,$2,$3,$4,$5,$6,$7)
          on conflict do nothing returning id`,
@@ -195,30 +236,45 @@ export async function submitCargoNumbers(v: Viewer, partnerOrgId: string, lines:
   if (ready) {
     const cfg = await asSystem(loadTrackerConfig);
     for (const id of ids.slice(0, SUBMIT_LOOKUP_NOW)) {
-      await refreshTrack(id, { trigger: 'save', actorId: v.id, cfg }).catch(() => null);
+      await refreshTrack(id, { trigger: 'save', actorId: v.id, cfg, reservePollBp: 10_000 - rules.partnerPollShareBp }).catch(() => null);
       lookedUp++;
     }
   }
-  return { added: inserted.length, already: ok.length - inserted.length, rejected, lookedUp, waiting: !ready };
+  return { added: inserted.length, already: accepted.length - inserted.length, rejected, lookedUp, waiting: !ready };
 }
 
-/** 제출한 번호 중 아직 반출 전인 것을 조회(신뢰 경로 — 운영 버튼·예약 경로). 꺼짐이면 예시 조직만 흉내 */
-export async function refreshSubmitted(o: { actorId: string | null; limit?: number }) {
-  const rows = await asSystem((q) =>
-    q.query<{ id: string; is_demo: boolean }>(
+/**
+ * 제출한 번호 중 아직 반출 전인 것을 조회(신뢰 경로 — 운영 버튼·예약 경로). 꺼짐이면 예시 조직만 흉내.
+ *   · 만든 지 submittedMaxAgeDays 가 지난 번호, 「조회 결과 없음」 뒤 notFoundRetryHours 가 안 지난 번호, 캐시 시간 안에 본 번호는 건너뛴다
+ *   · 하루 호출 몫 가운데 partnerPollShareBp 만 쓴다(나머지는 셀러 알림 폴링 몫)
+ *   · deadline(ms 시각)을 넘기면 멈춘다(예약 경로 시간 한도 · 검토 고침)
+ */
+export async function refreshSubmitted(o: { actorId: string | null; limit?: number; deadline?: number }) {
+  const { rows, rules } = await asSystem(async (q) => {
+    const [cfg, tcfg] = await Promise.all([loadScorecardConfig(q), loadTrackerConfig(q)]);
+    const rows = await q.query<{ id: string; is_demo: boolean }>(
       `select t.id, o.is_demo from fcd.cargo_tracks t join fcd.orgs o on o.id = t.org_id
         where o.kind = 'partner' and t.archived_at is null and coalesce(fcd.track_stage_rank(t.stage), 0) < 7
+          and t.created_at > now() - make_interval(days => $2::int)
+          and (t.last_error is null or t.last_checked_at is null or t.last_checked_at < now() - make_interval(hours => $3::int))
+          and (t.last_checked_at is null or t.last_checked_at < now() - make_interval(mins => $4::int))
         order by t.last_checked_at nulls first, t.created_at limit $1`,
-      [o.limit ?? 30],
-    ),
-  );
+      [o.limit ?? 30, cfg.rules.submittedMaxAgeDays, cfg.rules.notFoundRetryHours, tcfg.rules.cacheMinutes],
+    );
+    return { rows, rules: cfg.rules };
+  });
   let seen = 0;
+  let stoppedEarly = false;
   for (const r of rows) {
+    if (o.deadline && Date.now() > o.deadline) {
+      stoppedEarly = true;
+      break;
+    }
     if (!lookupReady(r.is_demo)) continue;
-    await refreshTrack(r.id, { trigger: 'manual', actorId: o.actorId }).catch(() => null);
+    await refreshTrack(r.id, { trigger: 'manual', actorId: o.actorId, reservePollBp: 10_000 - rules.partnerPollShareBp }).catch(() => null);
     seen++;
   }
-  return { candidates: rows.length, seen };
+  return { candidates: rows.length, seen, stoppedEarly };
 }
 
 export async function mySubmissions(q: Queryable, orgId: string, limit = 30) {
@@ -243,6 +299,25 @@ export interface DisputeRow {
   status: 'open' | 'accepted' | 'rejected' | 'withdrawn';
   thread: { kind: string; body: string; created_at: string }[];
   is_demo: boolean;
+}
+
+/**
+ * 이의 번호가 가리키는 화물 수(운영 화면 — 받아들이기 전에 「이 이의로 빠질 화물 N건」). 신뢰 경로(여러 조직 번호를 센다 · 수만 낸다).
+ * 셈의 규칙(isExcluded)과 같게 — B/L 번호·화물관리번호와 똑같을 때만.
+ */
+export async function disputeImpact(refs: string[]): Promise<Map<string, number>> {
+  const want = [...new Set(refs.filter(Boolean).map(normRef))];
+  if (!want.length) return new Map();
+  const rows = await asSystem((q) =>
+    q.query<{ ref: string; n: number }>(
+      `select r ref, count(distinct coalesce(t.cargo_no, t.kind || ':' || t.number || ':' || coalesce(t.bl_year::text, '')))::int n
+         from unnest($1::text[]) r
+         join fcd.cargo_tracks t on replace(t.number, '-', '') = r or replace(coalesce(t.cargo_no, ''), '-', '') = r
+        group by r`,
+      [want],
+    ),
+  );
+  return new Map(rows.map((r) => [r.ref, r.n]));
 }
 
 export async function disputes(q: Queryable, orgId: string | null, limit = 50): Promise<DisputeRow[]> {
@@ -332,6 +407,43 @@ export async function listBrokers(q: Queryable): Promise<BrokerRow[]> {
 }
 
 // ─── 운영 — 자료 품질 ─────────────────────────────────────────────────────────
+
+export interface QualityItem {
+  key: string;
+  refs: string[];
+  sources: string[];
+  partner: string | null;
+  partnerName: string | null;
+  port: string | null;
+  mode: string | null;
+  arrival: string | null;
+  cleared: string | null;
+  days: number | null;
+  kind: 'outlier' | 'conflict';
+  isDemo: boolean;
+}
+
+/**
+ * 운영 화면 — 이상치·귀속 충돌 화물 목록(화물 번호 · 출처 · 귀속 업체 · 입항 → 수리). 신뢰 경로(여러 조직의 번호를 읽는다 — 운영자에게만 보인다).
+ * 받아들인 이의로 빠진 화물은 뺀다. 기간은 규칙의 windowDays.
+ */
+export async function scorecardQuality(demo: boolean, today = todayKst(), limit = 40): Promise<QualityItem[]> {
+  return asSystem(async (q) => {
+    const [cfg, tcfg] = await Promise.all([loadScorecardConfig(q), loadTrackerConfig(q)]);
+    const [raw, excluded] = await Promise.all([scorecardSamples(q, demo), acceptedDisputeRefs(q, demo)]);
+    const names = new Map((await q.query<{ id: string; name: string }>(`select id, name from fcd.orgs where kind = 'partner'`)).map((r) => [r.id, r.name]));
+    const from = new Date(Date.parse(`${today}T00:00:00Z`) - (cfg.rules.windowDays - 1) * 86_400_000).toISOString().slice(0, 10);
+    const out: QualityItem[] = [];
+    for (const s of mergeSamples(raw)) {
+      if (isExcluded(s, excluded) || !s.cleared || s.cleared < from || s.cleared > today) continue;
+      const days = s.arrival && s.cleared >= s.arrival ? businessDaysBetween(s.arrival, s.cleared, tcfg.calendar) : null;
+      const kind = days != null && days > cfg.rules.outlierDays ? 'outlier' : s.conflict ? 'conflict' : null;
+      if (!kind) continue;
+      out.push({ key: s.key, refs: s.refs, sources: s.sources, partner: s.partner, partnerName: s.partner ? names.get(s.partner) ?? null : null, port: s.port, mode: s.mode, arrival: s.arrival, cleared: s.cleared, days, kind, isDemo: demo });
+    }
+    return out.sort((a, b) => (a.kind === b.kind ? (b.days ?? 0) - (a.days ?? 0) : a.kind === 'outlier' ? -1 : 1)).slice(0, limit);
+  });
+}
 
 export interface AdminScorecardStatus {
   computedAt: string | null;

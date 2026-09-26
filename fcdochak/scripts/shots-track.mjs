@@ -1,7 +1,7 @@
 // v2 5차 tracker 캡처 중 목록 캡처(scripts/shots.mjs)로 안 잡히는 것 — node scripts/shots-track.mjs <base-url> [out-dir]
 //   track_result      공개 /track 에 예시 번호를 넣고 조회한 결과(관세청 꺼짐 → 흉내, 저장 없음)
 //   app_shipments_customs  화주 선적 화면의 「관세청 실측」 줄(이은 번호가 있는 첫 선적, 그 줄로 내려서)
-//   p_hanbada_lead    업체 화면의 「실측 통관 소요(표본 N)」 칸(그 칸으로 내려서)
+//   p_hanbada_lead    업체 화면의 「성적표」 탭(6차 — 5차 「실측 통관 소요」 칸을 합침, 그 탭으로 내려서)
 // 390·768·1440 × 밝음·어두움. 가로 밀림도 잰다. 로컬(PGlite) 데모에서만 쓴다 — 관세청을 부르지 않는다.
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
@@ -51,7 +51,7 @@ const shots = [
   },
   ...(customsHref ? [{ name: 'app_shipments_customs', login: 'shipper', path: customsHref, scrollTo: 'shipment-customs-actual' }] : []),
   // v2 6차 scorecard — 5차 실측 칸은 업체 화면 「성적표」 탭으로 합쳤다(#scorecard 로 바로 열림)
-  { name: 'p_hanbada_lead', path: '/p/hanbada#scorecard', scrollTo: 'partner-lead-time' },
+  { name: 'p_hanbada_lead', path: '/p/hanbada#scorecard', scrollTo: 'entity-scorecard' },
 ];
 
 const overflow = [];

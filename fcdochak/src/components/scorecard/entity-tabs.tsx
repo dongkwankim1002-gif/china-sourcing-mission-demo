@@ -8,10 +8,10 @@ import Link from 'next/link';
 import { Lock } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/radix';
 import { EmptyState, Panel, Skeleton } from '@/components/ui/core';
-import { ScorecardDetail } from './parts';
+import { ScorecardDetail, TradeMetrics } from './parts';
 import type { Snap } from '@/lib/server/scorecard';
 
-type Resp = { locked: boolean; loggedIn: boolean; minSamples: number; rows?: Snap[] };
+type Resp = { locked: boolean; loggedIn: boolean; minSamples: number; unlisted?: boolean; rows?: Snap[]; trade?: { metrics: Record<string, number | null> | null; quote: { hours: number; n: number } | null } };
 
 export function EntityTabs({
   entityId,
@@ -20,11 +20,14 @@ export function EntityTabs({
   ports,
   modes,
   next,
+  entityKind = 'partner',
 }: {
   entityId: string;
   overview: React.ReactNode;
-  /** 성적표 탭 아래에 함께 싣는 서버 부품(5차 「실측 통관 소요」 칸) */
+  /** 성적표가 열렸을 때(잠금 아님)만 함께 싣는 부품 — 잠긴 화면에 이름 붙은 숫자가 새지 않게(검토 고침) */
   extra?: React.ReactNode;
+  /** 관세사 조직이면 broker 판, 아니면 partner 판(한 조직의 두 판이 섞이지 않게) */
+  entityKind?: 'partner' | 'broker';
   ports: Record<string, string>;
   modes: Record<string, string>;
   next: string;
@@ -53,8 +56,9 @@ export function EntityTabs({
     setTab(v);
     history.replaceState(null, '', v === 'scorecard' ? '#scorecard' : window.location.pathname + window.location.search);
   };
-  const all = data?.rows?.find((r) => r.port == null && r.mode == null) ?? null;
-  const rows = (data?.rows ?? []).filter((r) => r.port != null && r.mode != null);
+  const mine = (data?.rows ?? []).filter((r) => r.entity_kind === entityKind);
+  const all = mine.find((r) => r.port == null && r.mode == null) ?? null;
+  const rows = mine.filter((r) => r.port != null && r.mode != null);
   return (
     <Tabs value={tab} onValueChange={onChange}>
       <TabsList>
@@ -74,6 +78,10 @@ export function EntityTabs({
               <Skeleton className="h-16" />
               <Skeleton className="h-24" />
             </Panel>
+          ) : data.locked && data.unlisted ? (
+            <Panel data-testid="scorecard-locked">
+              <EmptyState icon={<Lock aria-hidden />} title="공개정보 기준 업체라 성적표를 싣지 않습니다" body="입점해 알림을 받고 이의를 낼 수 있게 된 업체만 이름 붙은 성적표가 붙습니다. 이름 없는 항구·방식별 추이는 누구나 볼 수 있습니다." action={<Link href="/market/customs" className="text-sm font-semibold underline underline-offset-4">통관 시장 지표</Link>} />
+            </Panel>
           ) : data.locked ? (
             <Panel data-testid="scorecard-locked">
               <EmptyState
@@ -89,11 +97,14 @@ export function EntityTabs({
               />
             </Panel>
           ) : (
-            <ScorecardDetail all={all} rows={rows} minSamples={data.minSamples} portName={(c) => ports[c] ?? c} modeName={(c) => modes[c] ?? c} />
+            <>
+              <ScorecardDetail all={all} rows={rows} minSamples={data.minSamples} portName={(c) => ports[c] ?? c} modeName={(c) => modes[c] ?? c} />
+              {data.trade ? <TradeMetrics metrics={data.trade.metrics} quote={data.trade.quote} minSamples={data.minSamples} /> : null}
+              {extra}
+            </>
           )}
-          {extra}
           <p className="text-2xs text-muted">
-            계산 방법: 같은 화물은 한 번 · 번호 출처(플랫폼 선적·셀러 등록·물류사 제출)는 따로 세고 숫자는 모두 관세청 처리 일시 · 이상치는 분위수에서 뺍니다 · 업체는 이의를 낼 수 있습니다 · 순위·인증은 돈으로 살 수 없습니다.
+            계산 방법: 같은 화물은 한 번 · 번호 출처(플랫폼 선적·셀러 등록·물류사 제출)는 따로 세고 숫자는 모두 관세청 처리 일시 · 이상치는 분위수에서 뺍니다 · 업체는 이의를 낼 수 있습니다 · 순위·인증은 돈으로 살 수 없습니다. <Link href="/market/customs#method" className="underline underline-offset-4">계산 방법 자세히</Link>
           </p>
         </div>
       </TabsContent>

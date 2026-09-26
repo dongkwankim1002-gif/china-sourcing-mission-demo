@@ -10,9 +10,11 @@ import { allow } from '@/lib/server/rate-limit';
 import { requireViewer } from '@/lib/server/viewer';
 import { customsCodes, forwarderAdapter, parseSubmission, recomputeScorecardsNow, refreshSubmitted, submitCargoNumbers, type SubmitResult } from '@/lib/server/scorecard';
 import type { ForwarderRecord } from '@/lib/unipass/forwarders';
+import { disputeRefOk } from '@/lib/scorecard/engine';
 import { UnipassError } from '@/lib/unipass/types';
 
 const PORTS = new Set(['ICN', 'PTK']);
+
 const MODES = new Set(['LCL', 'FCL', 'FERRY', 'AIR']);
 const uuid = (x: unknown) => (typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x) ? x : null);
 
@@ -58,6 +60,8 @@ export async function openDisputeAction(input: z.infer<typeof Dispute>): Promise
   if (!p.success) return { ok: false, error: p.error.issues[0].message };
   const ref = p.data.cargoRef ? p.data.cargoRef.normalize('NFKC').toUpperCase().replace(/\s+/g, '') : null;
   if (ref && !/^[A-Z0-9-]{4,40}$/.test(ref)) return { ok: false, error: '화물번호는 영문·숫자·하이픈 4~40자 / 单号格式' };
+  // 숫자만 여섯 자 미만(연도 「2026」 같은 값)은 화물 하나를 가리키지 못한다 — 받아들이면 엉뚱한 화물이 빠질 수 있어 받지 않는다(검토 고침)
+  if (ref && !disputeRefOk(ref)) return { ok: false, error: '화물번호 전체를 적어 주세요(연도·짧은 숫자만으로는 화물을 가리킬 수 없습니다) / 请填写完整单号' };
   if (!allow(`sc-dispute:${v.id}`, 5)) return { ok: false, error: '잠시 뒤 다시 해 주세요' };
   await asUser(v, (q) =>
     q.query(`insert into fcd.scorecard_disputes (partner_org_id, kind, metric, cargo_ref, body, created_by) values ($1,'open',$2,$3,$4,$5)`, [v.org.id, p.data.metric, ref, p.data.body, v.id]),
@@ -72,7 +76,14 @@ export async function withdrawDisputeAction(rootId: string): Promise<{ ok: boole
   const id = uuid(rootId);
   if (!id) return { ok: false, error: '이의를 찾지 못했습니다' };
   try {
-    await asUser(v, (q) => q.query(`insert into fcd.scorecard_disputes (root_id, partner_org_id, kind, body, created_by) values ($1,$2,'withdrawn','업체가 거뒀습니다',$3)`, [id, v.org.id, v.id]));
+    const done = await asUser(v, async (q) => {
+      // 열린 이의만 거둔다(받아들여진 뒤 거둬 제외를 푸는 일을 막는다 — 0025 정책도 같은 조건)
+      const st = (await q.query<{ s: string }>(`select fcd.dispute_status($1::uuid) s`, [id]))[0]?.s;
+      if (st !== 'open') return false;
+      await q.query(`insert into fcd.scorecard_disputes (root_id, partner_org_id, kind, body, created_by) values ($1,$2,'withdrawn','업체가 거뒀습니다',$3)`, [id, v.org.id, v.id]);
+      return true;
+    });
+    if (!done) return { ok: false, error: '이미 처리된 이의는 거둘 수 없습니다 / 已处理的异议不能撤回' };
   } catch {
     return { ok: false, error: '거두지 못했습니다' };
   }
@@ -98,13 +109,14 @@ export async function adminDisputeAction(input: { rootId: string; kind: 'accepte
   if (body.length < 2 || body.length > 1000) return { ok: false, error: '처리 사유를 적어 주세요(2~1000자)' };
   try {
     await asUser(v, async (q) => {
-      const root = (await q.query<{ partner_org_id: string }>(`select partner_org_id from fcd.scorecard_disputes where id = $1 and root_id is null`, [id]))[0];
+      const root = (await q.query<{ partner_org_id: string; st: string }>(`select partner_org_id, fcd.dispute_status(id) st from fcd.scorecard_disputes where id = $1 and root_id is null`, [id]))[0];
       if (!root) throw new Error('없음');
+      if (input.kind !== 'note' && root.st !== 'open') throw new Error('닫힘');
       await q.query(`insert into fcd.scorecard_disputes (root_id, partner_org_id, kind, body, created_by) values ($1,$2,$3,$4,$5)`, [id, root.partner_org_id, input.kind, body, v.id]);
       await audit(q, v.id, root.partner_org_id, `scorecard.dispute.${input.kind}`, `dispute:${id}`, { body });
     });
-  } catch {
-    return { ok: false, error: '처리하지 못했습니다' };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message === '닫힘' ? '이미 처리된 이의입니다(덧붙이기만 됩니다)' : '처리하지 못했습니다' };
   }
   // 받아들이면 그 화물을 빼고 다시 셈한다
   if (input.kind === 'accepted') await asSystem((q) => recomputeScorecardsNow(q));
@@ -112,13 +124,13 @@ export async function adminDisputeAction(input: { rootId: string; kind: 'accepte
   return { ok: true };
 }
 
-export async function adminRecomputeScorecards(): Promise<{ ok: boolean; error?: string; rows?: number }> {
+export async function adminRecomputeScorecards(): Promise<{ ok: boolean; error?: string; rows?: number; withSamples?: number }> {
   const v = await requirePlatform();
   if (!v) return { ok: false, error: '운영자만 셀 수 있습니다.' };
   const r = await asSystem((q) => recomputeScorecardsNow(q));
   await asUser(v, (q) => audit(q, v.id, null, 'scorecard.recompute', `batch:${r.batchId}`, { rows: r.rows }));
   revalidateAll();
-  return { ok: true, rows: r.rows };
+  return { ok: true, rows: r.rows, withSamples: r.withSamples };
 }
 
 export async function adminRefreshSubmitted(): Promise<{ ok: boolean; error?: string; seen?: number; candidates?: number }> {

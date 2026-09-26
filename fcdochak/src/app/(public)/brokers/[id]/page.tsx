@@ -5,7 +5,7 @@ import { Info, Lock } from 'lucide-react';
 import { getViewer } from '@/lib/server/viewer';
 import { asPublic } from '@/lib/db';
 import { getReference, nameOf } from '@/lib/server/reference';
-import { listBrokers, snapsFor } from '@/lib/server/scorecard';
+import { listBrokers, snapsForSafe } from '@/lib/server/scorecard';
 import { ScorecardDetail } from '@/components/scorecard/parts';
 import { LetterMark } from '@/components/brand-mark';
 import { DemoChip, PartnerStatusChip, RelatedChip } from '@/components/badges';
@@ -29,9 +29,10 @@ export default async function BrokerPage({ params }: { params: Promise<{ id: str
   const b = await load(id);
   if (!b) notFound();
   const viewer = await getViewer();
-  const [ref, score] = await Promise.all([getReference(), snapsFor(viewer)]);
+  const [ref, score] = await Promise.all([getReference(), snapsForSafe(viewer)]);
   const allowed = score.named === 'all' || (score.named === 'own' && !!viewer?.orgs.some((o) => o.id === b.id));
-  const mine = allowed ? score.snaps.filter((s) => s.entity_kind === 'broker' && s.entity_org_id === b.id) : [];
+  const listed = b.status === 'official' || b.status === 'pending_verification';
+  const mine = allowed && listed ? score.snaps.filter((s) => s.entity_kind === 'broker' && s.entity_org_id === b.id) : [];
   const all = mine.find((s) => s.port == null && s.mode == null) ?? null;
   const rows = mine.filter((s) => s.port != null && s.mode != null);
   return (
@@ -49,6 +50,11 @@ export default async function BrokerPage({ params }: { params: Promise<{ id: str
             {b.related_party_note ? <RelatedChip note={b.related_party_note} /> : null}
             {b.is_demo ? <DemoChip /> : null}
           </div>
+          {b.slug ? (
+            <p className="mt-2 text-xs">
+              <Link href={`/p/${b.slug}`} className="font-semibold underline underline-offset-4">업체 화면(요금·후기·거래 기록)</Link>
+            </p>
+          ) : null}
         </div>
       </header>
       <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
