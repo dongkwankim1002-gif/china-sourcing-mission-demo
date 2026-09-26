@@ -230,3 +230,40 @@ export const RESEARCH_ACTION = {
 export const RESEARCH_ACTION_MORE = {
   recordWithdrawal: '철회·삭제 요청 받음',
 } as const;
+
+// v2 3차 sourcing — 소싱처 찾기(패밀리 확장 모듈, 미리보기). 화주 화면·운영 화면·e2e 가 같은 말을 쓴다
+export const SOURCING_ACTION = {
+  request: '소싱 요청 남기기',
+  cancel: '요청 취소',
+  sample: '샘플 요청(관심 등록)',
+  sampleDone: '샘플 요청함',
+  toCompare: '이 조건으로 물류 비교',
+  recalc: '다시 셈',
+  setStatus: '상태 남기기',
+  addCandidate: '후보 넣기',
+  fillMock: '예시 후보 채우기',
+  reviseQuote: '조건 새 판',
+  withdraw: '후보 내리기',
+} as const;
+
+export const SOURCING_STATUS_LABEL: Record<'requested' | 'researching' | 'candidates_ready' | 'sample_requested' | 'closed' | 'cancelled', string> = {
+  requested: '접수',
+  researching: '조사 중',
+  candidates_ready: '후보 있음',
+  sample_requested: '샘플 요청',
+  closed: '끝',
+  cancelled: '취소',
+};
+
+export const SUPPLIER_KIND_LABEL: Record<'factory' | 'trader' | 'unknown', string> = {
+  factory: '공장',
+  trader: '무역상',
+  unknown: '확인 전',
+};
+
+export const CANDIDATE_SOURCE_LABEL: Record<'manual' | 'seller_link' | 'mock' | 'api', string> = {
+  manual: '담당 조사',
+  seller_link: '셀러 링크 확인',
+  mock: '예시',
+  api: '공식 API',
+};

@@ -32,6 +32,7 @@ import { TrendingUp } from 'lucide-react'; // v2 metrics
 import { Plug2 } from 'lucide-react'; // v2 2차 wing
 import { BadgeCheck as AllianceIcon } from 'lucide-react'; // v2 alliance
 import { MessagesSquare } from 'lucide-react'; // v2 interview
+import { PackageSearch } from 'lucide-react'; // v2 3차 sourcing
 
 export type AreaKey = 'app' | 'partner' | 'admin';
 export interface NavItem {
@@ -57,6 +58,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
       { href: '/app/skus', label: '저장한 SKU', icon: Package },
       { href: '/app/notifications', label: '알림', icon: Bell },
       { href: '/app/settings', label: '설정', icon: Settings },
+      { href: '/app/sourcing', label: '소싱처 찾기(미리보기)', icon: PackageSearch }, // v2 3차 sourcing
     ];
   if (area === 'partner') {
     const zh = locale === 'zh';
@@ -89,6 +91,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
     { href: '/admin/alliance', label: '제휴 주선사', icon: AllianceIcon }, // v2 alliance
     { href: '/admin/research', label: '셀러 인터뷰', icon: MessagesSquare },
     { href: '/styleguide', label: '스타일가이드', icon: Palette },
+    { href: '/admin/sourcing', label: '소싱 요청', icon: PackageSearch }, // v2 3차 sourcing
   ];
 }
 

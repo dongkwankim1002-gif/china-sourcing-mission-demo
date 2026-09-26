@@ -87,3 +87,7 @@ V2_SETTING_SCHEMAS['research.rules'] = z.unknown().superRefine((v, ctx) => {
   }
 });
 V2_SETTING_LABEL['research.rules'] = '셀러 인터뷰 판정선(사다리·다수·표본·업로드·물량 단가)';
+// v2 3차 sourcing — 소싱처 찾기 스위치·규칙·수수료 가정치(읽는 쪽 readSourcingConfig 와 같은 검사)
+import { SOURCING_SETTING_LABEL, SOURCING_SETTING_SCHEMAS } from './sourcing/settings';
+Object.assign(V2_SETTING_SCHEMAS, SOURCING_SETTING_SCHEMAS);
+Object.assign(V2_SETTING_LABEL, SOURCING_SETTING_LABEL);

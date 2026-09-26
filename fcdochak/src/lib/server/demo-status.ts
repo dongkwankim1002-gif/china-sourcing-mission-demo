@@ -45,6 +45,12 @@ export const DEMO_TABLES: { table: string; sql: string }[] = [
   { table: 'research_responses', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.research_responses x join fcd.orgs o on o.id = x.org_id` },
   { table: 'research_vendor_quotes', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.research_vendor_quotes x join fcd.orgs o on o.id = x.org_id` },
   { table: 'check_funnel_events', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where o.is_demo is not true)::int real from fcd.check_funnel_events x left join fcd.orgs o on o.id = x.org_id` },
+  // v2 3차 sourcing
+  { table: 'sourcing_requests', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.sourcing_requests x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'sourcing_request_events', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.sourcing_request_events x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'sourcing_candidates', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.sourcing_candidates x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'candidate_quotes', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.candidate_quotes x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'sourcing_sample_interests', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.sourcing_sample_interests x join fcd.orgs o on o.id = x.org_id` },
 ];
 
 export async function demoCounts(q: Queryable) {
