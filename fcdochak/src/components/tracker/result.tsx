@@ -5,6 +5,7 @@
 import { AlertTriangle, CalendarClock, Clock, PackageCheck, Ship } from 'lucide-react';
 import type { TrackView } from '@/lib/tracker/view';
 import { BASIS_LABEL } from '@/lib/tracker/view';
+import { displayDays } from '@/lib/tracker/leadtime';
 import { TRACK_STAGE_LABEL } from '@/lib/unipass/stages';
 import { Chip } from '@/components/ui/core';
 import { cn } from '@/lib/cn';
@@ -79,6 +80,8 @@ function EstimateCard({ title, icon, e, doneLabel, untracked }: { title: string;
 export function DistBars({ hist, n, p50, p90, title = '같은 항구·방식 최근 분포(입항 → 수리)' }: { hist: number[]; n: number; p50: number; p90: number; title?: string }) {
   const max = Math.max(1, ...hist);
   const last = hist.length - 1;
+  // 표·예상일과 같은 말 — 보통은 반올림, 늦으면은 올림(3.4일 → 4일)
+  const d = displayDays({ p50, p90 });
   return (
     <figure className="min-w-0">
       <figcaption className="text-xs font-semibold text-muted">
@@ -102,7 +105,7 @@ export function DistBars({ hist, n, p50, p90, title = '같은 항구·방식 최
           </span>
         ))}
       </div>
-      <p className="mt-1 text-2xs text-muted">가로: 영업일 · 보통(중앙값) {p50}일 · 늦으면(90% 지점) {p90}일</p>
+      <p className="mt-1 text-2xs text-muted">가로: 영업일 · 보통(중앙값) {d.usual}일 · 늦으면(90% 지점) {d.late}일</p>
     </figure>
   );
 }

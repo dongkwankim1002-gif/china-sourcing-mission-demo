@@ -20,7 +20,7 @@ export default async function TrackPage({ searchParams }: { searchParams: Promis
       <section className="bg-ink text-on-ink">
         <div className="mx-auto max-w-[1100px] px-4 pb-10 pt-8 md:pt-12">
           <p className="text-xs font-bold text-on-ink-muted">{TRACK_ACTION.lookup} · 로그인 없이 · LCL·FCL·항공 일반 수입</p>
-          <h1 className="display mt-2 max-w-3xl text-[clamp(28px,4.4vw,46px)] leading-[1.1]">
+          <h1 className="display mt-2 max-w-3xl break-keep text-[clamp(28px,4.4vw,46px)] leading-[1.1]">
             지금 어디 있고, <span className="text-label">언제 FC</span>에 들어가나
           </h1>
           <p className="mt-3 max-w-2xl text-md text-on-ink-muted">

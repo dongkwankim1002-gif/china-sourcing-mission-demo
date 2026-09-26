@@ -83,7 +83,7 @@ export function TrackLookup({ thisYear, initial }: { thisYear: number; initial?:
   return (
     <div className="grid gap-6">
       <form
-        className="grid gap-4 rounded-md border border-line bg-surface p-4 md:grid-cols-2 md:items-start lg:grid-cols-[180px_minmax(0,1fr)_120px_150px_auto] lg:items-end"
+        className="grid gap-4 rounded-md border border-line bg-surface p-4 md:grid-cols-2 md:items-start lg:grid-cols-[180px_minmax(0,1fr)_120px_150px_auto] lg:items-start"
         onSubmit={(e) => {
           e.preventDefault();
           void run();
@@ -121,7 +121,7 @@ export function TrackLookup({ thisYear, initial }: { thisYear: number; initial?:
             ))}
           </NativeSelect>
         </Field>
-        <Button type="submit" variant="primary" disabled={busy} className="gap-1.5 md:justify-self-start lg:justify-self-auto">
+        <Button type="submit" variant="primary" disabled={busy} className="gap-1.5 md:justify-self-start lg:mt-[26px] lg:justify-self-auto">
           {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <SearchCheck className="size-4" aria-hidden />}
           {TRACK_ACTION.search}
         </Button>

@@ -41,8 +41,9 @@ export default async function TrackStatsPage() {
         <>
           <Panel>
             <PanelHead title="한눈에" sub="보통 = 중앙값(반올림) · 늦으면 = 90% 지점(올림)" />
+            <p className="px-4 pt-2 text-2xs text-muted md:hidden">표를 옆으로 넘기면 수리 → FC 입고·표본 칸이 더 있습니다.</p>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-sm">
+              <table className="w-full min-w-[560px] whitespace-nowrap text-sm">
                 <thead className="text-left text-xs text-muted">
                   <tr className="border-b border-line-2">
                     <th scope="col" className="px-4 py-2">항구</th>
