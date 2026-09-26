@@ -55,7 +55,10 @@ test('공개 — 통관 시장 지표(이름 없음) · /track 은 성적표 안
   await expect(page.getByRole('heading', { level: 1 })).toContainText('물류사 성적표');
   await expect(page.getByTestId('track-scorecard-guide')).toBeVisible();
   const reg = page.getByRole('link', { name: '내 화물 등록' }).first();
-  await expect(reg).toHaveAttribute('href', /\/login\?next=%2Fapp%2Ftracking/);
+  // 검토 고침 — 로그인한 화주가 로그인 화면을 한 번 더 거치지 않게 곧장(비로그인은 /app/tracking 이 로그인 뒤 돌아오게 보낸다)
+  await expect(reg).toHaveAttribute('href', '/app/tracking');
+  await reg.click();
+  await expect(page).toHaveURL(/\/login\?next=%2Fapp%2Ftracking/);
   await noOverflow(page);
   await page.goto('/brokers');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('관세사 찾기');
@@ -80,11 +83,16 @@ test('화주 — 성적순 업체 찾기 · 업체 화면 성적표 탭 · 비�
   await expect(page.getByRole('tab', { name: '성적표' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('scorecard-detail')).toContainText('입항 → 수리');
   await expect(page.getByTestId('scorecard-ports')).toBeVisible();
+  // 검토 고침 — 성적표 탭에 FC도착 거래 기록(견적 응답 속도 등)을 함께
+  await expect(page.getByTestId('trade-metrics')).toContainText('견적 응답');
   await page.goto('/app/compare?hub=YIW&port=ICN&mode=LCL&ds=40&mg=3000');
   const panel = page.getByTestId('real-cost-panel');
   await expect(panel).toContainText('실질 비용 = 견적가 + 예상 지연 비용');
   await expect(page.locator('#rc-ds')).toHaveValue('40');
   await expect(page.getByTestId('offer-real-cost').first()).toContainText('늦을 때');
+  // 검토 고침 — 실질 비용순
+  await page.goto('/app/compare?hub=YIW&port=ICN&mode=LCL&ds=40&mg=3000&sort=real');
+  await expect(page.getByTestId('compare-sort-now')).toContainText('실질 비용순');
   await close();
 });
 

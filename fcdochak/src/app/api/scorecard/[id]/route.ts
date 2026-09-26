@@ -17,14 +17,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: '업체를 찾지 못했습니다' }, { status: 404 });
   const v = await getViewer();
   const { snaps, named, config } = await snapsForSafe(v);
+  const allowed = named === 'all' || (named === 'own' && !!v?.orgs.some((o) => o.id === id));
+  const headers = { 'Cache-Control': 'private, no-store' };
+  // 볼 수 없는 사람에게는 업체가 있는지도 가르지 않고 잠김만
+  if (!allowed) return NextResponse.json({ locked: true, loggedIn: !!v, minSamples: config.rules.minSamples }, { headers });
   const org = (await asPublic((q) => q.query<{ business_type: string | null; status: string }>(`select business_type, status from fcd.orgs where id = $1 and kind = 'partner' and fcd.partner_listed(id)`, [id])))[0];
-  if (!org) return NextResponse.json({ error: '업체를 찾지 못했습니다' }, { status: 404 });
+  if (!org) return NextResponse.json({ error: '업체를 찾지 못했습니다' }, { status: 404, headers });
   const kind = org.business_type === 'customs_broker' ? 'broker' : 'partner';
   const listed = org.status === 'official' || org.status === 'pending_verification';
   const mine = snaps.filter((s) => s.entity_org_id === id && s.entity_kind === kind);
-  const allowed = named === 'all' || (named === 'own' && !!v?.orgs.some((o) => o.id === id));
-  const headers = { 'Cache-Control': 'private, no-store' };
-  if (!allowed || !listed) return NextResponse.json({ locked: true, loggedIn: !!v, minSamples: config.rules.minSamples, unlisted: !listed }, { headers });
+  if (!listed) return NextResponse.json({ locked: true, loggedIn: !!v, minSamples: config.rules.minSamples, unlisted: true }, { headers });
   const [metrics, quote] = await Promise.all([
     asPublic(async (q) => (await q.query<Record<string, number | null>>('select * from fcd.v_partner_metrics where org_id = $1', [id]))[0] ?? null),
     quoteResponseHours([id]).then((m) => m.get(id) ?? null).catch(() => null),
