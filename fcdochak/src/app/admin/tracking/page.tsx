@@ -52,7 +52,7 @@ export default async function AdminTrackingPage() {
       <Panel className="mb-4">
         <PanelHead title="규칙" sub={<><Link href="/admin/settings" className="underline underline-offset-4">설정(tracker.rules · calendar.kr_holidays)</Link>에서 새 판으로</>} />
         <p className="px-4 py-3 text-sm tnum">
-          캐시 {cfg.rules.cacheMinutes}분 · 한 번에 {cfg.rules.batchLimit}건 · 하루 {num(cfg.rules.dailyCallBudget)}회 · 공개 분당 {cfg.rules.publicPerMinute}회 · 통계 {cfg.rules.windowDays}일 · 표본 기준 {cfg.rules.minSamples}건
+          캐시 {cfg.rules.cacheMinutes}분 · 한 번에 {cfg.rules.batchLimit}건 · 하루 {num(cfg.rules.dailyCallBudget)}회(그중 공개 조회 {cfg.rules.publicDailyBudget != null ? `${num(cfg.rules.publicDailyBudget)}회` : '따로 없음'}) · 공개 분당 {cfg.rules.publicPerMinute}회 · 통계 {cfg.rules.windowDays}일 · 표본 기준 {cfg.rules.minSamples}건
           {' · '}공휴일 목록 {d.cfg.holidays.confirmed ? `확인함(${d.cfg.holidays.checkedOn ?? ''})` : '확인 필요'} · 통계 {s.stats.computed_at ? `${dateTimeKo(s.stats.computed_at)} ${s.stats.rows}줄` : '아직 없음'}
         </p>
       </Panel>
@@ -92,7 +92,7 @@ export default async function AdminTrackingPage() {
             </table>
           </div>
         ) : (
-          <EmptyState title="아직 돈 회차가 없습니다" body="「폴링 한 번 돌리기」를 누르면 알림 켠 번호를 봅니다(꺼짐이면 예시 조직 번호만 흉내로)." />
+          <EmptyState title="아직 돌린 회차가 없습니다" body="「폴링 한 번 돌리기」를 누르면 알림 켠 번호를 봅니다(꺼짐이면 예시 조직 번호만 흉내로)." />
         )}
       </Panel>
     </>

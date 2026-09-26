@@ -373,12 +373,13 @@ export const TRACKER_SETTINGS: { key: string; value: unknown; note: string }[] =
       cacheMinutes: 20,
       batchLimit: 40,
       dailyCallBudget: 500,
+      publicDailyBudget: 150,
       publicPerMinute: 10,
       maxTracksPerOrg: 300,
       assumed: { toClear: { p50: 1, p90: 3 }, toFc: { p50: 2, p90: 4 } },
       example: true,
     },
-    note: '통관 알리미 — 공개·업체 화면 최소 표본 · 통계 기간(일) · 같은 번호 다시 부르지 않는 분 · 폴링 한 번 번호 수 · 하루 관세청 호출 상한(한도 확인 전 스스로 묶음) · 비로그인 분당 조회 · 조직당 번호 수 · 통계가 모자랄 때 가정치(영업일)',
+    note: '통관 알리미 — 공개·업체 화면 최소 표본 · 통계 기간(일) · 같은 번호 다시 부르지 않는 분 · 폴링 한 번 번호 수 · 하루 관세청 호출 상한(한도 확인 전 스스로 묶음) · 그중 비로그인 공개 조회 몫(나머지는 저장한 번호 폴링 몫) · 비로그인 분당 조회 · 조직당 번호 수 · 통계가 모자랄 때 가정치(영업일)',
   },
   {
     key: 'calendar.kr_holidays',
@@ -434,5 +435,6 @@ export const TRACKER_SETTINGS: { key: string; value: unknown; note: string }[] =
     note: '한국 영업일 계산용 공휴일·대체공휴일(2026~2027 첫 판, 확인 필요). 원문과 대조하면 confirmed·checkedOn 을 채워 새 판으로. 해마다 다음 해 목록을 덧붙인다',
   },
   { key: 'tracker.arrival_promise_enabled', value: false, note: '도착일 약속(실측 p90 넘기면 보상) — 보상 재원·보험·약관이 정해지기 전까지 꺼 둔다. 꺼져 있으면 화면에 「준비 중」 한 줄만' },
+  { key: 'tracker.partner_public_enabled', value: false, note: '업체 화면(/p/[slug])에 실제 「실측 통관 소요」 공개 — 업체 동의·답변권·UNI-PASS 약관(가공·공개) 확인 전까지 꺼 둔다. 꺼져 있으면 예시 판만(DEMO_MODE)' },
 ];
 SETTINGS.push(...TRACKER_SETTINGS);

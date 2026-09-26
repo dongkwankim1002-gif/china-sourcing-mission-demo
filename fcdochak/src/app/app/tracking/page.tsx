@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Bell, ChevronRight, Radar } from 'lucide-react';
 import { asUser, todayKst } from '@/lib/db';
 import { requireViewer } from '@/lib/server/viewer';
-import { myTracks } from '@/lib/server/tracker';
+import { lookupReady, myTracks } from '@/lib/server/tracker';
 import { getReference, nameOf } from '@/lib/server/reference';
 import { TrackAddForm } from '@/components/tracker/controls';
 import { DemoChip } from '@/components/badges';
@@ -16,11 +16,16 @@ import { TRACK_ACTION } from '@/lib/terms';
 
 export const metadata = { title: '통관 알림' };
 
-export default async function TrackingPage() {
+const DONE_PAGE = 30;
+
+export default async function TrackingPage({ searchParams }: { searchParams: Promise<{ view?: string; done?: string }> }) {
+  const sp = await searchParams;
+  const unlistedView = sp.view === 'unlisted';
+  const doneShown = Math.max(DONE_PAGE, Math.min(300, (Number.parseInt(sp.done ?? '', 10) || DONE_PAGE)));
   const v = await requireViewer('app');
   const [d, ref] = await Promise.all([
     asUser(v, async (q) => ({
-      tracks: await myTracks(q, v.org.id),
+      tracks: await myTracks(q, v.org.id, true),
       ships: await q.query<{ id: string; shipment_no: string; stage: number; port: string; mode: string }>(
         `select id, shipment_no, stage, port, mode from fcd.shipments where shipper_org_id = $1 and stage < 9 order by created_at desc limit 50`,
         [v.org.id],
@@ -29,8 +34,11 @@ export default async function TrackingPage() {
     getReference(),
   ]);
   const shipments = d.ships.map((s) => ({ id: s.id, label: `${s.shipment_no} · ${nameOf(ref, 'port', s.port)} · ${nameOf(ref, 'mode', s.mode)}` }));
-  const open = d.tracks.filter((t) => stageRank(t.stage) < 7);
-  const done = d.tracks.filter((t) => stageRank(t.stage) >= 7);
+  const listed = d.tracks.filter((t) => !t.archived_at);
+  const unlisted = d.tracks.filter((t) => t.archived_at);
+  const open = listed.filter((t) => stageRank(t.stage) < 7);
+  const done = listed.filter((t) => stageRank(t.stage) >= 7);
+  const ready = lookupReady(v.org.is_demo);
   const Row = ({ t }: { t: (typeof d.tracks)[number] }) => {
     const r = stageRank(t.stage);
     return (
@@ -41,7 +49,7 @@ export default async function TrackingPage() {
               <b className="min-w-0 break-words text-sm">{t.label ?? t.number}</b>
               {t.is_demo ? <DemoChip /> : null}
               {t.watching ? <Chip tone="ink" icon={<Bell aria-hidden />}>알림 켬</Chip> : null}
-              {t.last_error ? <Chip tone="caution">확인 필요</Chip> : null}
+              {t.last_error ? <Chip tone="caution">확인 필요</Chip> : !lookupReady(t.is_demo) && !t.stage ? <Chip tone="neutral">연결 준비 중</Chip> : null}
             </span>
             <span className="mt-0.5 block text-xs text-muted tnum">
               {TRACK_KIND_LABEL[t.kind]} <span className="font-mono">{t.number}</span>
@@ -83,24 +91,55 @@ export default async function TrackingPage() {
         </p>
       ) : null}
       <Panel className="mb-4">
-        <PanelHead title="번호 더하기" sub="개인통관고유부호는 받지 않습니다. 저장하면 바로 한 번 조회하고 알림을 켭니다." />
+        <PanelHead
+          title="번호 더하기"
+          sub={ready ? '개인통관고유부호는 받지 않습니다. 저장하면 바로 한 번 조회하고 알림을 켭니다.' : '개인통관고유부호는 받지 않습니다. 저장하면 알림을 켜 두고, 관세청 조회가 연결되면 조회를 시작합니다.'}
+        />
         <TrackAddForm thisYear={Number(todayKst().slice(0, 4))} shipments={shipments} />
       </Panel>
-      <Panel className="mb-4">
-        <PanelHead title={`진행 중 (${open.length})`} />
-        {open.length ? (
-          <ul className="divide-y divide-line-2" data-testid="tracking-open">{open.map((t) => <Row key={t.id} t={t} />)}</ul>
-        ) : (
-          <EmptyState icon={<Radar aria-hidden />} title="지켜보는 번호가 없습니다" body="위에서 B/L 번호를 넣거나, 공개 통관 조회에서 「내 목록에 저장」을 누르세요." />
-        )}
-      </Panel>
-      {done.length ? (
+      {unlistedView ? (
         <Panel>
-          <PanelHead title={`반출까지 끝남 (${done.length})`} sub="보관 끝내기를 하면 목록에서 빠집니다(기록은 남습니다)." />
-          <ul className="divide-y divide-line-2" data-testid="tracking-done">{done.slice(0, 30).map((t) => <Row key={t.id} t={t} />)}</ul>
-          {done.length > 30 ? <p className="px-4 py-3 text-xs text-muted">나머지 {done.length - 30}건은 가장 최근 30건 뒤에 있습니다.</p> : null}
+          <PanelHead
+            title={`${TRACK_ACTION.showUnlisted} (${unlisted.length})`}
+            sub="목록에서 뺀 번호는 조회·알림이 멈춥니다(기록은 남습니다). 번호를 열어 「다시 지켜보기」를 누르면 목록으로 돌아옵니다."
+            action={<Link href="/app/tracking" className="text-sm font-semibold underline underline-offset-4">목록으로</Link>}
+          />
+          {unlisted.length ? (
+            <ul className="divide-y divide-line-2" data-testid="tracking-unlisted">{unlisted.map((t) => <Row key={t.id} t={t} />)}</ul>
+          ) : (
+            <EmptyState icon={<Radar aria-hidden />} title="목록에서 뺀 번호가 없습니다" body="끝난 번호를 열어 「목록에서 빼기」를 누르면 여기로 옵니다." />
+          )}
         </Panel>
-      ) : null}
+      ) : (
+        <>
+          <Panel className="mb-4">
+            <PanelHead title={`진행 중 (${open.length})`} />
+            {open.length ? (
+              <ul className="divide-y divide-line-2" data-testid="tracking-open">{open.map((t) => <Row key={t.id} t={t} />)}</ul>
+            ) : (
+              <EmptyState icon={<Radar aria-hidden />} title="지켜보는 번호가 없습니다" body="위에서 B/L 번호를 넣거나, 공개 통관 조회에서 「내 목록에 저장」을 누르세요." />
+            )}
+          </Panel>
+          {done.length ? (
+            <Panel className="mb-4">
+              <PanelHead title={`반출까지 끝남 (${done.length})`} sub="끝난 번호는 「목록에서 빼기」를 하면 이 목록에서 빠집니다(기록은 남습니다)." />
+              <ul className="divide-y divide-line-2" data-testid="tracking-done">{done.slice(0, doneShown).map((t) => <Row key={t.id} t={t} />)}</ul>
+              {done.length > doneShown ? (
+                <p className="px-4 py-3 text-sm">
+                  <Link href={`/app/tracking?done=${doneShown + DONE_PAGE}`} scroll={false} className="font-semibold underline underline-offset-4">
+                    더 보기 ({done.length - doneShown}건 남음)
+                  </Link>
+                </p>
+              ) : null}
+            </Panel>
+          ) : null}
+          {unlisted.length ? (
+            <p className="text-sm text-muted">
+              <Link href="/app/tracking?view=unlisted" className="font-semibold text-text underline underline-offset-4">{TRACK_ACTION.showUnlisted} {unlisted.length}건 보기</Link>
+            </p>
+          ) : null}
+        </>
+      )}
     </>
   );
 }

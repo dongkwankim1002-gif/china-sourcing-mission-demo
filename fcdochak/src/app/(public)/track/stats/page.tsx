@@ -63,7 +63,7 @@ export default async function TrackStatsPage() {
                         <td className="px-4 py-2">{nameOf(ref, 'mode', r.mode)}</td>
                         <td className="px-4 py-2 tnum">보통 {c.usual}일 · 늦으면 {c.late}일</td>
                         <td className="px-4 py-2 tnum">{fd ? `보통 ${fd.usual}일 · 늦으면 ${fd.late}일` : <span className="text-muted">표본 부족</span>}</td>
-                        <td className="px-4 py-2 text-right tnum">{r.n}{f ? ` / ${f.n}` : ''}</td>
+                        <td className="px-4 py-2 text-right tnum">통관 {r.n}{f ? ` · FC ${f.n}` : ''}</td>
                       </tr>
                     );
                   })}
@@ -81,7 +81,7 @@ export default async function TrackStatsPage() {
         </>
       ) : (
         <Panel>
-          <EmptyState title="아직 보여 드릴 만큼 모이지 않았습니다" body={`항구·방식마다 표본 ${d.cfg.rules.minSamples}건이 모이면 여기에 분포가 뜹니다. 번호를 조회·저장할수록 빨리 모입니다.`} action={<Link href="/track" className="font-semibold underline underline-offset-4">{TRACK_ACTION.lookup}</Link>} />
+          <EmptyState title="아직 보여 드릴 만큼 모이지 않았습니다" body={`항구·방식마다 표본 ${d.cfg.rules.minSamples}건이 모이면 여기에 분포가 뜹니다. 화주로 번호를 저장하고 선적·물류사와 이을수록 빨리 모입니다(로그인 없이 조회만 한 번호는 셈에 들지 않습니다).`} action={<Link href="/track" className="font-semibold underline underline-offset-4">{TRACK_ACTION.lookup}</Link>} />
         </Panel>
       )}
       <p className="text-xs text-muted">자료: 관세청 UNI-PASS 화물통관진행정보(처리 일시) · FC 입고는 FC도착에서 이은 선적 기록 · 공휴일 목록은 확인 필요 표시가 붙은 첫 판입니다.</p>

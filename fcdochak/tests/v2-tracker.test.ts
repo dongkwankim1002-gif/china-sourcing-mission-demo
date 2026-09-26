@@ -544,6 +544,138 @@ describe('서버 — 조회·저장·폴링·통계(관세청 꺼짐)', () => {
   });
 });
 
+describe('검토 고침', () => {
+  it('보세운송 낱말은 단계로 세지 않는다 · 신고 전 반출은 반출이 아니다(LCL 하선 → CFS 반입 → 보세운송 반출 → 내륙 반입 → 신고 → 수리 → 반출)', () => {
+    expect(normalizeStage('보세운송 신고수리')).toBeNull();
+    expect(normalizeStage('보세운송 반출')).toBeNull();
+    const ev = (raw: string, at: string) => ({ stage: normalizeStage(raw), at });
+    const early = [ev('하선신고 수리', '2026-09-21T01:00:00.000Z'), ev('반입신고', '2026-09-21T03:00:00.000Z'), ev('반출신고', '2026-09-21T05:00:00.000Z'), ev('보세운송 신고수리', '2026-09-21T05:30:00.000Z'), ev('반입신고', '2026-09-21T09:00:00.000Z')];
+    const a = stageTimes(early);
+    expect(a.current).toBe('bonded_in'); // 첫 반출에서 「반출」로 올라가 폴링이 멈추지 않는다
+    expect(a.first.released).toBeUndefined();
+    expect(a.first.cleared).toBeUndefined();
+    const b = stageTimes([...early, ev('수입신고', '2026-09-22T01:00:00.000Z'), ev('수입신고수리', '2026-09-22T05:00:00.000Z'), ev('반출신고', '2026-09-22T08:00:00.000Z')]);
+    expect(b.current).toBe('released');
+    expect(b.first.cleared).toBe('2026-09-22T05:00:00.000Z');
+    expect(b.first.released).toBe('2026-09-22T08:00:00.000Z');
+  });
+  it('하루 상한 나누기 — 공개 조회 몫과 저장한 번호 몫', async () => {
+    const { callBudgets } = await import('@/lib/tracker/settings');
+    expect(callBudgets({ dailyCallBudget: 500, publicDailyBudget: 150 })).toEqual({ total: 500, public: 150, poll: 350 });
+    expect(callBudgets({ dailyCallBudget: 500 })).toEqual({ total: 500, public: 500, poll: 500 });
+    expect(callBudgets({ dailyCallBudget: 100, publicDailyBudget: 300 })).toEqual({ total: 100, public: 100, poll: 0 });
+    expect(RULES.publicDailyBudget).toBeLessThan(RULES.dailyCallBudget);
+  });
+  it('예약 경로 확인 값 — 32자 이상 · 공백 없음 · 서로 다른 글자 16개 이상', async () => {
+    const { env } = await import('@/lib/env');
+    const prev = process.env.CRON_SECRET;
+    try {
+      process.env.CRON_SECRET = 'short-but-16-chars';
+      expect(env.cronSecret).toBeNull();
+      process.env.CRON_SECRET = 'a'.repeat(40);
+      expect(env.cronSecret).toBeNull();
+      process.env.CRON_SECRET = 'test-only-0123456789abcdefghijKLMNOP';
+      expect(env.cronSecret).toBe('test-only-0123456789abcdefghijKLMNOP');
+    } finally {
+      if (prev === undefined) delete process.env.CRON_SECRET;
+      else process.env.CRON_SECRET = prev;
+    }
+  });
+  it('켜짐이어도 예시 조직 번호는 흉내(관세청에 보내지 않는다) · 흉내 양륙항은 번호의 항구를 따른다', async () => {
+    const { adapterFor, loadTrackerConfig } = await import('@/lib/server/tracker');
+    const cfg = await db.transaction((q) => loadTrackerConfig(q));
+    const prev = process.env.UNIPASS_ENABLED;
+    try {
+      process.env.UNIPASS_ENABLED = 'on';
+      expect(adapterFor(cfg, { isDemo: true }).kind).toBe('mock');
+      expect(adapterFor(cfg, { isDemo: false }).kind).toBe('http');
+    } finally {
+      if (prev === undefined) delete process.env.UNIPASS_ENABLED;
+      else process.env.UNIPASS_ENABLED = prev;
+    }
+    for (const [port, code] of [['PTK', 'KRPTK'], ['ICN', 'KRINC']] as const) {
+      for (const n of ['EXHBL-PORT-1', 'EXHBL-PORT-2', 'EXHBL-PORT-3']) {
+        const r = await adapterFor(cfg, { isDemo: true, port }).lookup({ kind: 'hbl', number: n, year: 2026 });
+        if (r.status === 'found') expect(r.summary.portCode).toBe(code);
+      }
+    }
+  });
+  it('넣기 — 서버 칸 port_raw·cargo_no 는 사용자가 채우지 못한다', async () => {
+    await expect(
+      asRole(db, 'fcd_user', ids.shipper, true, (q) => q.query(`insert into fcd.cargo_tracks (org_id, created_by, kind, number, bl_year, port_raw) values ($1,$2,'hbl','EXRLS-PR-1',2026,'KRINC')`, [shipperOrg, ids.shipper])),
+    ).rejects.toThrow();
+    await expect(
+      asRole(db, 'fcd_user', ids.shipper, true, (q) => q.query(`insert into fcd.cargo_tracks (org_id, created_by, kind, number, bl_year, cargo_no) values ($1,$2,'hbl','EXRLS-CN-1',2026,'26EXMP0001')`, [shipperOrg, ids.shipper])),
+    ).rejects.toThrow();
+  });
+  it('같은 날 입항분 — 방식 없이 부르면 빈 결과(방식별 수를 빼서 숨긴 수를 알아내지 못하게)', async () => {
+    const top = (await db.query<{ port: string; mode: string; d: string; n: number }>(
+      `select port, mode, arrival_on::text d, count(*)::int n from fcd.cargo_tracks where port is not null and mode is not null and arrival_on is not null and archived_at is null
+        group by 1, 2, 3 order by 4 desc limit 1`,
+    ))[0];
+    expect(top).toBeTruthy();
+    const none = await asRole(db, 'fcd_public', null, true, (q) => q.query(`select * from fcd.track_same_day($1, null, $2::date)`, [top.port, top.d]));
+    expect(none).toEqual([]);
+    const withMode = await asRole(db, 'fcd_public', null, true, (q) => q.query(`select * from fcd.track_same_day($1, $2, $3::date)`, [top.port, top.mode, top.d]));
+    expect(withMode.length).toBe(top.n >= RULES.minSamples ? 1 : 0);
+  });
+  it('목록에서 뺀 번호를 다시 저장하면 목록에 되돌리고 알림을 켠다', async () => {
+    const { saveTrack } = await import('@/lib/server/tracker');
+    const v = { id: ids.shipper } as never;
+    const q = { kind: 'hbl' as const, number: 'EXHBL-ARCH-01', year: 2026 };
+    const r = await saveTrack(v, shipperOrg, { query: q, label: null, mode: 'LCL', shipmentId: null });
+    if (!r.ok) throw new Error(r.error);
+    await asRole(db, 'fcd_user', ids.shipper, true, async (tx) => {
+      await tx.query(`update fcd.cargo_tracks set archived_at = now() where id = $1`, [r.id]);
+      await tx.query(`insert into fcd.track_watches (track_id, org_id, user_id, enabled) values ($1,$2,$3,false)`, [r.id, shipperOrg, ids.shipper]);
+    });
+    const again = await saveTrack(v, shipperOrg, { query: q, label: null, mode: null, shipmentId: null });
+    expect(again).toMatchObject({ ok: true, id: r.id, already: true, restored: true });
+    const t = await db.query<{ archived_at: string | null; w: boolean }>(
+      `select t.archived_at, (select enabled from fcd.v_track_watch_current w where w.track_id = t.id and w.user_id = $2) w from fcd.cargo_tracks t where t.id = $1`,
+      [r.id, ids.shipper],
+    );
+    expect(t[0]).toEqual({ archived_at: null, w: true });
+  });
+  it('단계 알림 — 여러 단계를 건너면 한 건에 모아 적고(수리 포함), 화면 알림을 끈 사람·누른 사람은 뺀다', async () => {
+    const { notifyTrackChange } = await import('@/lib/server/tracker');
+    const t = (await db.query<{ id: string; org_id: string; number: string }>(`select id, org_id, number from fcd.cargo_tracks where org_id = $1 and archived_at is null order by created_at limit 1`, [shipperOrg]))[0];
+    await db.query(`insert into fcd.track_watches (track_id, org_id, user_id, enabled) values ($1,$2,$3,true)`, [t.id, t.org_id, ids.shipper]);
+    const core = { ...t, is_demo: true };
+    const n1 = await db.transaction((q) => notifyTrackChange(q, core, { from: 'bonded_in', to: 'released' }));
+    expect(n1).toBeGreaterThanOrEqual(1);
+    const last = await db.query<{ title: string; body: string }>(`select title, body from fcd.notifications where user_id = $1 and link = $2 order by created_at desc limit 1`, [ids.shipper, `/app/tracking/${t.id}`]);
+    expect(last[0].title).toContain('반출');
+    expect(last[0].body).toContain('수리');
+    expect(await db.transaction((q) => notifyTrackChange(q, core, { from: 'bonded_in', to: 'released' }, ids.shipper))).toBe(n1 - 1);
+    await db.query(`insert into fcd.notification_prefs (user_id, kind, in_app) values ($1, 'status', false) on conflict (user_id, kind) do update set in_app = false`, [ids.shipper]);
+    expect(await db.transaction((q) => notifyTrackChange(q, core, { from: 'bonded_in', to: 'released' }))).toBe(n1 - 1);
+    await db.query(`update fcd.notification_prefs set in_app = true where user_id = $1 and kind = 'status'`, [ids.shipper]); // 시험 DB 되돌림(메모리)
+    expect(await db.transaction((q) => notifyTrackChange(q, core, { from: 'declared', to: 'domestic' }))).toBeGreaterThanOrEqual(1);
+    expect(await db.transaction((q) => notifyTrackChange(q, core, { from: 'released', to: 'fc' }))).toBe(0); // 알림 단계를 건너지 않음
+  });
+  it('통계 표본 — 같은 화물은 한 번만 · 선적 없이 고른 물류사는 업체별 판에 넣지 않는다', async () => {
+    const { leadSamples } = await import('@/lib/tracker/store');
+    const partner = (await db.query<{ id: string }>(`select id from fcd.orgs where is_demo and kind = 'partner' order by name limit 1`))[0].id;
+    const before = await db.transaction((q) => leadSamples(q, true));
+    const mine = (xs: typeof before) => xs.filter((x) => x.partner === partner).length;
+    for (const [kind, number] of [['mbl', 'EXMBL-DUP-0001'], ['hbl', 'EXHBL-DUP-0001']] as const) {
+      const t = (await db.query<{ id: string }>(
+        `insert into fcd.cargo_tracks (org_id, kind, number, bl_year, mode, port, partner_org_id, cargo_no) values ($1,$2,$3,2026,'LCL','ICN',$4,'26EXDUP000001') returning id`,
+        [shipperOrg, kind, number, partner],
+      ))[0].id;
+      for (const [stage, raw, at] of [['arrival', '입항보고 수리', '2026-09-21T01:00:00Z'], ['cleared', '수입신고수리', '2026-09-22T05:00:00Z']]) {
+        await db.query(`insert into fcd.cargo_track_events (track_id, org_id, stage, raw_type, occurred_at, source, fingerprint) values ($1,$2,$3,$4,$5::timestamptz,'mock',$4 || '@' || $5)`, [t, shipperOrg, stage, raw, at]);
+      }
+    }
+    const after = await db.transaction((q) => leadSamples(q, true));
+    expect(after.length).toBe(before.length + 1);
+    expect(mine(after)).toBe(mine(before));
+    const added = after.filter((x) => x.cleared === '2026-09-22' && x.arrival === '2026-09-21' && x.port === 'ICN' && x.mode === 'LCL' && x.partner === null);
+    expect(added.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
 describe('데모 걷어내기 — 새 표도 함께', () => {
   it('DEMO_TABLES 에 네 표가 있고, 걷어내면 데모 건수가 0', async () => {
     const names = ['cargo_tracks', 'cargo_track_events', 'track_watches', 'lead_time_stats'];

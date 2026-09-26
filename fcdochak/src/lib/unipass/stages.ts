@@ -30,7 +30,10 @@ export const TRACK_STAGE_ZH: Record<TrackStage, string> = {
   fc: 'FC入库',
 };
 
-const RULES: [RegExp, TrackStage][] = [
+const RULES: [RegExp, TrackStage | null][] = [
+  // 보세운송(신고·수리·반출·반입)은 통관이 아니라 보세구역 사이 옮기기 — 단계로 세지 않고 원문만 보인다(LCL 이 CFS → 내륙 창고로 옮길 때,
+  // 「보세운송 신고수리」가 수리로, 첫 반출이 반출로 잡히지 않게). 처리구분 낱말 목록 원문은 확인 필요.
+  [/보세운송/, null],
   [/하선|하기/, 'unloading'],
   [/반입/, 'bonded_in'],
   [/반출/, 'released'],
@@ -60,12 +63,15 @@ export interface StageTimes {
 /**
  * 기록 → 단계별 첫 시각과 지금 단계. 뒤 단계가 있으면 앞 단계가 빠져 있어도 지난 것으로 본다(관세청 기록이 모든 단계를 남기지 않을 수 있다).
  * 선적에서 온 국내 운송·FC 입고(extra)도 함께 접는다.
+ * 단, 「반출」은 수입신고나 수리 **뒤에** 온 것만 반출로 센다 — 신고 전 반출은 보세구역 사이 옮기기(보세운송 등)일 수 있다(확인 필요).
+ * 그래야 LCL 의 하선 → 반입(CFS) → 반출(보세운송) → 반입(내륙 창고) → 수입신고 → 수리 → 반출 에서 첫 반출로 폴링이 멈추지 않는다.
  */
 export function stageTimes(events: readonly { stage: TrackStage | null; at: string }[]): StageTimes {
   const first: Partial<Record<TrackStage, string>> = {};
   let top = 0;
   for (const e of [...events].sort((a, b) => a.at.localeCompare(b.at))) {
     if (!e.stage) continue;
+    if (e.stage === 'released' && !first.declared && !first.cleared) continue;
     if (!first[e.stage]) first[e.stage] = e.at;
     top = Math.max(top, stageRank(e.stage));
   }

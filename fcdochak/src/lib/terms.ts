@@ -359,4 +359,8 @@ export const TRACK_ACTION = {
   stats: '항구별 통관 소요 보기',
   poll: '폴링 한 번 돌리기',
   recompute: '통계 다시 셈',
+  // 검토 고침 — 「보관」은 창고 보관으로 읽히므로 목록 말로(archive 는 옛 이름으로 남겨 둔다)
+  unlist: '목록에서 빼기',
+  restore: '다시 지켜보기',
+  showUnlisted: '목록에서 뺀 번호',
 } as const;

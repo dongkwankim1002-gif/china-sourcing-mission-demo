@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { asUser } from '@/lib/db';
 import { requireViewer } from '@/lib/server/viewer';
-import { loadTrackerConfig, trackById, trackView } from '@/lib/server/tracker';
+import { loadTrackerConfig, lookupReady, trackById, trackView } from '@/lib/server/tracker';
 import { getReference, nameOf } from '@/lib/server/reference';
 import { DetailHead } from '@/components/activity';
 import { TrackResultView } from '@/components/tracker/result';
@@ -43,9 +43,15 @@ export default async function TrackDetailPage({ params }: { params: Promise<{ id
       <DetailHead
         eyebrow={<Link href="/app/tracking" className="hover:underline">통관 알림</Link>}
         title={t.label ?? t.number}
-        chips={<>{t.is_demo ? <DemoChip /> : null}{t.last_error ? <Chip tone="caution">{t.last_error}</Chip> : null}</>}
+        chips={
+          <>
+            {t.is_demo ? <DemoChip /> : null}
+            {t.archived_at ? <Chip tone="neutral">목록에서 뺀 번호 — 조회·알림 멈춤</Chip> : null}
+            {t.last_error ? <Chip tone="caution">{t.last_error}</Chip> : !lookupReady(t.is_demo) ? <Chip tone="neutral">연결 준비 중 — 관세청 조회가 연결되면 시작합니다</Chip> : null}
+          </>
+        }
         sub={`${TRACK_KIND_LABEL[t.kind]} ${t.number}${t.bl_year ? ` · ${t.bl_year}` : ''} · 마지막 조회 ${t.last_checked_at ? dateTimeKo(t.last_checked_at) : '아직 없음'}`}
-        actions={<TrackControls id={t.id} watching={t.watching} />}
+        actions={<TrackControls id={t.id} watching={t.watching} archived={!!t.archived_at} />}
       />
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <div className="min-w-0">

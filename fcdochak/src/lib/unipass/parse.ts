@@ -84,8 +84,8 @@ export function parseEvent(b: string): CargoEvent | null {
   const rawType = clip(xmlScalar(b, 'cargTrcnRelaBsopTpcd'), 60);
   const at = unipassDateTime(xmlScalar(b, 'prcsDttm'));
   if (!rawType || !at) return null;
-  const parts = [clip(xmlScalar(b, 'shedNm'), 60), clip(xmlScalar(b, 'rlbrCn'), 56)].filter(Boolean) as string[];
-  return { rawType, at, summary: parts.length ? clip(parts.join(' · '), 120) : null };
+  // 요약은 장치장명 앞 60자만(기획 6절). 반출입내용(rlbrCn)은 상호·사람 이름이 섞이는지 원문을 확인하기 전까지 저장하지 않는다(확인 필요)
+  return { rawType, at, summary: clip(xmlScalar(b, 'shedNm'), 60) };
 }
 
 /** 응답 전체 → 조회 결과. tCnt = -1 이면 UnipassError(안내 문구만, 번호 없음) */

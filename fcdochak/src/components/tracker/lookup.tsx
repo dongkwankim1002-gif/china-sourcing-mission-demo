@@ -23,9 +23,12 @@ export function TrackLookup({ thisYear, initial }: { thisYear: number; initial?:
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState<{ text: string; field?: string; personal?: boolean } | null>(null);
   const [res, setRes] = React.useState<LookupActionResult['data'] | null>(null);
-  const [saved, setSaved] = React.useState<{ id: string; already: boolean } | null>(null);
+  const [saved, setSaved] = React.useState<{ id: string; already: boolean; restored: boolean } | null>(null);
   const [saveErr, setSaveErr] = React.useState<string | null>(null);
+  // 마지막으로 조회에 성공한 번호 — 「내 목록에 저장」은 칸에 지금 있는 값이 아니라 이것을 저장한다
+  const [looked, setLooked] = React.useState<{ kind: string; number: string; year: string | null; mode: string | null } | null>(null);
   const bl = kind !== 'cargo_no';
+  const autoRan = React.useRef(false);
 
   async function run(over?: { kind: string; number: string }) {
     const k = over?.kind ?? kind;
@@ -42,11 +45,16 @@ export function TrackLookup({ thisYear, initial }: { thisYear: number; initial?:
     }
     setBusy(true);
     try {
-      const r = await lookupTrack({ kind: k, number: n, year: k === 'cargo_no' ? null : year, mode: mode || null });
+      const q = { kind: k, number: n, year: k === 'cargo_no' ? null : year, mode: mode || null };
+      const r = await lookupTrack(q);
       if (!r.ok) {
         setErr({ text: r.error ?? '조회하지 못했습니다', field: r.field, personal: r.personal });
         setRes(null);
-      } else setRes(r.data!);
+        setLooked(null);
+      } else {
+        setRes(r.data!);
+        setLooked(q);
+      }
     } finally {
       setBusy(false);
     }
@@ -54,15 +62,28 @@ export function TrackLookup({ thisYear, initial }: { thisYear: number; initial?:
 
   async function save() {
     setSaveErr(null);
-    const r = await saveTrackAction({ kind, number, year: bl ? year : null, mode: mode || null });
-    if (r.ok) setSaved({ id: r.id!, already: !!r.already });
+    if (!looked) return;
+    const r = await saveTrackAction(looked);
+    if (r.ok) setSaved({ id: r.id!, already: !!r.already, restored: !!r.restored });
     else setSaveErr(r.error ?? '저장하지 못했습니다');
   }
+
+  // 로그인하고 돌아왔을 때(주소에 번호가 있으면) 한 번 조회해 결과를 다시 보인다
+  React.useEffect(() => {
+    if (autoRan.current || !initial?.number) return;
+    autoRan.current = true;
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loginNext = looked
+    ? `/track?${new URLSearchParams({ kind: looked.kind, no: looked.number, ...(looked.year ? { year: looked.year } : {}) }).toString()}`
+    : '/track';
 
   return (
     <div className="grid gap-6">
       <form
-        className="grid gap-4 rounded-md border border-line bg-surface p-4 md:grid-cols-[180px_1fr_120px_150px_auto] md:items-end"
+        className="grid gap-4 rounded-md border border-line bg-surface p-4 md:grid-cols-2 md:items-start lg:grid-cols-[180px_minmax(0,1fr)_120px_150px_auto] lg:items-end"
         onSubmit={(e) => {
           e.preventDefault();
           void run();
@@ -76,7 +97,7 @@ export function TrackLookup({ thisYear, initial }: { thisYear: number; initial?:
             ))}
           </NativeSelect>
         </Field>
-        <Field label={TRACK_KIND_LABEL[kind as keyof typeof TRACK_KIND_LABEL] ?? '번호'} htmlFor="trk-number" error={err && err.field !== 'year' ? err.text : undefined} hint="영문·숫자·하이픈. 개인통관고유부호는 넣지 마세요.">
+        <Field label={TRACK_KIND_LABEL[kind as keyof typeof TRACK_KIND_LABEL] ?? '번호'} htmlFor="trk-number" error={err && err.field !== 'year' && !err.personal ? err.text : undefined} hint="영문·숫자·하이픈. 개인통관고유부호는 넣지 마세요.">
           <Input
             id="trk-number"
             name="number"
@@ -100,7 +121,7 @@ export function TrackLookup({ thisYear, initial }: { thisYear: number; initial?:
             ))}
           </NativeSelect>
         </Field>
-        <Button type="submit" variant="primary" disabled={busy} className="gap-1.5">
+        <Button type="submit" variant="primary" disabled={busy} className="gap-1.5 md:justify-self-start lg:justify-self-auto">
           {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <SearchCheck className="size-4" aria-hidden />}
           {TRACK_ACTION.search}
         </Button>
@@ -142,19 +163,26 @@ export function TrackLookup({ thisYear, initial }: { thisYear: number; initial?:
             <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-2 p-4 text-sm">
               {saved ? (
                 <p data-testid="track-saved">
-                  {saved.already ? '이미 저장한 번호입니다.' : '저장했습니다 — 단계가 바뀌면 알림 센터에 알려 드립니다.'}{' '}
+                  {saved.restored ? '전에 목록에서 뺀 번호입니다 — 목록에 되돌리고 알림을 다시 켰습니다.' : saved.already ? '이미 저장한 번호입니다.' : res.saveLooksUp ? '저장했습니다 — 단계가 바뀌면 알림 센터에 알려 드립니다.' : '저장했습니다 — 관세청 조회가 연결되면 조회를 시작하고, 단계가 바뀌면 알림 센터에 알려 드립니다.'}{' '}
                   <Link href={`/app/tracking/${saved.id}`} className="font-semibold underline underline-offset-4">내 통관 목록에서 보기</Link>
                 </p>
               ) : res.canSave ? (
                 <>
-                  <Button type="button" variant="primary" onClick={() => void save()}>{TRACK_ACTION.save}</Button>
-                  <span className="text-muted">저장하면 알림(화면 안)·FC도착 선적과 잇기·물류사별 실측이 됩니다.</span>
+                  <Button type="button" variant="primary" onClick={() => void save()} disabled={!looked}>{TRACK_ACTION.save}</Button>
+                  <span className="min-w-0 text-muted">
+                    {looked ? <><span className="font-mono">{looked.number}</span> 을(를) 저장합니다. </> : null}
+                    {res.saveLooksUp
+                      ? '저장하면 알림(화면 안)·FC도착 선적과 잇기·물류사별 실측이 됩니다.'
+                      : '연결되면 조회를 시작합니다 — 지금 보신 단계는 예시입니다. 저장해 두면 알림을 켜 둡니다.'}
+                  </span>
                   {saveErr ? <span role="alert" className="text-stamp">{saveErr}</span> : null}
                 </>
+              ) : res.loggedIn ? (
+                <span className="text-muted">번호 저장·알림은 화주 계정에서만 됩니다. 이 결과는 저장하지 않았습니다.</span>
               ) : (
                 <span className="text-muted">
                   로그인하지 않아 이 결과는 저장하지 않았습니다.{' '}
-                  <Link href="/login?next=/track" className="font-semibold text-text underline underline-offset-4">화주로 로그인</Link>하면 번호를 저장하고 단계가 바뀔 때 알림을 받습니다.
+                  <Link href={`/login?next=${encodeURIComponent(loginNext)}`} className="font-semibold text-text underline underline-offset-4">화주로 로그인</Link>하면 번호를 저장하고 단계가 바뀔 때 알림을 받습니다.
                 </span>
               )}
             </div>

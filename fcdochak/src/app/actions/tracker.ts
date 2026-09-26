@@ -9,7 +9,7 @@ import { revalidatePath } from 'next/cache';
 import { asPublic, asUser, todayKst } from '@/lib/db';
 import { allow, clientIp } from '@/lib/server/rate-limit';
 import { getViewer, requireViewer } from '@/lib/server/viewer';
-import { loadTrackerConfig, pollOnce, publicLookup, recomputeStats, refreshTrack, saveTrack, trackById, type PollSummary } from '@/lib/server/tracker';
+import { loadTrackerConfig, lookupReady, pollOnce, publicLookup, recomputeStats, refreshTrack, saveTrack, trackById, type PollSummary } from '@/lib/server/tracker';
 import { asSystem } from '@/lib/db';
 import { validateTrackInput } from '@/lib/unipass/validate';
 import { UnipassError, type CargoSummary } from '@/lib/unipass/types';
@@ -37,6 +37,10 @@ export interface LookupActionResult {
     mock: boolean;
     /** 화주로 로그인했으면 저장 버튼 */
     canSave: boolean;
+    /** 로그인했는가(화주가 아니면 「화주 계정에서만 저장」) */
+    loggedIn: boolean;
+    /** 저장하면 바로 조회되는가 — 꺼짐이고 실제 조직이면 false(「연결되면 조회를 시작합니다」) */
+    saveLooksUp: boolean;
   };
 }
 
@@ -66,6 +70,11 @@ export async function lookupTrack(input: TrackFormInput): Promise<LookupActionRe
         mode,
         mock: out.mock,
         canSave: !!viewer?.orgs.some((o) => o.kind === 'shipper'),
+        loggedIn: !!viewer,
+        saveLooksUp: (() => {
+          const org = viewer ? (viewer.org.kind === 'shipper' ? viewer.org : viewer.orgs.find((o) => o.kind === 'shipper')) : null;
+          return org ? lookupReady(org.is_demo) : false;
+        })(),
       },
     };
   } catch (e) {
@@ -78,6 +87,8 @@ interface R {
   error?: string;
   id?: string;
   already?: boolean;
+  /** 전에 목록에서 뺀 번호를 되돌렸다 */
+  restored?: boolean;
   field?: 'number' | 'year' | 'kind';
   personal?: boolean;
 }
@@ -97,7 +108,8 @@ export async function saveTrackAction(input: TrackFormInput & { label?: string |
   const r = await saveTrack(viewer, org.id, { query: v.query, label, mode, shipmentId });
   if (!r.ok) return { ok: false, error: r.error };
   revalidatePath('/app/tracking');
-  return { ok: true, id: r.id, already: r.already };
+  revalidatePath(`/app/tracking/${r.id}`);
+  return { ok: true, id: r.id, already: r.already, restored: r.restored };
 }
 
 async function mine(id: string) {
@@ -147,11 +159,29 @@ export async function linkTrack(id: string, input: { label?: string | null; mode
   return { ok: true };
 }
 
+/** 목록에서 빼기 — 기록은 남고 폴링·알림이 멈춘다(내 알림도 끈 줄 하나를 쌓는다) */
 export async function archiveTrack(id: string): Promise<R> {
   const m = await mine(id);
   if (!m) return { ok: false, error: '번호를 찾지 못했습니다.' };
-  await asUser(m.v, (q) => q.query(`update fcd.cargo_tracks set archived_at = now() where id = $1`, [id]));
+  await asUser(m.v, async (q) => {
+    await q.query(`update fcd.cargo_tracks set archived_at = now() where id = $1`, [id]);
+    await q.query(`insert into fcd.track_watches (track_id, org_id, user_id, enabled) values ($1,$2,$3,false)`, [id, m.t.org_id, m.v.id]);
+  });
   revalidatePath('/app/tracking');
+  revalidatePath(`/app/tracking/${id}`);
+  return { ok: true };
+}
+
+/** 다시 지켜보기 — 목록에서 뺀 번호를 되돌리고 내 알림을 켠다 */
+export async function restoreTrack(id: string): Promise<R> {
+  const m = await mine(id);
+  if (!m) return { ok: false, error: '번호를 찾지 못했습니다.' };
+  await asUser(m.v, async (q) => {
+    await q.query(`update fcd.cargo_tracks set archived_at = null where id = $1`, [id]);
+    await q.query(`insert into fcd.track_watches (track_id, org_id, user_id, enabled) values ($1,$2,$3,true)`, [id, m.t.org_id, m.v.id]);
+  });
+  revalidatePath('/app/tracking');
+  revalidatePath(`/app/tracking/${id}`);
   return { ok: true };
 }
 

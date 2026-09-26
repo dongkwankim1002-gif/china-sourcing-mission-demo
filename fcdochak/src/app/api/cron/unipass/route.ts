@@ -12,6 +12,8 @@ import { env } from '@/lib/env';
 import { pollOnce, recomputeIfStale } from '@/lib/server/tracker';
 
 export const dynamic = 'force-dynamic';
+// 한 회차 시간 한도(pollOnce POLL_TIME_LIMIT_MS 45초) + 통계 새 판이 들어가게. 플랫폼 한도는 요금제마다 다르다(확인 필요)
+export const maxDuration = 60;
 
 function same(a: string, b: string) {
   const x = Buffer.from(a);

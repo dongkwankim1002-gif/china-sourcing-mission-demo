@@ -8,26 +8,51 @@ import type { Queryable } from '../db/driver';
 import { kstYmd } from './calendar';
 import { computeLeadTimeStats, type LeadSample } from './leadtime';
 import type { TrackerConfig } from './settings';
+import { stageTimes } from '../unipass/stages';
+import type { TrackStage } from '../unipass/types';
 
+/**
+ * 번호의 「쓰는 항구」 — 번호의 항구(관세청 양륙항에서 온 값), 관세청이 우리가 모르는 항구를 말했으면 없음, 조회 전이면 이은 선적의 항구.
+ * t = cargo_tracks, s = 이은 shipments 로 부른다.
+ */
+export const EFFECTIVE_PORT_SQL = `(case when t.port is not null then t.port when t.port_raw is not null then null else s.port end)`;
+
+/**
+ * 번호마다 실측 표본 하나. 고른 규칙(검토 고침):
+ *   · 같은 화물은 한 번만 — 관세청 화물관리번호(cargo_no, 조회 뒤 서버가 채움), 없으면 (종류·번호·연도)로 묶고 선적과 이은 줄을 앞세운다.
+ *     한 조직이 M B/L·H B/L 로 따로 저장하거나 여러 조직이 같은 번호를 저장해도 표본이 부풀지 않게.
+ *   · 물류사·관세사 귀속은 FC도착 선적과 이은 번호만 — 선적의 물류사(화주가 고른 칸이 아니라 실제 거래), 관세사는 그 선적에 이은 번호에서만.
+ *     선적 없이 화주가 고른 물류사·관세사는 업체별 판에 넣지 않는다(남의 B/L 로 경쟁 업체 실측을 흔들지 못하게). 항구·방식 판에는 들어간다.
+ *   · 단계 첫 시각은 화면과 같은 stageTimes(신고 전 반출은 반출로 세지 않는다).
+ */
 export async function leadSamples(q: Queryable, demo: boolean): Promise<LeadSample[]> {
-  const rows = await q.query<{ partner: string | null; broker: string | null; port: string | null; mode: string | null; arrival: string | null; cleared: string | null; fc: string | null }>(
-    `select coalesce(t.partner_org_id, s.partner_org_id) partner, t.broker_org_id broker, coalesce(t.port, s.port) port, coalesce(t.mode, s.mode) mode,
-            (select min(e.occurred_at) from fcd.cargo_track_events e where e.track_id = t.id and e.stage in ('arrival', 'unloading') and ($1::boolean or e.source = 'unipass')) arrival,
-            (select min(e.occurred_at) from fcd.cargo_track_events e where e.track_id = t.id and e.stage in ('cleared', 'released') and ($1::boolean or e.source = 'unipass')) cleared,
+  const rows = await q.query<{ partner: string | null; broker: string | null; port: string | null; mode: string | null; evs: { stage: TrackStage | null; at: string }[] | null; fc: string | null }>(
+    `select distinct on (coalesce(t.cargo_no, t.kind || ':' || t.number || ':' || coalesce(t.bl_year::text, '')))
+            s.partner_org_id partner, case when s.id is not null then t.broker_org_id end broker,
+            ${EFFECTIVE_PORT_SQL} port, coalesce(s.mode, t.mode) mode,
+            (select json_agg(json_build_object('stage', e.stage, 'at', e.occurred_at)) from fcd.cargo_track_events e
+              where e.track_id = t.id and e.stage is not null and ($1::boolean or e.source = 'unipass')) evs,
             coalesce((select min(se.occurred_at) from fcd.shipment_events se where se.shipment_id = s.id and se.stage = 9), s.delivered_at) fc
        from fcd.cargo_tracks t join fcd.orgs o on o.id = t.org_id left join fcd.shipments s on s.id = t.shipment_id
-      where o.is_demo = $1::boolean`,
+      where o.is_demo = $1::boolean
+      order by coalesce(t.cargo_no, t.kind || ':' || t.number || ':' || coalesce(t.bl_year::text, '')), (s.id is null), t.created_at, t.id`,
     [demo],
   );
-  return rows.map((r) => ({
-    partner: r.partner,
-    broker: r.broker,
-    port: r.port,
-    mode: r.mode,
-    arrival: r.arrival ? kstYmd(r.arrival) : null,
-    cleared: r.cleared ? kstYmd(r.cleared) : null,
-    fc: r.fc ? kstYmd(r.fc) : null,
-  }));
+  return rows.map((r) => {
+    const evs = (typeof r.evs === 'string' ? (JSON.parse(r.evs) as typeof r.evs) : r.evs) ?? [];
+    const st = stageTimes(evs.map((e) => ({ stage: e.stage, at: new Date(e.at).toISOString() })));
+    const arrival = st.first.arrival ?? st.first.unloading ?? null;
+    const cleared = st.first.cleared ?? st.first.released ?? null;
+    return {
+      partner: r.partner,
+      broker: r.broker,
+      port: r.port,
+      mode: r.mode,
+      arrival: arrival ? kstYmd(arrival) : null,
+      cleared: cleared ? kstYmd(cleared) : null,
+      fc: r.fc ? kstYmd(r.fc) : null,
+    };
+  });
 }
 
 export async function recomputeLeadTimeStats(q: Queryable, cfg: Pick<TrackerConfig, 'calendar' | 'rules'>, today: string): Promise<{ batchId: string; rows: number }> {

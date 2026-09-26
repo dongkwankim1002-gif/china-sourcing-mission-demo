@@ -77,10 +77,10 @@ export const env = {
     const v = process.env.UNIPASS_API_KEY?.trim();
     return v ? v : null;
   },
-  /** 예약 작업(/api/cron/*) 호출 확인 값 — 16자 미만이면 없는 것으로 본다(예약 경로가 닫힌다) */
+  /** 예약 작업(/api/cron/*) 호출 확인 값 — 무작위 32자 이상(공백 없음 · 서로 다른 글자 16개 이상, WING 암호화 키와 같은 규칙)이 아니면 없는 것으로 본다(예약 경로가 닫힌다) */
   get cronSecret() {
     const v = process.env.CRON_SECRET?.trim();
-    return v && v.length >= 16 ? v : null;
+    return v && v.length >= 32 && !/\s/.test(v) && new Set(v).size >= 16 ? v : null;
   },
   get usingSupabaseAuth() {
     return !!(this.supabaseUrl && this.supabaseAnonKey && this.supabaseServiceKey);

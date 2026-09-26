@@ -13,7 +13,7 @@ export function PartnerLeadTime({ rows, portName, modeName }: { rows: PublicStat
     <Panel data-testid="partner-lead-time">
       <PanelHead
         title={`실측 통관 소요(표본 ${clear.reduce((t, r) => t + r.n, 0)}건)`}
-        sub={<>셀러가 넣은 B/L 의 관세청 단계 시각으로 셈합니다 — 입항 → 수리, 한국 영업일 · <Link href="/track/stats" className="underline underline-offset-4">항구별 분포</Link></>}
+        sub={<>FC도착에서 이 업체와 거래한 선적에 이은 B/L 의 관세청 단계 시각으로 셈합니다(같은 화물은 한 번만) — 입항 → 수리, 한국 영업일 · <Link href="/track/stats" className="underline underline-offset-4">항구별 분포</Link></>}
       />
       <ul className="divide-y divide-line-2">
         {clear.map((r) => {

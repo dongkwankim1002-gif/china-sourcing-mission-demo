@@ -1,9 +1,9 @@
 'use client';
-/** 화주 통관 목록의 입력들 — 번호 더하기 · 알림 켜고 끄기 · 지금 다시 조회 · 보관 끝내기 · 선적/업체 잇기. 운영 버튼 둘 */
+/** 화주 통관 목록의 입력들 — 번호 더하기 · 알림 켜고 끄기 · 지금 다시 조회 · 목록에서 빼기/다시 지켜보기 · 선적/업체 잇기. 운영 버튼 둘 */
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, BellOff, Loader2, RefreshCw } from 'lucide-react';
-import { adminPoll, adminRecompute, archiveTrack, linkTrack, refreshTrackAction, saveTrackAction, setTrackWatch } from '@/app/actions/tracker';
+import { adminPoll, adminRecompute, archiveTrack, linkTrack, refreshTrackAction, restoreTrack, saveTrackAction, setTrackWatch } from '@/app/actions/tracker';
 import { Button, Field, Input, NativeSelect } from '@/components/ui/core';
 import { TRACK_KIND_LABEL, validateTrackInput } from '@/lib/unipass/validate';
 import { TRACK_ACTION } from '@/lib/terms';
@@ -72,7 +72,7 @@ export function TrackAddForm({ thisYear, shipments }: { thisYear: number; shipme
           {shipments.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </NativeSelect>
       </Field>
-      <Field label="방식" htmlFor="add-mode">
+      <Field label="방식" htmlFor="add-mode" hint={shipment ? '선적을 이으면 선적의 방식을 따릅니다' : undefined}>
         <NativeSelect id="add-mode" value={mode} onChange={(e) => setMode(e.target.value)} disabled={!!shipment}>
           {MODES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </NativeSelect>
@@ -85,7 +85,7 @@ export function TrackAddForm({ thisYear, shipments }: { thisYear: number; shipme
   );
 }
 
-export function TrackControls({ id, watching }: { id: string; watching: boolean }) {
+export function TrackControls({ id, watching, archived = false }: { id: string; watching: boolean; archived?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<string | null>(null);
@@ -100,6 +100,17 @@ export function TrackControls({ id, watching }: { id: string; watching: boolean 
       router.refresh();
     }
   };
+  if (archived) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="primary" disabled={!!busy} onClick={() => act('u', () => restoreTrack(id))}>
+          {busy === 'u' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Bell className="size-4" aria-hidden />}
+          {TRACK_ACTION.restore}
+        </Button>
+        {msg ? <span role="alert" className="text-sm text-stamp">{msg}</span> : null}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button type="button" variant={watching ? 'secondary' : 'primary'} disabled={!!busy} onClick={() => act('w', () => setTrackWatch(id, !watching))} aria-pressed={watching}>
@@ -111,7 +122,7 @@ export function TrackControls({ id, watching }: { id: string; watching: boolean 
         {TRACK_ACTION.refresh}
       </Button>
       <Button type="button" variant="ghost" disabled={!!busy} onClick={() => act('a', () => archiveTrack(id), () => router.push('/app/tracking'))}>
-        {TRACK_ACTION.archive}
+        {TRACK_ACTION.unlist}
       </Button>
       {msg ? <span role="alert" className="text-sm text-stamp">{msg}</span> : null}
     </div>

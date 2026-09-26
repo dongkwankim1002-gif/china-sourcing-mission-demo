@@ -9,6 +9,8 @@ import { holidaySet, type HolidaySet } from './calendar';
 export const TRACKER_RULES_KEY = 'tracker.rules';
 export const HOLIDAYS_KEY = 'calendar.kr_holidays';
 export const PROMISE_SWITCH_KEY = 'tracker.arrival_promise_enabled';
+/** 업체 화면(/p/[slug])에 실제 「실측 통관 소요」를 싣는가 — 꺼짐이면 예시 판만(업체 동의·답변권·약관이 정해지기 전) */
+export const PARTNER_PUBLIC_KEY = 'tracker.partner_public_enabled';
 
 const days = z.object({ p50: z.number().min(0).max(60), p90: z.number().min(0).max(90) }).refine((d) => d.p90 >= d.p50, '늦으면(p90)은 보통(p50)보다 작을 수 없습니다');
 
@@ -23,6 +25,8 @@ export const TrackerRulesSchema = z.object({
   batchLimit: z.number().int().min(1).max(500),
   /** 하루 관세청 호출 상한(호출 한도 확인 전 스스로 묶는 값) */
   dailyCallBudget: z.number().int().min(1).max(100_000),
+  /** 하루 호출 상한 중 공개(비로그인) 조회 몫 — 나머지는 저장한 번호 폴링 몫. 없으면 공개 조회 몫을 따로 두지 않는다(전체 상한만) */
+  publicDailyBudget: z.number().int().min(0).max(100_000).optional(),
   /** 비로그인 조회 IP 당 분당 횟수 */
   publicPerMinute: z.number().int().min(1).max(600),
   /** 한 조직이 저장할 수 있는 번호 수 */
@@ -58,12 +62,14 @@ export const TRACKER_SETTING_SCHEMAS: Record<string, z.ZodTypeAny> = {
   [TRACKER_RULES_KEY]: TrackerRulesSchema,
   [HOLIDAYS_KEY]: HolidaysSchema,
   [PROMISE_SWITCH_KEY]: z.boolean(),
+  [PARTNER_PUBLIC_KEY]: z.boolean(),
 };
 
 export const TRACKER_SETTING_LABEL: Record<string, string> = {
   [TRACKER_RULES_KEY]: '통관 알리미 — 표본 기준·기간·캐시·폴링 묶음·하루 호출 상한·가정치',
   [HOLIDAYS_KEY]: '한국 공휴일·대체공휴일 달력(영업일 계산) — 원문 확인 후 새 판으로',
   [PROMISE_SWITCH_KEY]: '도착일 약속 스위치(꺼짐 = 「준비 중」 한 줄만, 보상 없음)',
+  [PARTNER_PUBLIC_KEY]: '업체 화면 실측 통관 소요 공개 스위치(꺼짐 = 예시 판만 — 업체 동의·답변권·약관 확인 뒤 켬)',
 };
 
 export interface TrackerConfig {
@@ -71,6 +77,14 @@ export interface TrackerConfig {
   holidays: Holidays;
   calendar: HolidaySet;
   promiseOn: boolean;
+  /** 업체 화면에 실제 실측을 싣는가(꺼짐 기본) */
+  partnerPublicOn: boolean;
+}
+
+/** 하루 상한 나누기 — 공개 조회 몫과 저장한 번호(폴링·저장·다시 조회) 몫 */
+export function callBudgets(r: Pick<TrackerRules, 'dailyCallBudget' | 'publicDailyBudget'>): { total: number; public: number; poll: number } {
+  const pub = Math.min(r.publicDailyBudget ?? r.dailyCallBudget, r.dailyCallBudget);
+  return { total: r.dailyCallBudget, public: pub, poll: r.dailyCallBudget - (r.publicDailyBudget != null ? pub : 0) };
 }
 
 export function readTrackerConfig(m: Map<string, unknown>): TrackerConfig {
@@ -78,5 +92,5 @@ export function readTrackerConfig(m: Map<string, unknown>): TrackerConfig {
   if (!r.success) throw new Error('설정 tracker.rules 가 없거나 모양이 틀립니다. 참조 시드를 올려 주세요.');
   const h = HolidaysSchema.safeParse(m.get(HOLIDAYS_KEY));
   if (!h.success) throw new Error('설정 calendar.kr_holidays 가 없거나 모양이 틀립니다. 참조 시드를 올려 주세요.');
-  return { rules: r.data, holidays: h.data, calendar: holidaySet(h.data.days), promiseOn: m.get(PROMISE_SWITCH_KEY) === true };
+  return { rules: r.data, holidays: h.data, calendar: holidaySet(h.data.days), promiseOn: m.get(PROMISE_SWITCH_KEY) === true, partnerPublicOn: m.get(PARTNER_PUBLIC_KEY) === true };
 }
