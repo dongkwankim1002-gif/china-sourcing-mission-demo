@@ -379,7 +379,7 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
         const status = isCurrent && shape === 'withdrawn' ? 'withdrawn' : 'active';
         const md = MODES.find((m) => m.code === lane.mode)!;
         const transit: [number, number] = [md.days_min + rng.int(0, 1), md.days_max + rng.int(0, 2)];
-        const createdAt = shape === 'fresh' && isCurrent ? Math.min(now - rng.int(1, 5) * HOUR, now) : from - rng.int(1, 3) * DAY + rng.int(9, 18) * HOUR;
+        const createdAt = shape === 'fresh' && isCurrent ? Math.max(Math.min(now - rng.int(1, 5) * HOUR, now), Math.floor(now / DAY) * DAY) /* 자정 직후에도 「오늘」 갱신분이 남게(UTC) */ : from - rng.int(1, 3) * DAY + rng.int(9, 18) * HOUR;
         cards.push({ id, partner: p, hub: lane.hub, port: lane.port, mode: lane.mode, from, to, lines, tiers, transit, status, current: isCurrent, certainty });
         T.cards.add(
           id, p.id, cardNo, vi + 1, prevId, lane.hub, lane.port, lane.mode, ymd((from - todayUtc) / DAY), ymd((to - todayUtc) / DAY),
