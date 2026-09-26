@@ -121,3 +121,8 @@ Object.assign(V2_SETTING_LABEL, {
 import { ONESTOP_SETTING_LABEL, ONESTOP_SETTING_SCHEMAS } from './onestop/settings';
 Object.assign(V2_SETTING_SCHEMAS, ONESTOP_SETTING_SCHEMAS);
 Object.assign(V2_SETTING_LABEL, ONESTOP_SETTING_LABEL);
+
+// v2 5차 tracker — 통관·입고 알리미 설정도 어드민 설정 화면에서 새 판으로
+import { TRACKER_SETTING_LABEL, TRACKER_SETTING_SCHEMAS } from './tracker/settings';
+Object.assign(V2_SETTING_SCHEMAS, TRACKER_SETTING_SCHEMAS);
+Object.assign(V2_SETTING_LABEL, TRACKER_SETTING_LABEL);

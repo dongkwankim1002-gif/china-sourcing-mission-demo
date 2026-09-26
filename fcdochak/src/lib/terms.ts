@@ -345,3 +345,18 @@ export const ONESTOP_LINE_LABEL: Record<'freight' | 'remote_fc' | 'handling' | '
   inspection: '검품',
   purchase_fee: '사입 대행 수수료',
 };
+
+// v2 5차 tracker — 통관·입고 알리미. 공개 조회·화주 목록·운영 화면·e2e 가 같은 말을 쓴다
+export const TRACK_ACTION = {
+  lookup: '통관 조회',
+  search: '조회하기',
+  save: '내 목록에 저장',
+  watchOn: '알림 켜기',
+  watchOff: '알림 끄기',
+  link: '이대로 잇기',
+  refresh: '지금 다시 조회',
+  archive: '보관 끝내기',
+  stats: '항구별 통관 소요 보기',
+  poll: '폴링 한 번 돌리기',
+  recompute: '통계 다시 셈',
+} as const;

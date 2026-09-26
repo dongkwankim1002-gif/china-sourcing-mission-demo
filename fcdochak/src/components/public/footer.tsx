@@ -26,6 +26,7 @@ export function PublicFooter() {
             <li><Link className="hover:text-on-ink" href="/join/partner">물류사 입점 신청</Link></li>
             <li><Link className="hover:text-on-ink" href="/family/sourcing">패밀리 사이트 · 소싱처 찾기</Link></li>
             <li><Link className="hover:text-on-ink" href="/onestop">원스톱 · 맡기기(미리보기)</Link></li>
+            <li><Link className="hover:text-on-ink" href="/track">통관 조회 · 입고 알림</Link></li>
           </ul>
         </nav>
         <nav aria-label="규정">

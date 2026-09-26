@@ -9,6 +9,8 @@ import { CancelOrderButton } from '@/components/onestop/actions';
 import { dateKo } from '@/lib/format';
 import { canCancelAsShipper } from '@/lib/onestop/settings';
 import { ONESTOP_ACTION } from '@/lib/terms';
+import { trackForShipment } from '@/lib/server/tracker'; // v2 5차 tracker — 이은 선적의 관세청 실측
+import { TrackCustomsLine } from '@/components/tracker/customs-line';
 
 export const metadata = { title: '원스톱 주문' };
 
@@ -19,7 +21,8 @@ export default async function OnestopOrderDetail({ params }: { params: Promise<{
   const d = await asUser(v, async (q) => {
     const o = await orderByRoot(q, id);
     if (!o || o.org_id !== v.org.id) return null;
-    return { o, config: await loadOnestopConfig(q), events: await orderEvents(q, o.root), versions: await orderVersions(q, o.root), names: await orderNames(q, o) };
+    const customs = o.shipment_id ? await trackForShipment(q, o.shipment_id) : null;
+    return { o, config: await loadOnestopConfig(q), events: await orderEvents(q, o.root), versions: await orderVersions(q, o.root), names: await orderNames(q, o), customs };
   });
   if (!d) notFound();
   const { o } = d;
@@ -43,6 +46,7 @@ export default async function OnestopOrderDetail({ params }: { params: Promise<{
         {canCancelAsShipper(o.shown) ? <CancelOrderButton orderId={o.root} /> : null}
       </div>
       <OnestopNotice on={d.config.on} />
+      {d.customs ? <TrackCustomsLine t={d.customs} href={`/app/tracking/${d.customs.id}`} /> : null}
       <OrderBody o={o} events={d.events} versions={d.versions} area="app" {...d.names} />
     </>
   );

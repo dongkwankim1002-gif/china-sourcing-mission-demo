@@ -31,7 +31,7 @@ for (const mode of modes) {
   const base = Number(process.env.SMOKE_PORT_BASE || 3201);
   const port = mode === 'on' ? base : base + 1;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `fcd-smoke-${mode}-`));
-  const env = { DEMO_MODE: mode, PGLITE_SEED_DEMO: mode, PGLITE_DIR: dir, DEMO_PASSWORD: process.env.DEMO_PASSWORD || 'smoke-demo-password1', SESSION_SECRET: 'smoke-only-session-secret-0123456789abcdef', DATABASE_URL: '', WING_KEY_ENCRYPTION_KEY: 'smoke-only-wing-kek-0123456789abcdefghij', WING_ENABLED: '' };
+  const env = { DEMO_MODE: mode, PGLITE_SEED_DEMO: mode, PGLITE_DIR: dir, DEMO_PASSWORD: process.env.DEMO_PASSWORD || 'smoke-demo-password1', SESSION_SECRET: 'smoke-only-session-secret-0123456789abcdef', DATABASE_URL: '', WING_KEY_ENCRYPTION_KEY: 'smoke-only-wing-kek-0123456789abcdefghij', WING_ENABLED: '', UNIPASS_ENABLED: '', CRON_SECRET: '' };
   const admin = { ADMIN_EMAIL: 'smoke-admin@smoke.test', ADMIN_PASSWORD: 'SmokeAdmin12345', ADMIN_NAME: '시험운영자' };
   console.log(`\n■ DEMO_MODE=${mode}`);
   run('npx', ['next', 'build'], { ...env, PGLITE_DIR: '' });

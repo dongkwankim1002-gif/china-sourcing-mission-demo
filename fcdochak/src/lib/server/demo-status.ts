@@ -63,6 +63,11 @@ export const DEMO_TABLES: { table: string; sql: string }[] = [
   // v2 4차 onestop
   { table: 'onestop_orders', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.onestop_orders x join fcd.orgs o on o.id = x.org_id` },
   { table: 'onestop_order_events', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.onestop_order_events x join fcd.orgs o on o.id = x.org_id` },
+  // v2 5차 tracker
+  { table: 'cargo_tracks', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.cargo_tracks x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'cargo_track_events', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.cargo_track_events x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'track_watches', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.track_watches x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'lead_time_stats', sql: `select count(*) filter (where x.demo_org_id is not null)::int demo, count(*) filter (where x.demo_org_id is null)::int real from fcd.lead_time_stats x` },
 ];
 
 export async function demoCounts(q: Queryable) {
