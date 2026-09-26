@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { asPublic } from '@/lib/db';
 import { getReference, nameOf } from '@/lib/server/reference';
-import { loadScorecardConfig, publicSnaps } from '@/lib/server/scorecard';
+import { loadScorecardConfig, publicSnaps, SCORECARD_FALLBACK } from '@/lib/server/scorecard';
 import { daysLine, sourceLine } from '@/lib/scorecard/engine';
 import { TrendFigure } from '@/components/scorecard/parts';
 import { DistBars } from '@/components/tracker/result';
@@ -25,7 +25,14 @@ const days = (d: { p50: number; p90: number } | null) => {
 };
 
 export default async function MarketCustomsPage() {
-  const [d, ref] = await Promise.all([asPublic(async (q) => ({ cfg: await loadScorecardConfig(q), rows: await publicSnaps(q) })), getReference()]);
+  // 설정·보기를 읽지 못해도 화면은 뜬다(빈 지표 · 검토 고침)
+  const [d, ref] = await Promise.all([
+    asPublic(async (q) => ({ cfg: await loadScorecardConfig(q), rows: await publicSnaps(q) })).catch((e: Error) => {
+      console.error(`[scorecard] 시장 지표를 읽지 못했습니다: ${e.message}`);
+      return { cfg: SCORECARD_FALLBACK, rows: [] as Awaited<ReturnType<typeof publicSnaps>> };
+    }),
+    getReference(),
+  ]);
   const overall = d.rows.filter((r) => r.entity_kind === 'overall');
   const all = overall.find((r) => r.port == null && r.mode == null) ?? null;
   const ord = (list: { code: string }[], c: string | null) => list.findIndex((x) => x.code === c);
@@ -125,8 +132,19 @@ export default async function MarketCustomsPage() {
           <p><b>셀러라면</b> — 내 B/L 을 등록하면 통관 알림을 받고, 그 화물이 성적표에 보태집니다. <Link href="/app/tracking" className="font-semibold underline underline-offset-4">내 화물 등록</Link></p>
           <p><b>물류사라면</b> — 화물번호를 제출하면 표본이 늘고, 제출률이 기준을 넘으면 「실측 인증」이 붙습니다. <Link href="/partner/scorecard" className="font-semibold underline underline-offset-4">화물번호 제출</Link></p>
         </div>
+        <section id="method" aria-labelledby="method-h" className="scroll-mt-20 rounded-md border border-line bg-surface p-4 text-sm">
+          <h2 id="method-h" className="font-bold">계산 방법</h2>
+          <ul className="mt-2 grid list-disc gap-1 pl-5 text-muted">
+            <li>숫자는 모두 관세청 처리 일시입니다 — 번호를 알려 준 곳(셀러 등록 · 물류사 제출 · FC도착 선적)은 출처로만 따로 셉니다. 같은 화물은 한 번.</li>
+            <li>입항 → 수입신고 수리를 한국 영업일로 잽니다. 「보통」 = 중앙값, 「늦으면」 = 90% 지점, 「늦는 폭」 = 둘의 차이. 최근 {d.cfg.rules.windowDays}일 수리분.</li>
+            <li>표본 {d.cfg.rules.minSamples}건 미만인 칸은 숨깁니다. 입항 → 수리 {d.cfg.rules.outlierDays}영업일을 넘는 화물은 이상치로 따로 세고 분위수에서 뺍니다.</li>
+            <li>업체 귀속은 플랫폼 선적 &gt; 셀러 등록 &gt; 물류사 제출. 물류사가 혼자 낸 번호만 있는 업체는 성적순 정렬에 오르지 않습니다.</li>
+            <li>「실측 인증」 = 표본·등록 {d.cfg.rules.certifiedMinSamples}건 이상 + 제출률 {Math.round(d.cfg.rules.certifiedSubmissionBp / 100)}% 이상(계산 때마다 저절로). 돈·광고로 순서나 인증을 바꾸지 않습니다.</li>
+            <li>업체 이름이 붙은 성적은 입점한 업체만, 로그인한 화주에게만 보입니다. 업체는 이의를 낼 수 있고, 받아들이면 그 화물을 빼고 다시 셉니다.</li>
+          </ul>
+        </section>
         <p className="text-2xs text-muted">
-          자료: 관세청 UNI-PASS 화물통관진행정보(처리 일시) · FC 입고는 FC도착에서 이은 선적 기록 · 관세청은 업체별 전체 통관 통계를 공개하지 않습니다(확인 필요) — 그래서 모은 번호로만 셉니다. 계산 방법은 <Link href="/faq" className="underline underline-offset-4">자주 묻는 질문</Link>과 기획서에 공개합니다.
+          자료: 관세청 UNI-PASS 화물통관진행정보(처리 일시) · FC 입고는 FC도착에서 이은 선적 기록 · 관세청은 업체별 전체 통관 통계를 공개하지 않습니다(확인 필요) — 그래서 모은 번호로만 셉니다. 계산 방법은 위와 <Link href="/faq" className="underline underline-offset-4">자주 묻는 질문</Link>에 공개합니다.
         </p>
       </div>
     </>

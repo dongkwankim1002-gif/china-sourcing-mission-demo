@@ -15,7 +15,7 @@ export interface Opt {
 
 const MODES: [string, string][] = [['', '모름'], ['LCL', 'LCL 혼적'], ['FCL', 'FCL 컨테이너'], ['FERRY', '카페리'], ['AIR', '항공']];
 
-export function TrackAddForm({ thisYear, shipments }: { thisYear: number; shipments: Opt[] }) {
+export function TrackAddForm({ thisYear, shipments, partners = [], brokers = [] }: { thisYear: number; shipments: Opt[]; partners?: Opt[]; brokers?: Opt[] }) {
   const router = useRouter();
   const [kind, setKind] = React.useState('hbl');
   const [number, setNumber] = React.useState('');
@@ -23,12 +23,15 @@ export function TrackAddForm({ thisYear, shipments }: { thisYear: number; shipme
   const [label, setLabel] = React.useState('');
   const [shipment, setShipment] = React.useState('');
   const [mode, setMode] = React.useState('');
+  // v2 6차 scorecard — 고른 물류사·관세사의 성적표에 이 화물이 들어간다(선적을 이으면 선적의 물류사를 따른다)
+  const [partner, setPartner] = React.useState('');
+  const [broker, setBroker] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState<{ text: string; field?: string } | null>(null);
   const bl = kind !== 'cargo_no';
   return (
     <form
-      className="grid gap-3 p-4 md:grid-cols-[150px_1fr_100px] lg:grid-cols-[150px_1fr_100px_1fr_1fr_120px_auto] lg:items-end"
+      className="grid gap-3 p-4 md:grid-cols-[150px_1fr_100px] lg:grid-cols-[150px_1fr_100px_1fr_1fr_120px] lg:items-end"
       aria-label="번호 더하기"
       onSubmit={async (e) => {
         e.preventDefault();
@@ -41,12 +44,22 @@ export function TrackAddForm({ thisYear, shipments }: { thisYear: number; shipme
         }
         setBusy(true);
         const r = await saveTrackAction({ kind, number, year: bl ? year : null, label, shipmentId: shipment || null, mode: mode || null });
-        setBusy(false);
         if (!r.ok) {
+          setBusy(false);
           setErr({ text: r.error ?? '저장하지 못했습니다', field: r.field });
           if (r.personal) setNumber('');
           return;
         }
+        if (r.id && !shipment && (partner || broker)) {
+          const l = await linkTrack(r.id, { label: label || null, mode: mode || null, shipmentId: null, partnerId: partner || null, brokerId: broker || null });
+          if (!l.ok) {
+            setBusy(false);
+            setErr({ text: `저장했지만 업체를 잇지 못했습니다 — 번호 화면에서 다시 이어 주세요(${l.error ?? ''})` });
+            router.push(`/app/tracking/${r.id}`);
+            return;
+          }
+        }
+        setBusy(false);
         setNumber('');
         setLabel('');
         router.push(`/app/tracking/${r.id}`);
@@ -77,10 +90,24 @@ export function TrackAddForm({ thisYear, shipments }: { thisYear: number; shipme
           {MODES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </NativeSelect>
       </Field>
-      <Button type="submit" variant="primary" disabled={busy}>
-        {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-        {TRACK_ACTION.save}
-      </Button>
+      <Field label="맡긴 물류사(선택)" htmlFor="add-partner" hint={shipment ? '선적의 물류사를 따릅니다' : '고르면 그 업체 성적표에 보탭니다'}>
+        <NativeSelect id="add-partner" value={shipment ? '' : partner} onChange={(e) => setPartner(e.target.value)} disabled={!!shipment}>
+          <option value="">고르지 않음</option>
+          {partners.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </NativeSelect>
+      </Field>
+      <Field label="관세사(선택)" htmlFor="add-broker">
+        <NativeSelect id="add-broker" value={shipment ? '' : broker} onChange={(e) => setBroker(e.target.value)} disabled={!!shipment}>
+          <option value="">고르지 않음</option>
+          {brokers.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </NativeSelect>
+      </Field>
+      <div className="flex items-end md:col-span-3 lg:col-span-4">
+        <Button type="submit" variant="primary" disabled={busy}>
+          {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+          {TRACK_ACTION.save}
+        </Button>
+      </div>
     </form>
   );
 }

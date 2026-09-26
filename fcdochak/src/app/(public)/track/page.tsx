@@ -43,7 +43,7 @@ export default async function TrackPage({ searchParams }: { searchParams: Promis
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
             <Button asChild variant="primary">
-              <Link href={`/login?next=${encodeURIComponent('/app/tracking')}`}>{SCORECARD_ACTION.register}</Link>
+              <Link href="/app/tracking">{SCORECARD_ACTION.register}</Link>
             </Button>
             <Button asChild variant="onInk">
               <Link href="/partners?sort=fast">{SCORECARD_ACTION.title} 보기</Link>
@@ -84,7 +84,7 @@ export default async function TrackPage({ searchParams }: { searchParams: Promis
           <div className="rounded-md border border-line bg-surface p-4">
             <p className="text-xs font-semibold text-muted">셀러라면</p>
             <p className="mt-1 text-sm">B/L 을 등록하고 물류사·관세사를 고르면(또는 FC도착 선적과 이으면) 그 업체 성적에 들어갑니다.</p>
-            <Link href={`/login?next=${encodeURIComponent('/app/tracking')}`} className="mt-2 inline-block text-sm font-semibold underline underline-offset-4">{SCORECARD_ACTION.register}</Link>
+            <Link href="/app/tracking" className="mt-2 inline-block text-sm font-semibold underline underline-offset-4">{SCORECARD_ACTION.register}</Link>
           </div>
           <div className="rounded-md border border-line bg-surface p-4">
             <p className="text-xs font-semibold text-muted">물류사라면 · 物流商</p>

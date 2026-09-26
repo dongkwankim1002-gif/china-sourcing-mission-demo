@@ -231,12 +231,22 @@ export default async function Home() {
             <p className="text-xs font-bold text-muted">업체가 직접 올린 로고만 싣습니다</p>
             <h2 id="partners" className="display mt-1 text-[clamp(26px,3.4vw,40px)] leading-tight">공식 등록 업체</h2>
           </div>
-          <Button asChild variant="secondary" size="sm">
-            <Link href="/partners">
-              업체 찾기 <ArrowRight aria-hidden />
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {/* v2 6차 scorecard — 성적으로 고르기 · 이름 없는 시장 지표 */}
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/partners?sort=fast">물류사 성적표</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/market/customs">통관 시장 지표</Link>
+            </Button>
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/partners">
+                업체 찾기 <ArrowRight aria-hidden />
+              </Link>
+            </Button>
+          </div>
         </div>
+        <p className="mt-2 text-sm text-muted">견적가만 보지 마세요 — 관세청 단계 기록으로 잰 업체별 통관 실측(보통·늦으면·검사 비율·제출률)과 FC도착 거래 기록으로 고릅니다.</p>
         {official.length ? (
           <ul className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             {[...logos, ...lettered].map((p) => (

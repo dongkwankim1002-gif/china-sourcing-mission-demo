@@ -65,6 +65,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
       { href: '/app/settings', label: '설정', icon: Settings },
       { href: '/app/sourcing', label: '소싱처 찾기(미리보기)', icon: PackageSearch }, // v2 3차 sourcing
       { href: '/app/tracking', label: '통관 알림', icon: Radar }, // v2 5차 tracker
+      { href: '/partners?sort=fast', label: '물류사 성적표', icon: Award }, // v2 6차 scorecard — 성적으로 물류사 고르기
     ];
   if (area === 'partner') {
     const zh = locale === 'zh';

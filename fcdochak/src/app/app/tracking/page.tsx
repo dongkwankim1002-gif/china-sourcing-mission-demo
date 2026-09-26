@@ -22,13 +22,17 @@ export default async function TrackingPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const unlistedView = sp.view === 'unlisted';
   const doneShown = Math.max(DONE_PAGE, Math.min(300, (Number.parseInt(sp.done ?? '', 10) || DONE_PAGE)));
-  const v = await requireViewer('app');
+  const v = await requireViewer('app', '/app/tracking'); // 비로그인이면 로그인 뒤 이 화면으로(공개 「내 화물 등록」 단추가 곧바로 여기로 온다)
   const [d, ref] = await Promise.all([
     asUser(v, async (q) => ({
       tracks: await myTracks(q, v.org.id, true),
       ships: await q.query<{ id: string; shipment_no: string; stage: number; port: string; mode: string }>(
         `select id, shipment_no, stage, port, mode from fcd.shipments where shipper_org_id = $1 and stage < 9 order by created_at desc limit 50`,
         [v.org.id],
+      ),
+      // v2 6차 scorecard — 등록 때 바로 물류사·관세사를 고르게(고른 업체의 성적표에 보탠다)
+      partners: await q.query<{ id: string; name: string; business_type: string | null }>(
+        `select id, name, business_type from fcd.orgs where kind = 'partner' and status in ('public_info', 'pending_verification', 'official') order by name limit 200`,
       ),
     })),
     getReference(),
@@ -100,7 +104,12 @@ export default async function TrackingPage({ searchParams }: { searchParams: Pro
           title="내 화물 등록 → 성적표에 보탬"
           sub={ready ? '개인통관고유부호는 받지 않습니다. 저장하면 바로 한 번 조회하고 알림을 켭니다.' : '개인통관고유부호는 받지 않습니다. 저장하면 알림을 켜 두고, 관세청 조회가 연결되면 조회를 시작합니다.'}
         />
-        <TrackAddForm thisYear={Number(todayKst().slice(0, 4))} shipments={shipments} />
+        <TrackAddForm
+          thisYear={Number(todayKst().slice(0, 4))}
+          shipments={shipments}
+          partners={d.partners.filter((p) => p.business_type !== 'customs_broker').map((p) => ({ id: p.id, label: p.name }))}
+          brokers={d.partners.filter((p) => p.business_type === 'customs_broker').map((p) => ({ id: p.id, label: p.name }))}
+        />
       </Panel>
       {unlistedView ? (
         <Panel>
