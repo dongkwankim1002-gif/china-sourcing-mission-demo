@@ -107,7 +107,7 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
                   <PartnerStatusChip status={p.status} />
                   {p.related_party_note ? <RelatedChip note={p.related_party_note} /> : null}
                 </div>
-                {p.status === 'official' || p.status === 'pending_verification' ? (
+                {p.status === 'official' || p.status === 'pending_verification' || snapOf(p) ? (
                   canSee(p) ? <ScoreChips s={snapOf(p)} minSamples={minN} compact /> : <LockedScore plain next="/partners" />
                 ) : null}
                 <p className="text-xs text-muted">
