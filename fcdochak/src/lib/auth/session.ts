@@ -4,6 +4,7 @@ import 'server-only';
  * 비밀값은 SESSION_SECRET 환경변수에만. 없으면(로컬) 프로세스마다 임시 비밀을 만든다.
  */
 import { cookies } from 'next/headers';
+import { embedCookieOptions } from '@/lib/embed';
 import { SignJWT, jwtVerify } from 'jose';
 import { randomBytes } from 'node:crypto';
 import { env } from '../env';
@@ -36,8 +37,7 @@ export async function createSession(userId: string) {
   const jar = await cookies();
   jar.set(COOKIE, token, {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production' && env.siteUrl.startsWith('https'),
+    ...embedCookieOptions(process.env.NODE_ENV === 'production' && env.siteUrl.startsWith('https')),
     path: '/',
     maxAge: MAX_AGE,
   });
@@ -45,8 +45,10 @@ export async function createSession(userId: string) {
 
 export async function destroySession() {
   const jar = await cookies();
-  jar.delete(COOKIE);
-  jar.delete('fcd_org');
+  // 끼워 보기 쿠키는 Partitioned 라 같은 속성으로 지워야 한다
+  const o = { path: '/', ...embedCookieOptions(process.env.NODE_ENV === 'production' && env.siteUrl.startsWith('https')) };
+  jar.set(COOKIE, '', { ...o, maxAge: 0 });
+  jar.set('fcd_org', '', { ...o, httpOnly: true, maxAge: 0 });
 }
 
 export async function readSession(): Promise<{ userId: string } | null> {

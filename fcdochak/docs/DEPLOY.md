@@ -24,7 +24,7 @@
 
 ## v2 미리보기 (fcdochak-v2 가지)
 
-- 주소 **https://fcdochak-v2.vercel.app** — `fcdochak-v2` 가지에 push 할 때마다 미리보기 배포. **Vercel 로그인이 있어야 열린다**(미리보기 배포 보호).
+- 주소 **https://fcdochak-v2-live.vercel.app** — 공개 비교용 프로젝트 `fcdochak-v2-public` 이 `fcdochak-v2` 가지에 push 할 때마다 배포한다. **로그인 없이 열린다**(아래 「버전 비교실」). 옛 주소 `fcdochak-v2.vercel.app` 은 기존 프로젝트에 남은 로그인 필요 주소로, 더는 갱신되지 않는다.
 - **임시 DB**: Supabase 연결값은 Production 에만 있어 v2 미리보기는 PGlite(프로세스 안 Postgres)로 뜬다. 스키마·참조 첫 판·데모를 뜰 때마다 새로 세우므로, 화면에서 넣은 자료는 인스턴스가 바뀌면 사라진다. v2 의 새 표(0006~0012)는 운영 DB 에 들어가지 않는다.
 - **`PREVIEW_BANNER=v2`**(v2 미리보기 환경에만): 모든 화면 맨 위에 「v2 미리보기 — 운영 아님 · 임시 자료라 바뀌거나 사라질 수 있습니다」. 공개 화면은 빌드 때 그려지므로 값을 바꾸면 다시 배포한다. 운영에는 이 값을 넣지 않는다.
 - v2 시범 스위치(`v2.*`)는 참조 시드에서 모두 꺼짐. 켜도 계약·결제·보장·발송은 없다(`docs/V2.md`).
@@ -37,6 +37,18 @@
   - 연동 IP(`wing.egress_ips`)를 채우려면 FC도착의 나가는 호출이 고정 IP 로 나가야 한다. Vercel 에는 프로젝트별 「Static IPs」 설정이 있다(출처: https://vercel.com/docs/rest-api/networking/configures-static-ips-for-a-project) — 요금제·지역·비용은 **확인 필요**. 고정 IP 프록시·작은 서버와 견줘 어디서·얼마는 사람이 정할 일(`docs/V2.md`). 이 작업에서 Vercel 설정은 건드리지 않았다.
 - 로컬에서 같은 모양 보기: `PREVIEW_BANNER=v2 npm run build && PREVIEW_BANNER=v2 npm start` (DATABASE_URL 없이 → PGlite). 캡처는 `node scripts/shots-all.mjs http://localhost:3000`.
 - v2 를 운영으로 옮길지는 사람이 정한다. 옮길 때는 `fcdochak-v2` → `fcdochak` PR, 운영 DB 에는 빌드 앞단 `vercel:prepare` 가 0006~0012 를 덧붙인다(지우거나 덮지 않음) — 먼저 Supabase 백업.
+
+## 버전 비교실 — https://fcdochak.vercel.app/lab
+
+운영·v2·v3… 를 **한 주소에서** 나란히 띄워 비교한다(검색 제외). 판 목록은 `src/lib/lab-versions.ts`(또는 운영 환경변수 `LAB_VERSIONS` JSON).
+
+| 판 | 주소 | Vercel 프로젝트 | DB |
+|---|---|---|---|
+| 운영 | https://fcdochak.vercel.app | `fcdochak`(Production Branch `fcdochak`) | Supabase |
+| v2 | https://fcdochak-v2-live.vercel.app | `fcdochak-v2-public`(가지 `fcdochak-v2` 만 빌드 · 공개) | 임시 PGlite(예시 자료) |
+
+- 기존 프로젝트 `fcdochak` 의 미리보기는 계속 Vercel 로그인으로 잠겨 있고, `fcdochak-v2` 가지는 거기서 빌드하지 않는다(중복 빌드 막기).
+- 새 판(v3)을 더하는 법: 가지 `fcdochak-v3` → 공개 프로젝트 하나(그 가지만 빌드하는 Ignored Build Step, Root `fcdochak`) → 가지 주소 `fcdochak-v3-live.vercel.app` → 환경변수 이름 `DEMO_MODE` · `OUTBOUND_ENABLED` · `SESSION_SECRET` · `DEMO_PASSWORD` · `NEXT_PUBLIC_SITE_URL` · `PREVIEW_BANNER` · `FRAME_ANCESTORS` · `EMBED_COOKIES` · `NEXT_PUBLIC_LAB_ORIGIN` → `lab-versions.ts` 의 v3 줄에서 `planned` 를 뗀다.
 
 ## 로컬
 
