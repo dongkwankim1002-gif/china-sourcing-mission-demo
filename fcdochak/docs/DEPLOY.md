@@ -28,6 +28,10 @@
 - **임시 DB**: Supabase 연결값은 Production 에만 있어 v2 미리보기는 PGlite(프로세스 안 Postgres)로 뜬다. 스키마·참조 첫 판·데모를 뜰 때마다 새로 세우므로, 화면에서 넣은 자료는 인스턴스가 바뀌면 사라진다. v2 의 새 표(0006~0012)는 운영 DB 에 들어가지 않는다.
 - **`PREVIEW_BANNER=v2`**(v2 미리보기 환경에만): 모든 화면 맨 위에 「v2 미리보기 — 운영 아님 · 임시 자료라 바뀌거나 사라질 수 있습니다」. 공개 화면은 빌드 때 그려지므로 값을 바꾸면 다시 배포한다. 운영에는 이 값을 넣지 않는다.
 - v2 시범 스위치(`v2.*`)는 참조 시드에서 모두 꺼짐. 켜도 계약·결제·보장·발송은 없다(`docs/V2.md`).
+- **2차 환경변수(이름만 — 값은 Vercel 서버 환경변수에만, 코드·문서·커밋에 쓰지 않는다)** · 2차 새 표 0013~0016 도 운영 DB 에 들어가지 않는다.
+  - `WING_ENABLED` — 쿠팡 WING 실제 호출기. **비워 둔다(꺼짐)**. 꺼져 있으면 쿠팡 API 를 한 번도 부르지 않고 흉내 어댑터·파일 가져오기만 돈다. 켜는 조건은 `docs/wing-plan.md` 11절(사람이 정할 일).
+  - `WING_KEY_ENCRYPTION_KEY` — 셀러가 넣는 WING 키를 잠그는 무작위 32바이트 값(예: `openssl rand -base64 32` 로 만든 값). **Sensitive** 로, 서버 쪽에만(`NEXT_PUBLIC_` 붙이지 않음). 없으면 키 넣기 칸이 키를 받지 않는다. 바꾸면 옛 키로 잠근 기록은 풀리지 않는다(셀러가 다시 넣음) — 관리·교체 절차는 사람이 정할 일.
+  - 제휴 구조(`v2.alliance_enabled`)·셀러 인터뷰(`research.rules`)는 환경변수가 아니라 `fcd.settings` 값이다(어드민 설정 화면).
 - 로컬에서 같은 모양 보기: `PREVIEW_BANNER=v2 npm run build && PREVIEW_BANNER=v2 npm start` (DATABASE_URL 없이 → PGlite). 캡처는 `node scripts/shots-all.mjs http://localhost:3000`.
 - v2 를 운영으로 옮길지는 사람이 정한다. 옮길 때는 `fcdochak-v2` → `fcdochak` PR, 운영 DB 에는 빌드 앞단 `vercel:prepare` 가 0006~0012 를 덧붙인다(지우거나 덮지 않음) — 먼저 Supabase 백업.
 

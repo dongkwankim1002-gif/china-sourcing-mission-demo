@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { CloudDownload, FlaskConical, Upload } from 'lucide-react';
 import { importWingFile, importWingMock, syncWingApi } from '@/app/actions/wing';
 import { ExcelImport, type ImportColumn } from '@/components/excel-import';
-import { Button, Chip, Panel, PanelHead } from '@/components/ui/core';
+import { Button, Panel, PanelHead } from '@/components/ui/core';
 import { WING_ACTION } from '@/lib/terms';
 import { WING_IMPORT_COLUMNS } from '@/lib/wing/import';
 
@@ -26,7 +26,6 @@ export function WingImportPanel({ demo, enabled }: { demo: boolean; enabled: boo
         id="wi-h"
         title="입고 요청 가져오기"
         sub="읽기만 합니다 — FC도착은 쿠팡에 입고 요청을 만들거나 고치지 않습니다."
-        action={enabled ? <Chip tone="ok">연동 켜짐</Chip> : <Chip tone="caution">연동 준비 중</Chip>}
       />
       <div className="flex flex-wrap gap-2 px-4 py-3">
         <Button variant="secondary" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
@@ -64,6 +63,7 @@ export function WingImportPanel({ demo, enabled }: { demo: boolean; enabled: boo
         >
           <CloudDownload aria-hidden /> {WING_ACTION.syncApi}
         </Button>
+        {!enabled ? <span className="self-center text-2xs text-muted">바로 가져오기는 연동이 켜진 뒤에 됩니다(지금은 파일 올리기)</span> : null}
       </div>
       {open ? (
         <div className="grid min-w-0 gap-3 border-t border-line-2 p-4 [&>*]:min-w-0" data-testid="wing-file-import">
