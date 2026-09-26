@@ -13,6 +13,8 @@ export const PUBLIC_NAV: { href: string; label: string; lgOnly?: boolean }[] = [
   { href: '/join/partner', label: '입점 안내' },
   // v2 3차 sourcing — 패밀리 사이트(소싱처 찾기, 미리보기). 머리 줄은 lg 부터(바닥글·모바일 메뉴에는 늘 있다)
   { href: '/family/sourcing', label: '패밀리 사이트', lgOnly: true },
+  // v2 4차 onestop — 원스톱 대행형 구역(미리보기). 머리 줄은 lg 부터(바닥글·모바일 메뉴에는 늘 있다)
+  { href: '/onestop', label: '원스톱', lgOnly: true },
 ];
 
 export function DemoBand() {

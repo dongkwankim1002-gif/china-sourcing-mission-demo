@@ -34,6 +34,7 @@ import { BadgeCheck as AllianceIcon } from 'lucide-react'; // v2 alliance
 import { MessagesSquare } from 'lucide-react'; // v2 interview
 import { PackageSearch } from 'lucide-react'; // v2 3차 sourcing
 import { ChartNoAxesCombined } from 'lucide-react'; // v2 3차 sales
+import { PackageCheck } from 'lucide-react'; // v2 4차 onestop
 
 export type AreaKey = 'app' | 'partner' | 'admin';
 export interface NavItem {
@@ -94,6 +95,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
     { href: '/admin/research', label: '셀러 인터뷰', icon: MessagesSquare },
     { href: '/styleguide', label: '스타일가이드', icon: Palette },
     { href: '/admin/sourcing', label: '소싱 요청', icon: PackageSearch }, // v2 3차 sourcing
+    { href: '/admin/onestop', label: '원스톱 주문', icon: PackageCheck }, // v2 4차 onestop
   ];
 }
 

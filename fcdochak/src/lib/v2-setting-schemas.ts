@@ -116,3 +116,8 @@ Object.assign(V2_SETTING_LABEL, {
   'sales.rules': '판매 분석 기준(속도 창·준비일·ABC·곧 품절)',
   'wing.egress_ips': '쿠팡 연동 IP(셀러가 WING 키 설정에 적는 값)',
 });
+
+// v2 4차 onestop — 원스톱 스위치·고정 요금표(읽는 쪽 readOnestopConfig 와 같은 검사)
+import { ONESTOP_SETTING_LABEL, ONESTOP_SETTING_SCHEMAS } from './onestop/settings';
+Object.assign(V2_SETTING_SCHEMAS, ONESTOP_SETTING_SCHEMAS);
+Object.assign(V2_SETTING_LABEL, ONESTOP_SETTING_LABEL);

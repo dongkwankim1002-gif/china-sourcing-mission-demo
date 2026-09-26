@@ -380,7 +380,7 @@ function Frame({
     return () => ro.disconnect();
   }, []);
   const scale = size.w ? Math.min(1, size.w / width) : 1;
-  const url = `${base}${path}`;
+  const url = `${base}${path === '/' && version.home ? version.home : path}`;
   const shownPath = current ?? path;
   return (
     <section aria-label={`${version.name} 화면`} className={cn('min-h-0 flex-col bg-surface', hiddenOnMobile ? 'hidden md:flex' : 'flex')}>

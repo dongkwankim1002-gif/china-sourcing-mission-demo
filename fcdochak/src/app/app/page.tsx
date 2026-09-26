@@ -10,6 +10,7 @@ import { ExceptionChip, StageTrack, Won } from '@/components/badges';
 import { Button, EmptyState, PageTitle, Panel, PanelHead } from '@/components/ui/core';
 import { dateKo, pct } from '@/lib/format';
 import { ACTION, EXCEPTION_LABEL, STAGES } from '@/lib/terms';
+import { OnestopDashboardCard } from '@/components/onestop/dashboard-card'; // v2 4차 onestop
 
 export const metadata = { title: '대시보드' };
 
@@ -130,6 +131,7 @@ export default async function ShipperDashboard({ searchParams }: { searchParams:
           </Panel>
         </div>
       )}
+      <OnestopDashboardCard viewer={v} />
       <p className="mt-6 text-2xs text-muted">청구 편차 = (청구 합계 − 응찰 합계) ÷ 응찰 합계. {d.devCur != null ? `이번 기간 ${pct(d.devCur, 1, true)}.` : ''}</p>
     </>
   );
