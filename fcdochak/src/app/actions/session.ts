@@ -5,8 +5,11 @@ import { z } from 'zod';
 import { createSession, destroySession } from '@/lib/auth/session';
 import { verifyCredentials } from '@/lib/auth/provider';
 import { asSystem } from '@/lib/db';
+import { embedCookieOptions } from '@/lib/embed';
 import { env } from '@/lib/env';
 import { getViewer, homeOf } from '@/lib/server/viewer';
+
+const cookieSite = () => embedCookieOptions(env.siteUrl.startsWith('https') && process.env.NODE_ENV === 'production');
 
 export interface LoginState {
   error?: string;
@@ -55,7 +58,7 @@ export async function demoLogin(form: FormData) {
   if (!id) redirect('/login?demo=missing');
   await createSession(id);
   const jar = await cookies();
-  jar.delete('fcd_org');
+  jar.set('fcd_org', '', { path: '/', httpOnly: true, maxAge: 0, ...cookieSite() });
   redirect(as === 'partner' ? '/partner' : as === 'admin' ? '/admin' : '/app');
 }
 
@@ -70,11 +73,11 @@ export async function switchOrg(form: FormData) {
   const org = v?.orgs.find((o) => o.id === id);
   if (!v || !org) return;
   const jar = await cookies();
-  jar.set('fcd_org', org.id, { path: '/', httpOnly: true, sameSite: 'lax' });
+  jar.set('fcd_org', org.id, { path: '/', httpOnly: true, ...cookieSite() });
   redirect(org.kind === 'shipper' ? '/app' : org.kind === 'partner' ? '/partner' : '/admin');
 }
 
 export async function setLocale(locale: 'ko' | 'zh') {
   const jar = await cookies();
-  jar.set('fcd_locale', locale === 'zh' ? 'zh' : 'ko', { path: '/', sameSite: 'lax', maxAge: 365 * 24 * 3600 });
+  jar.set('fcd_locale', locale === 'zh' ? 'zh' : 'ko', { path: '/', maxAge: 365 * 24 * 3600, ...cookieSite() });
 }

@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
+import { frameAncestors } from './src/lib/embed';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
@@ -22,7 +23,9 @@ const config: NextConfig = {
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'X-Frame-Options', value: 'DENY' },
+          // 버전 비교실(/lab)이 iframe 으로 담을 수 있게 — 같은 주소 + FRAME_ANCESTORS 만(src/lib/embed.ts)
+          { key: 'Content-Security-Policy', value: `frame-ancestors 'self'${frameAncestors().map((o) => ' ' + o).join('')}` },
+          ...(frameAncestors().length ? [] : [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }]),
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
         ],
       },
