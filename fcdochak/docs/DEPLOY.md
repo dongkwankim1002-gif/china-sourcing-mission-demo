@@ -24,12 +24,13 @@
 
 ## 버전 비교실 — https://fcdochak.vercel.app/lab
 
-운영·v2·v3… 를 **한 주소에서** 나란히 띄워 비교한다(검색 제외). 판 목록은 `src/lib/lab-versions.ts`(또는 운영 환경변수 `LAB_VERSIONS` JSON).
+판 단추(운영 · v2 · 원스톱)를 누르면 **그 판 하나가 전체 폭으로** 열린다(보던 경로를 잇고, 구역 밖이면 그 판의 첫 화면). 「나란히 보기」를 켜면 둘·셋을 나란히 띄운다(검색 제외). 판 목록은 `src/lib/lab-versions.ts`(또는 운영 환경변수 `LAB_VERSIONS` JSON).
 
 | 판 | 주소 | Vercel 프로젝트 | DB |
 |---|---|---|---|
 | 운영 | https://fcdochak.vercel.app | `fcdochak`(Production Branch `fcdochak`) | Supabase |
 | v2 | https://fcdochak-v2-live.vercel.app | `fcdochak-v2-public`(가지 `fcdochak-v2` 만 빌드 · 공개) | 임시 PGlite(예시 자료) |
+| 원스톱 | https://fcdochak-v2-live.vercel.app/onestop | v2 와 같음(v2 안의 구역) | v2 와 같음 |
 
 - 기존 프로젝트 `fcdochak` 의 미리보기는 계속 Vercel 로그인으로 잠겨 있고, `fcdochak-v2` 가지는 거기서 빌드하지 않는다(중복 빌드 막기).
 - 새 판(v3)을 더하는 법: 가지 `fcdochak-v3` → 공개 프로젝트 하나(그 가지만 빌드하는 Ignored Build Step, Root `fcdochak`) → 가지 주소 `fcdochak-v3-live.vercel.app` → 환경변수 이름 `DEMO_MODE` · `OUTBOUND_ENABLED` · `SESSION_SECRET` · `DEMO_PASSWORD` · `NEXT_PUBLIC_SITE_URL` · `PREVIEW_BANNER` · `FRAME_ANCESTORS` · `EMBED_COOKIES` · `NEXT_PUBLIC_LAB_ORIGIN` → `lab-versions.ts` 의 v3 줄에서 `planned` 를 뗀다.
