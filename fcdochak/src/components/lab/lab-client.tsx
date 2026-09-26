@@ -21,7 +21,7 @@ const QUICK = [
   { path: '/login', label: '로그인' },
   { path: '/app', label: '화주' },
   { path: '/partner', label: '물류사' },
-  { path: '/admin', label: '운영' },
+  { path: '/admin', label: '운영 관리' },
 ];
 
 const CRITERIA = ['믿음이 가는가', '이해가 쉬운가', '가입 전에 얻는 것', '일의 흐름', '빠르기'] as const;
@@ -60,11 +60,13 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
   const ready = versions.filter((v) => !v.planned);
   const [shown, setShown] = useState<string[]>(ready.slice(0, 2).map((v) => v.key));
   const [mobileKey, setMobileKey] = useState<string>(ready[0]?.key ?? '');
+  const [side, setSide] = useState(false); // 기본은 한 판씩 — 켜면 나란히
+  const [active, setActive] = useState<string>(ready[0]?.key ?? '');
   const [device, setDevice] = useState<DeviceKey>('desktop');
   const [path, setPath] = useState('/');
   const [draft, setDraft] = useState('/');
   const [follow, setFollow] = useState(true);
-  const [src, setSrc] = useState<Record<string, { path: string; n: number }>>(() => Object.fromEntries(versions.map((v) => [v.key, { path: '/', n: 0 }])));
+  const [src, setSrc] = useState<Record<string, { path: string; n: number }>>(() => Object.fromEntries(versions.map((v) => [v.key, { path: v.start ?? '/', n: 0 }])));
   const [current, setCurrent] = useState<Record<string, string>>({});
   const [notesOpen, setNotesOpen] = useState(false);
   const [notes, setNotes] = useState<Record<string, Note>>({});
@@ -108,9 +110,11 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
     function onMsg(e: MessageEvent) {
       const d = e.data as { type?: string; path?: string } | null;
       if (!d || d.type !== 'fcd:path' || typeof d.path !== 'string') return;
-      const v = versions.find((x) => originOf(x) === e.origin);
-      if (!v) return;
       const p = d.path;
+      // 같은 주소에 판이 둘 이상이면(v2 와 그 안의 원스톱 구역) 경로의 구역으로 가른다
+      const same = versions.filter((x) => originOf(x) === e.origin);
+      const v = same.find((x) => x.start && p.startsWith(x.start)) ?? same.find((x) => !x.start) ?? same[0];
+      if (!v) return;
       setCurrent((c) => (c[v.key] === p ? c : { ...c, [v.key]: p }));
       const wait = pending.current[v.key];
       if (wait) {
@@ -141,8 +145,29 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
     return () => window.removeEventListener('message', onMsg);
   }, [versions, originOf]);
 
+  /** 판을 바꿀 때 보던 경로를 잇되, 그 판의 구역 밖이면 구역 첫 화면으로 */
+  const pathFor = (v: LabVersion, p: string) => {
+    if (v.start && !p.startsWith(v.start)) return v.start;
+    if (!v.start && versions.some((o) => o.start && o.key !== v.key && p.startsWith(o.start))) return '/';
+    return p;
+  };
+  const select = (k: string) => {
+    const v = versions.find((x) => x.key === k);
+    if (!v || v.planned) return;
+    const from = current[active] ?? src[active]?.path ?? path;
+    const target = pathFor(v, from);
+    setActive(k);
+    setMobileKey(k);
+    setPath(target);
+    if (!typing.current) setDraft(target);
+    if ((current[k] ?? src[k]?.path) !== target) {
+      expect([k], target);
+      setSrc((s) => ({ ...s, [k]: { path: target, n: (s[k]?.n ?? 0) + 1 } }));
+    }
+  };
+
   const toggle = (k: string) => setShown((s) => (s.includes(k) ? (s.length > 1 ? s.filter((x) => x !== k) : s) : [...s, k].slice(-3)));
-  const shownVersions = versions.filter((v) => shown.includes(v.key) && !v.planned);
+  const shownVersions = side ? versions.filter((v) => shown.includes(v.key) && !v.planned) : versions.filter((v) => v.key === active);
 
   const markdown = useMemo(() => {
     const lines = ['# FC도착 버전 비교 노트', ''];
@@ -171,14 +196,14 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
                 key={v.key}
                 type="button"
                 disabled={v.planned}
-                aria-pressed={shown.includes(v.key)}
-                onClick={() => toggle(v.key)}
+                aria-pressed={side ? shown.includes(v.key) : active === v.key}
+                onClick={() => (side ? toggle(v.key) : select(v.key))}
                 title={v.note}
                 className={cn(
                   'h-8 rounded-sm border px-3 text-sm font-semibold',
                   v.planned
                     ? 'cursor-not-allowed border-white/15 text-on-ink-muted'
-                    : shown.includes(v.key)
+                    : (side ? shown.includes(v.key) : active === v.key)
                       ? 'border-label bg-label text-on-label'
                       : 'border-white/25 text-on-ink hover:bg-white/10',
                 )}
@@ -226,6 +251,10 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
             </Button>
           </form>
           <label className="flex items-center gap-1.5 text-sm">
+            <input type="checkbox" checked={side} onChange={(e) => setSide(e.target.checked)} className="size-4 accent-[var(--label)]" />
+            나란히 보기
+          </label>
+          <label className={cn('flex items-center gap-1.5 text-sm', !side && 'hidden')}>
             <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} className="size-4 accent-[var(--label)]" />
             따라가기
           </label>
@@ -247,21 +276,23 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
         </nav>
       </header>
 
-      {/* 좁은 화면: 한 판씩 */}
-      <div role="tablist" aria-label="보이는 판" className="flex shrink-0 gap-1 border-b border-line bg-surface px-3 py-1.5 md:hidden">
-        {shownVersions.map((v) => (
-          <button
-            key={v.key}
-            role="tab"
-            type="button"
-            aria-selected={mobileKey === v.key}
-            onClick={() => setMobileKey(v.key)}
-            className={cn('h-8 rounded-sm px-3 text-sm', mobileKey === v.key ? 'bg-ink font-semibold text-on-ink' : 'text-muted')}
-          >
-            {v.name}
-          </button>
-        ))}
-      </div>
+      {/* 나란히 볼 때 좁은 화면: 탭으로 한 판씩 */}
+      {side ? (
+        <div role="tablist" aria-label="보이는 판" className="flex shrink-0 gap-1 border-b border-line bg-surface px-3 py-1.5 md:hidden">
+          {shownVersions.map((v) => (
+            <button
+              key={v.key}
+              role="tab"
+              type="button"
+              aria-selected={mobileKey === v.key}
+              onClick={() => setMobileKey(v.key)}
+              className={cn('h-8 rounded-sm px-3 text-sm', mobileKey === v.key ? 'bg-ink font-semibold text-on-ink' : 'text-muted')}
+            >
+              {v.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="flex min-h-0 flex-1">
         <main id="main" className={cn('grid min-h-0 flex-1 gap-px bg-line', shownVersions.length === 3 ? 'md:grid-cols-3' : shownVersions.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-1')}>
@@ -274,7 +305,7 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
               n={src[v.key]?.n ?? 0}
               width={DEVICES.find((d) => d.key === device)!.width}
               current={current[v.key]}
-              hiddenOnMobile={mobileKey !== v.key}
+              hiddenOnMobile={side && mobileKey !== v.key}
               onReload={() => setSrc((s) => ({ ...s, [v.key]: { path: current[v.key] ?? s[v.key].path, n: s[v.key].n + 1 } }))}
             />
           ))}
@@ -380,7 +411,7 @@ function Frame({
     return () => ro.disconnect();
   }, []);
   const scale = size.w ? Math.min(1, size.w / width) : 1;
-  const url = `${base}${path === '/' && version.home ? version.home : path}`;
+  const url = `${base}${path}`;
   const shownPath = current ?? path;
   return (
     <section aria-label={`${version.name} 화면`} className={cn('min-h-0 flex-col bg-surface', hiddenOnMobile ? 'hidden md:flex' : 'flex')}>
