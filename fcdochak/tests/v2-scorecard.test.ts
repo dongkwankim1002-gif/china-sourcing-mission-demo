@@ -11,9 +11,9 @@ import type { Driver } from '@/lib/db/driver';
 import { setDbForTests } from '@/lib/db';
 import { holidaySet } from '@/lib/tracker/calendar';
 import { HolidaysSchema } from '@/lib/tracker/settings';
-import { computeScorecards, hasInspection, isExcluded, mergeSamples, sortByScore, sourceLine, weekStart, type RawSample } from '@/lib/scorecard/engine';
+import { computeScorecards, disputeRefOk, hasInspection, isExcluded, mergeSamples, sortByScore, sourceLine, weekStart, type RawSample } from '@/lib/scorecard/engine';
 import { readScorecardConfig, SCORECARD_SETTING_SCHEMAS, ScorecardRulesSchema } from '@/lib/scorecard/settings';
-import { delayBaseline, delayCost, expectedDelay, realCost } from '@/lib/money';
+import { delayBaseline, delayCost, expectedDelay, realCost, sortByRealCost } from '@/lib/money';
 import { HttpForwarderAdapter, MockForwarderAdapter, mockForwarderCode, parseForwarderXml } from '@/lib/unipass/forwarders';
 import { UnipassDisabledError } from '@/lib/unipass/types';
 import { V2_SETTING_SCHEMAS } from '@/lib/v2-setting-schemas';
@@ -32,7 +32,7 @@ const base: Omit<RawSample, 'key' | 'source' | 'registrant'> = {
 const S = (key: string, source: RawSample['source'], x: Partial<RawSample> = {}): RawSample => ({ ...base, key, source, registrant: source === 'partner' ? 'P1' : 'SHIP1', ...x });
 
 describe('표본 합치기', () => {
-  it('같은 화물은 한 번 — 출처를 모으고, 업체 귀속은 플랫폼 > 물류사 > 셀러, 서로 다르면 충돌', () => {
+  it('같은 화물은 한 번 — 출처를 모으고, 업체 귀속은 플랫폼 > 셀러 > 물류사, 서로 다르면 충돌', () => {
     const m = mergeSamples([
       S('A', 'seller', { partner: 'P2' }),
       S('A', 'partner', { partner: 'P1', registrant: 'P1' }),
@@ -42,7 +42,8 @@ describe('표본 합치기', () => {
     expect(m).toHaveLength(2);
     const a = m.find((x) => x.key === 'A')!;
     expect(a.sources).toEqual(['seller', 'partner']);
-    expect(a.partner).toBe('P1');
+    // 셀러가 P2 로 등록한 화물을 P1 이 제출해도 P1 이 가져가지 못한다(검토 고침)
+    expect(a.partner).toBe('P2');
     expect(a.conflict).toBe(true);
     expect(a.submittedBy).toEqual(['P1']);
     const b = m.find((x) => x.key === 'B')!;
@@ -58,6 +59,24 @@ describe('표본 합치기', () => {
   it('이의로 뺄 화물 — 열쇠 그대로 또는 번호 조각', () => {
     expect(isExcluded('hbl:EX-1:2026', ['EX-1'])).toBe(true);
     expect(isExcluded('hbl:EX-1:2026', ['EX-2'])).toBe(false);
+  });
+  it('연도만 적은 이의(2026)는 그해 B/L 을 빼지 않는다 · 짧은 숫자 이의는 받지 않는다', () => {
+    expect(isExcluded('hbl:EXHBL0001:2026', ['2026'])).toBe(false);
+    const [m] = mergeSamples([S('hbl:EXHBL0001:2026', 'seller', { refs: ['EXHBL0001'] })]);
+    expect(isExcluded(m, ['2026'])).toBe(false);
+    expect(isExcluded(m, ['EXHBL-0001'])).toBe(true);
+    expect(disputeRefOk('2026')).toBe(false);
+    expect(disputeRefOk('12345')).toBe(false);
+    expect(disputeRefOk('123456789012')).toBe(true);
+    expect(disputeRefOk('EX-1')).toBe(false);
+    expect(disputeRefOk('EXH1')).toBe(true);
+  });
+  it('화물관리번호가 채워진 화물도 B/L 번호로 적은 이의로 빠진다(열쇠가 바뀌어도)', () => {
+    const [m] = mergeSamples([S('26KE0000AB12345', 'seller', { refs: ['EXHBL0002', '26KE0000AB12345'] }), S('26KE0000AB12345', 'partner', { refs: ['EXHBL0002'] })]);
+    expect(m.refs).toEqual(['26KE0000AB12345', 'EXHBL0002']);
+    expect(isExcluded(m, ['EXHBL0002'])).toBe(true);
+    expect(isExcluded(m, ['26KE0000AB12345'])).toBe(true);
+    expect(isExcluded(m, ['EXHBL0003'])).toBe(false);
   });
 });
 
@@ -108,6 +127,14 @@ describe('지표 엔진', () => {
     expect(p1.metrics.trend).toHaveLength(RULES.trendWeeks);
     expect(p1.metrics.trend.find((t) => t.week === '2026-08-31')!.n).toBe(6);
   });
+  it('표본이 하나도 없어도 전체 판 한 줄(n = 0)은 남는다 — 옛 판이 최근 판으로 남지 않게', () => {
+    const none = computeScorecards([], { holidays: HOL, today, rules: RULES });
+    expect(none).toHaveLength(1);
+    expect(none[0]).toMatchObject({ entityKind: 'overall', port: null, mode: null, n: 0 });
+    expect(none[0].metrics.clear).toBeNull();
+    const allOut = computeScorecards(mergeSamples(raw), { holidays: HOL, today, rules: RULES, excluded: ['2026'] });
+    expect(allOut.find((r) => r.entityKind === 'overall' && r.port == null)!.n).toBeGreaterThan(0);
+  });
   it('이의를 받아들인 화물은 빠진다', () => {
     const ex = computeScorecards(mergeSamples(raw), { holidays: HOL, today, rules: { ...RULES, minSamples: 3 }, excluded: ['K5'] });
     expect(ex.find((r) => r.entity === 'P1' && r.port == null)!.n).toBe(5);
@@ -122,9 +149,29 @@ describe('지표 엔진', () => {
     expect(sortByScore(items, of, 'stable', 5)).toEqual(['a', 'b', 'c']);
     expect(sortByScore(items, of, 'inspect', 5)).toEqual(['a', 'b', 'c']);
   });
+  it('정렬 — 물류사가 혼자 낸 표본만 있는 업체는 순위에 오르지 못한다 · 보이는 값(반올림)으로 먼저 가른다', () => {
+    const clear = (p50: number, p90: number) => ({ p50, p90, spread: p90 - p50, n: 10, hist: [] });
+    const own = { n: 10, sources: { seller: 1, platform: 0 }, metrics: { clear: clear(0.2, 0.5), inspectRate: 0 } };
+    const fair = { n: 10, sources: { seller: 8, platform: 2 }, metrics: { clear: clear(1.4, 4), inspectRate: 0 } };
+    const fair2 = { n: 10, sources: { seller: 8, platform: 2 }, metrics: { clear: clear(0.9, 5), inspectRate: 0 } };
+    const of = (k: string) => ({ own, fair, fair2 })[k as 'own'] as never;
+    // fair(보통 1일 · 늦으면 4일)가 fair2(보통 1일 · 늦으면 5일)보다 앞 — p50 소수(0.9 < 1.4)가 아니라 보이는 값으로
+    expect(sortByScore(['own', 'fair2', 'fair'], of, 'fast', 5)).toEqual(['fair', 'fair2', 'own']);
+  });
 });
 
 describe('실질 비용(money/realcost)', () => {
+  it('실질 비용순 — 금액이 있으면 금액, 없으면 지연일 → 견적가, 실측 없는 후보는 뒤', () => {
+    const r = (quote: number, days: number | null, priced: boolean) => ({
+      quote,
+      real: days == null ? null : realCost({ quote, stat: { p50: days, p90: days + 1 }, baselineDays: 0, perDay: priced ? 10 : null, marginPerUnit: priced ? 1000 : null }),
+    });
+    const priced = { a: r(500_000, 2, true), b: r(400_000, 3, true), c: r(100_000, null, true) };
+    // a = 500,000 + 20,000 = 520,000 · b = 400,000 + 30,000 = 430,000
+    expect(sortByRealCost(['a', 'b', 'c'], (k) => priced[k as 'a'])).toEqual(['b', 'a', 'c']);
+    const days = { a: r(500_000, 1, false), b: r(400_000, 2, false), d: r(300_000, 1, false) };
+    expect(sortByRealCost(['a', 'b', 'd'], (k) => days[k as 'a'])).toEqual(['d', 'a', 'b']);
+  });
   it('비교 기준 — 가장 빠른 후보, 없으면 전체 중앙값', () => {
     expect(delayBaseline([{ p50: 2, p90: 4 }, { p50: 1, p90: 3 }, null], 1.5)).toEqual({ days: 1, basis: 'fastest' });
     expect(delayBaseline([], 1.5)).toEqual({ days: 1.5, basis: 'overall' });
@@ -305,6 +352,20 @@ describe('권한(RLS)', () => {
   });
 });
 
+describe('이의 상태 — 닫힌 이의(0025)', () => {
+  it('받아들인 뒤에는 거두기·다시 처리를 받지 않는다 · 덧붙이기(note)는 되지만 제외는 풀리지 않는다', async () => {
+    const { acceptedDisputeRefs } = await import('@/lib/scorecard/store');
+    const d = await asRole(db, 'fcd_user', ids.partner, true, (x) =>
+      x.query<{ id: string }>(`insert into fcd.scorecard_disputes (partner_org_id, kind, metric, cargo_ref, body, created_by) values ($1,'open','clearance','EXNOTE-0001','시험 이의',$2) returning id`, [partnerOrg, ids.partner]),
+    );
+    await asRole(db, 'fcd_user', ids.admin, true, (x) => x.query(`insert into fcd.scorecard_disputes (root_id, partner_org_id, kind, body, created_by) values ($1,$2,'accepted','맞음',$3)`, [d[0].id, partnerOrg, ids.admin]));
+    await expect(asRole(db, 'fcd_user', ids.partner, true, (x) => x.query(`insert into fcd.scorecard_disputes (root_id, partner_org_id, kind, body, created_by) values ($1,$2,'withdrawn','거둠',$3)`, [d[0].id, partnerOrg, ids.partner]))).rejects.toThrow();
+    await expect(asRole(db, 'fcd_user', ids.admin, true, (x) => x.query(`insert into fcd.scorecard_disputes (root_id, partner_org_id, kind, body, created_by) values ($1,$2,'rejected','번복',$3)`, [d[0].id, partnerOrg, ids.admin]))).rejects.toThrow();
+    await asRole(db, 'fcd_user', ids.partner, true, (x) => x.query(`insert into fcd.scorecard_disputes (root_id, partner_org_id, kind, body, created_by, created_at) values ($1,$2,'note','고맙습니다',$3, now() + interval '1 minute')`, [d[0].id, partnerOrg, ids.partner]));
+    expect(await acceptedDisputeRefs(db, true)).toContain('EXNOTE-0001');
+  });
+});
+
 describe('서버 — 제출·새 판(관세청 꺼짐)', () => {
   it('예시 물류사가 번호를 내면 제출 기록 + 물류사 번호가 생기고 바로 흉내 단계가 쌓인다 · 같은 번호는 한 번', async () => {
     const { parseSubmission, submitCargoNumbers } = await import('@/lib/server/scorecard');
@@ -330,7 +391,24 @@ describe('서버 — 제출·새 판(관세청 꺼짐)', () => {
     const s = await db.query<{ n: number }>(`select count(*)::int n from fcd.scorecard_snapshots where batch_id = $1 and supersedes_id is not null`, [r.batchId]);
     expect(s[0].n).toBeGreaterThan(0);
     const acc = await db.query<{ cargo_ref: string }>(`select d.cargo_ref from fcd.scorecard_disputes d where d.root_id is null and exists (select 1 from fcd.scorecard_disputes x where x.root_id = d.id and x.kind = 'accepted')`);
-    expect(acc.length).toBe(1);
+    expect(acc.length).toBeGreaterThanOrEqual(1);
+    // 공개정보 기준(public_info) 업체에는 이름 붙은 판을 만들지 않는다
+    const pi = await db.query<{ n: number }>(
+      `select count(*)::int n from fcd.scorecard_snapshots s join fcd.orgs o on o.id = s.entity_org_id where s.batch_id = $1 and o.status = 'public_info'`,
+      [r.batchId],
+    );
+    expect(pi[0].n).toBe(0);
+  });
+  it('연도만 적은 이의(2026)를 받아들여도 성적표가 무너지지 않는다', async () => {
+    const { recomputeScorecardsNow } = await import('@/lib/server/scorecard');
+    const before = await recomputeScorecardsNow(db);
+    const n0 = (await db.query<{ n: number }>(`select n from fcd.scorecard_snapshots where batch_id = $1 and entity_kind = 'overall' and port is null and demo_org_id is not null`, [before.batchId]))[0].n;
+    const d = await db.query<{ id: string }>(`insert into fcd.scorecard_disputes (partner_org_id, kind, metric, cargo_ref, body, created_by) values ($1,'open','clearance','2026','연도만',$2) returning id`, [partnerOrg, ids.partner]);
+    await db.query(`insert into fcd.scorecard_disputes (root_id, partner_org_id, kind, body, created_by) values ($1,$2,'accepted','시험',$3)`, [d[0].id, partnerOrg, ids.admin]);
+    const after = await recomputeScorecardsNow(db);
+    const n1 = (await db.query<{ n: number }>(`select n from fcd.scorecard_snapshots where batch_id = $1 and entity_kind = 'overall' and port is null and demo_org_id is not null`, [after.batchId]))[0].n;
+    expect(n1).toBe(n0);
+    expect(after.withSamples).toBeGreaterThan(0);
   });
 });
 
