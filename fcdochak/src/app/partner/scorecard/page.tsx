@@ -10,7 +10,7 @@ import { CertifiedChip, ScorecardDetail, TradeMetrics } from '@/components/score
 import { DisputeForm, SubmitNumbersForm, WithdrawButton } from '@/components/scorecard/forms';
 import { DemoChip } from '@/components/badges';
 import { Chip, EmptyState, PageTitle, Panel, PanelHead } from '@/components/ui/core';
-import { TRACK_STAGE_LABEL } from '@/lib/unipass/stages';
+import { TRACK_STAGE_LABEL, TRACK_STAGE_ZH } from '@/lib/unipass/stages';
 import type { TrackStage } from '@/lib/unipass/types';
 import { dateKo, pct } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -89,12 +89,12 @@ export default async function PartnerScorecard() {
         {d.subs.length ? (
           <div className="border-t border-line-2">
             <p className="px-4 pt-3 text-xs font-semibold text-muted">{L('최근 제출', '最近提交')}</p>
-            <ul className="grid gap-1 px-4 py-2 text-sm sm:grid-cols-2" data-testid="partner-submissions">
+            <ul className="grid gap-1 px-4 py-2 text-sm lg:grid-cols-2" data-testid="partner-submissions">
               {d.subs.map((s) => (
                 <li key={`${s.kind}-${s.number}-${s.bl_year}`} className="flex min-w-0 flex-wrap items-center gap-2">
                   <span className="min-w-0 break-all font-mono text-xs">{s.number}</span>
                   {s.bl_year ? <span className="text-2xs text-muted">{s.bl_year}</span> : null}
-                  <Chip tone={s.stage ? 'info' : 'neutral'}>{s.stage ? TRACK_STAGE_LABEL[s.stage as TrackStage] : L('조회 전', '未查询')}</Chip>
+                  <Chip tone={s.stage ? 'info' : 'neutral'}>{s.stage ? (zh ? TRACK_STAGE_ZH[s.stage as TrackStage] : TRACK_STAGE_LABEL[s.stage as TrackStage]) : L('조회 전', '未查询')}</Chip>
                   <span className="text-2xs text-muted">{dateKo(s.created_at, { dow: false })}</span>
                 </li>
               ))}

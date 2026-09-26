@@ -53,7 +53,7 @@ export function SubmitNumbersForm({ thisYear }: { thisYear: number }) {
         router.refresh();
       }}
     >
-      <Field label="화물번호 붙여 넣기 · 粘贴单号" htmlFor="sc-text" hint={`한 줄에 하나(최대 200줄). 「번호 연도」로 연도를 줄마다 바꿀 수 있습니다. 개인통관고유부호는 받지 않습니다. 지금 ${lines}줄`}>
+      <Field label="화물번호 붙여 넣기 · 粘贴单号" htmlFor="sc-text" hint={`한 줄에 하나(최대 200줄). 「번호 연도」로 연도를 줄마다 바꿀 수 있습니다. 개인통관고유부호는 받지 않습니다. 지금 ${lines}줄 · 每行一个(最多200行)，可写「单号 年份」，不接收个人通关代码。当前 ${lines} 行`}>
         <Textarea id="sc-text" value={text} onChange={(e) => setText(e.target.value)} rows={6} spellCheck={false} placeholder={'EXHBL-0001\nEXHBL-0002 2025\n26EXMP00ANLU0830001'} className="font-mono text-sm" />
       </Field>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] lg:items-end">
@@ -68,14 +68,14 @@ export function SubmitNumbersForm({ thisYear }: { thisYear: number }) {
         </Field>
         <Field label="도착항 · 到港(선택)" htmlFor="sc-port">
           <NativeSelect id="sc-port" value={port} onChange={(e) => setPort(e.target.value)}>
-            <option value="">관세청 기록으로</option>
+            <option value="">관세청 기록으로 · 按海关记录</option>
             <option value="ICN">인천 · 仁川</option>
             <option value="PTK">평택 · 平泽</option>
           </NativeSelect>
         </Field>
         <Field label="방식 · 方式(선택)" htmlFor="sc-mode">
           <NativeSelect id="sc-mode" value={mode} onChange={(e) => setMode(e.target.value)}>
-            <option value="">모름</option>
+            <option value="">모름 · 不确定</option>
             <option value="LCL">LCL 拼箱</option>
             <option value="FCL">FCL 整箱</option>
             <option value="FERRY">카페리 客滚</option>
@@ -144,12 +144,12 @@ export function DisputeForm() {
             {METRICS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </NativeSelect>
         </Field>
-        <Field label="화물번호 · 单号(선택)" htmlFor="dp-ref" hint="받아들이면 그 화물을 성적에서 뺍니다">
+        <Field label="화물번호 · 单号(선택)" htmlFor="dp-ref" hint="받아들이면 그 화물을 성적에서 뺍니다 · 采纳后该货物不计入成绩">
           <Input id="dp-ref" value={cargoRef} onChange={(e) => setRef(e.target.value)} spellCheck={false} placeholder="EXHBL-0001" />
         </Field>
       </div>
       <Field label="사유 · 理由" htmlFor="dp-body">
-        <Textarea id="dp-body" value={body} onChange={(e) => setBody(e.target.value)} rows={3} maxLength={1000} placeholder="예: 화주가 서류를 늦게 줘서 수리가 늦었습니다" />
+        <Textarea id="dp-body" value={body} onChange={(e) => setBody(e.target.value)} rows={3} maxLength={1000} placeholder="예: 화주가 서류를 늦게 줘서 수리가 늦었습니다 · 例：货主提交资料晚，放行延迟" />
       </Field>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" variant="secondary" disabled={busy || body.trim().length < 5}>

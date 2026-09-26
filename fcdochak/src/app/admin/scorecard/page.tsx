@@ -79,7 +79,9 @@ export default async function AdminScorecardPage() {
       <Panel className="mb-4">
         <PanelHead title={`이상치 · 귀속 충돌 화물 (${quality.length})`} sub={`이상치 = 입항 → 수리 ${cfg.rules.outlierDays}영업일 넘음(분위수에서 뺌 · 검사 비율에는 셈) · 충돌 = 출처마다 다른 물류사(귀속은 플랫폼 선적 > 셀러 등록 > 물류사 제출). 빼야 하면 그 업체의 이의를 받아들이거나 운영 판단을 적어 주세요.`} />
         {quality.length ? (
-          <div className="overflow-x-auto">
+          <>
+          <p className="px-4 pt-2 text-2xs text-muted md:hidden">표를 옆으로 넘기면 출처·귀속 업체·항구·입항 → 수리 칸이 더 있습니다.</p>
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="이상치·귀속 충돌 화물 표(옆으로 밀어 더 보기)">
             <table className="w-full min-w-[720px] text-sm" data-testid="admin-quality">
               <thead className="text-left text-xs text-muted">
                 <tr className="border-b border-line-2">
@@ -105,6 +107,7 @@ export default async function AdminScorecardPage() {
               </tbody>
             </table>
           </div>
+          </>
         ) : (
           <p className="px-4 py-3 text-sm text-muted">기간 안에 이상치·귀속 충돌 화물이 없습니다.</p>
         )}
@@ -176,7 +179,8 @@ export default async function AdminScorecardPage() {
       </Panel>
       <Panel className="mb-4">
         <PanelHead title="관세청 화물운송주선업자 부호 연결" sub="업체 ↔ 관세청 부호. 켜기 전에는 흉내 목록(예시 부호)이고, 연결·끊기는 새 판으로 쌓입니다(운영 확인). 연결 메모는 그 업체 구성원도 읽습니다 — 내부 판단은 적지 마세요." />
-        <div className="overflow-x-auto">
+        <p className="px-4 pt-2 text-2xs text-muted md:hidden">표를 옆으로 넘기면 연결 칸(부호 고르기·메모)이 더 있습니다.</p>
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="부호 연결 표(옆으로 밀어 더 보기)">
           <table className="w-full min-w-[760px] text-sm" data-testid="admin-codes">
             <thead className="text-left text-xs text-muted">
               <tr className="border-b border-line-2">

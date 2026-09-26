@@ -75,7 +75,7 @@ for (const theme of themes) {
       await page.waitForTimeout(250);
       const docW = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth));
       if (docW > w + 1) overflow.push(`${label} @${w}/${theme}: 문서 폭 ${docW}px`);
-      const name = `${(label === '/' ? 'home' : label.replace(/^\//, '').replace(/[/?=&]+/g, '_'))}${suffix}.${w}.${theme}.jpg`;
+      const name = `${(label === '/' ? 'home' : label.replace(/^\//, '').replace(/[/?=&#]+/g, '_'))}${suffix}.${w}.${theme}.jpg`;
       await page.screenshot({ path: path.join(out, name), fullPage: full, type: 'jpeg', quality });
       console.log('shot', name, docW > w + 1 ? `(가로 밀림 ${docW})` : '');
     }

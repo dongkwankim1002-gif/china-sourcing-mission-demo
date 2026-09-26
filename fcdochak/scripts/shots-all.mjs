@@ -25,8 +25,8 @@ const groups = [
   { login: 'shipper', paths: ['/app/tracking', '/app/tracking>/app/tracking/'] },
   { login: 'admin', paths: ['/admin/tracking'] },
   // v2 6차 scorecard — 공개 시장 지표·관세사 찾기(비로그인 = 이름 없음·흐림) · 화주 성적순 업체 찾기·관세사·비교(실질 비용) · 물류사 성적표(한·中) · 운영
-  { paths: ['/market/customs', '/brokers', '/brokers>/brokers/'] },
-  { login: 'shipper', paths: ['/partners?sort=fast', '/partners?sort=stable', '/app/compare?hub=YIW&port=ICN&mode=LCL&ds=40&mg=3000'] },
+  { paths: ['/market/customs', '/brokers', '/brokers>/brokers/', '/partners?sort=fast', '/p/hanbada#scorecard'], extra: [...all, '--suffix', '.anon'] },
+  { login: 'shipper', paths: ['/partners?sort=fast', '/partners?sort=stable', '/app/compare?hub=YIW&port=ICN&mode=LCL&ds=40&mg=3000', '/p/hanbada#scorecard', '/brokers', '/brokers>/brokers/'] },
   { login: 'partner', paths: ['/partner/scorecard'] },
   { login: 'partner', extra: ['--widths', '390,1440', '--themes', 'light', '--locale', 'zh', '--suffix', '.zh', '--quality', '55'], paths: ['/partner/scorecard'] },
   { login: 'admin', paths: ['/admin/scorecard'] },

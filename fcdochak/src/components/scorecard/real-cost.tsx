@@ -53,7 +53,33 @@ export function RealCostPanel({
         <Button type="submit" variant="secondary">실질 비용 셈하기</Button>
       </form>
       {measured.length ? (
-        <div className="overflow-x-auto">
+        <ul className="divide-y divide-line-2 border-t border-line-2 text-sm tnum md:hidden" aria-label="업체별 실질 비용">
+          {rows.map((r) => (
+            <li key={r.id} className="px-4 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 font-semibold">{r.name}<span className="ml-1 text-2xs font-normal text-muted">{r.mode}</span></span>
+                <span className="shrink-0 text-xs text-muted">견적 {won(r.quote)}</span>
+              </div>
+              {r.real?.usual ? (
+                <dl className="mt-1.5 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <dt className="text-2xs text-muted">평소(p50)</dt>
+                    <dd className="font-semibold">{r.real.usual.total != null ? won(r.real.usual.total) : `지연 ${r.real.usual.delayDays}일`}<span className="block text-2xs font-normal text-muted">{r.real.usual.cost != null ? `+${won(r.real.usual.cost)} · ` : ''}지연 {r.real.usual.delayDays}일</span></dd>
+                  </div>
+                  <div>
+                    <dt className="text-2xs text-muted">늦을 때(p90)</dt>
+                    <dd className="font-semibold">{r.real.late?.total != null ? won(r.real.late.total) : `지연 ${r.real.late?.delayDays}일`}<span className="block text-2xs font-normal text-muted">{r.real.late?.cost != null ? `+${won(r.real.late.cost)} · ` : ''}지연 {r.real.late?.delayDays}일</span></dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="mt-1 text-xs text-muted">실측 없음(표본 부족)</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {measured.length ? (
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[620px] whitespace-nowrap text-sm tnum">
             <caption className="sr-only">업체별 실질 비용</caption>
             <thead className="text-left text-xs text-muted">
