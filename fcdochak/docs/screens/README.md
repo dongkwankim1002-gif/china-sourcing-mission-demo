@@ -1,6 +1,6 @@
 # 화면 캡처
 
-모두 540장 · 390/768/1440 × 밝음/어두움 · 데모 켬 · 재방문 상태(글꼴 적용) · `node scripts/shots-all.mjs`
+모두 620장 · 390/768/1440 × 밝음/어두움 · 데모 켬 · 재방문 상태(글꼴 적용) · `node scripts/shots-all.mjs`
 
 가로 밀림 검사: 모든 화면 0건(`scripts/shots.mjs` 가 문서 폭 > 창 폭이면 알림). Lighthouse 결과는 [lighthouse.md](lighthouse.md).
 
@@ -8,6 +8,10 @@
 
 | 화면 | 390.light | 768.light | 1440.light | 390.dark | 768.dark | 1440.dark |
 |---|---|---|---|---|---|---|
+| `brokers` | [보기](brokers.390.light.jpg) | [보기](brokers.768.light.jpg) | [보기](brokers.1440.light.jpg) | [보기](brokers.390.dark.jpg) | [보기](brokers.768.dark.jpg) | [보기](brokers.1440.dark.jpg) |
+| `brokers.anon` | [보기](brokers.anon.390.light.jpg) | [보기](brokers.anon.768.light.jpg) | [보기](brokers.anon.1440.light.jpg) | [보기](brokers.anon.390.dark.jpg) | [보기](brokers.anon.768.dark.jpg) | [보기](brokers.anon.1440.dark.jpg) |
+| `brokers_detail` | [보기](brokers_detail.390.light.jpg) | [보기](brokers_detail.768.light.jpg) | [보기](brokers_detail.1440.light.jpg) | [보기](brokers_detail.390.dark.jpg) | [보기](brokers_detail.768.dark.jpg) | [보기](brokers_detail.1440.dark.jpg) |
+| `brokers_detail.anon` | [보기](brokers_detail.anon.390.light.jpg) | [보기](brokers_detail.anon.768.light.jpg) | [보기](brokers_detail.anon.1440.light.jpg) | [보기](brokers_detail.anon.390.dark.jpg) | [보기](brokers_detail.anon.768.dark.jpg) | [보기](brokers_detail.anon.1440.dark.jpg) |
 | `check` | [보기](check.390.light.jpg) | [보기](check.768.light.jpg) | [보기](check.1440.light.jpg) | [보기](check.390.dark.jpg) | [보기](check.768.dark.jpg) | [보기](check.1440.dark.jpg) |
 | `family_sourcing` | [보기](family_sourcing.390.light.jpg) | [보기](family_sourcing.768.light.jpg) | [보기](family_sourcing.1440.light.jpg) | [보기](family_sourcing.390.dark.jpg) | [보기](family_sourcing.768.dark.jpg) | [보기](family_sourcing.1440.dark.jpg) |
 | `faq` | [보기](faq.390.light.jpg) | [보기](faq.768.light.jpg) | [보기](faq.1440.light.jpg) | [보기](faq.390.dark.jpg) | [보기](faq.768.dark.jpg) | [보기](faq.1440.dark.jpg) |
@@ -19,6 +23,7 @@
 | `lanes` | [보기](lanes.390.light.jpg) | [보기](lanes.768.light.jpg) | [보기](lanes.1440.light.jpg) | [보기](lanes.390.dark.jpg) | [보기](lanes.768.dark.jpg) | [보기](lanes.1440.dark.jpg) |
 | `lanes_yiw-icn-lcl` | [보기](lanes_yiw-icn-lcl.390.light.jpg) | [보기](lanes_yiw-icn-lcl.768.light.jpg) | [보기](lanes_yiw-icn-lcl.1440.light.jpg) | [보기](lanes_yiw-icn-lcl.390.dark.jpg) | [보기](lanes_yiw-icn-lcl.768.dark.jpg) | [보기](lanes_yiw-icn-lcl.1440.dark.jpg) |
 | `login` | [보기](login.390.light.jpg) | [보기](login.768.light.jpg) | [보기](login.1440.light.jpg) | [보기](login.390.dark.jpg) | [보기](login.768.dark.jpg) | [보기](login.1440.dark.jpg) |
+| `market_customs.anon` | [보기](market_customs.anon.390.light.jpg) | [보기](market_customs.anon.768.light.jpg) | [보기](market_customs.anon.1440.light.jpg) | [보기](market_customs.anon.390.dark.jpg) | [보기](market_customs.anon.768.dark.jpg) | [보기](market_customs.anon.1440.dark.jpg) |
 | `no-such-page` | [보기](no-such-page.390.light.jpg) | [보기](no-such-page.768.light.jpg) | [보기](no-such-page.1440.light.jpg) | [보기](no-such-page.390.dark.jpg) | [보기](no-such-page.768.dark.jpg) | [보기](no-such-page.1440.dark.jpg) |
 | `onestop` | [보기](onestop.390.light.jpg) | [보기](onestop.768.light.jpg) | [보기](onestop.1440.light.jpg) | [보기](onestop.390.dark.jpg) | [보기](onestop.768.dark.jpg) | [보기](onestop.1440.dark.jpg) |
 | `onestop_order` | [보기](onestop_order.390.light.jpg) | [보기](onestop_order.768.light.jpg) | [보기](onestop_order.1440.light.jpg) | [보기](onestop_order.390.dark.jpg) | [보기](onestop_order.768.dark.jpg) | [보기](onestop_order.1440.dark.jpg) |
@@ -27,6 +32,8 @@
 | `onestop_price` | [보기](onestop_price.390.light.jpg) | [보기](onestop_price.768.light.jpg) | [보기](onestop_price.1440.light.jpg) | [보기](onestop_price.390.dark.jpg) | [보기](onestop_price.768.dark.jpg) | [보기](onestop_price.1440.dark.jpg) |
 | `p_hanbada` | [보기](p_hanbada.390.light.jpg) | [보기](p_hanbada.768.light.jpg) | [보기](p_hanbada.1440.light.jpg) | [보기](p_hanbada.390.dark.jpg) | [보기](p_hanbada.768.dark.jpg) | [보기](p_hanbada.1440.dark.jpg) |
 | `p_hanbada_lead` | [보기](p_hanbada_lead.390.light.jpg) | [보기](p_hanbada_lead.768.light.jpg) | [보기](p_hanbada_lead.1440.light.jpg) | [보기](p_hanbada_lead.390.dark.jpg) | [보기](p_hanbada_lead.768.dark.jpg) | [보기](p_hanbada_lead.1440.dark.jpg) |
+| `p_hanbada_scorecard` | [보기](p_hanbada_scorecard.390.light.jpg) | [보기](p_hanbada_scorecard.768.light.jpg) | [보기](p_hanbada_scorecard.1440.light.jpg) | [보기](p_hanbada_scorecard.390.dark.jpg) | [보기](p_hanbada_scorecard.768.dark.jpg) | [보기](p_hanbada_scorecard.1440.dark.jpg) |
+| `p_hanbada_scorecard.anon` | [보기](p_hanbada_scorecard.anon.390.light.jpg) | [보기](p_hanbada_scorecard.anon.768.light.jpg) | [보기](p_hanbada_scorecard.anon.1440.light.jpg) | [보기](p_hanbada_scorecard.anon.390.dark.jpg) | [보기](p_hanbada_scorecard.anon.768.dark.jpg) | [보기](p_hanbada_scorecard.anon.1440.dark.jpg) |
 | `partners` | [보기](partners.390.light.jpg) | [보기](partners.768.light.jpg) | [보기](partners.1440.light.jpg) | [보기](partners.390.dark.jpg) | [보기](partners.768.dark.jpg) | [보기](partners.1440.dark.jpg) |
 | `policy` | [보기](policy.390.light.jpg) | [보기](policy.768.light.jpg) | [보기](policy.1440.light.jpg) | [보기](policy.390.dark.jpg) | [보기](policy.768.dark.jpg) | [보기](policy.1440.dark.jpg) |
 | `tools_pnl` | [보기](tools_pnl.390.light.jpg) | [보기](tools_pnl.768.light.jpg) | [보기](tools_pnl.1440.light.jpg) | [보기](tools_pnl.390.dark.jpg) | [보기](tools_pnl.768.dark.jpg) | [보기](tools_pnl.1440.dark.jpg) |
@@ -42,6 +49,7 @@
 | `app_checks` | [보기](app_checks.390.light.jpg) | [보기](app_checks.768.light.jpg) | [보기](app_checks.1440.light.jpg) | [보기](app_checks.390.dark.jpg) | [보기](app_checks.768.dark.jpg) | [보기](app_checks.1440.dark.jpg) |
 | `app_checks_detail` | [보기](app_checks_detail.390.light.jpg) | [보기](app_checks_detail.768.light.jpg) | [보기](app_checks_detail.1440.light.jpg) | [보기](app_checks_detail.390.dark.jpg) | [보기](app_checks_detail.768.dark.jpg) | [보기](app_checks_detail.1440.dark.jpg) |
 | `app_compare` | [보기](app_compare.390.light.jpg) | [보기](app_compare.768.light.jpg) | [보기](app_compare.1440.light.jpg) | [보기](app_compare.390.dark.jpg) | [보기](app_compare.768.dark.jpg) | [보기](app_compare.1440.dark.jpg) |
+| `app_compare_hub_YIW_port_ICN_mode_LCL_ds_40_mg_3000` | [보기](app_compare_hub_YIW_port_ICN_mode_LCL_ds_40_mg_3000.390.light.jpg) | [보기](app_compare_hub_YIW_port_ICN_mode_LCL_ds_40_mg_3000.768.light.jpg) | [보기](app_compare_hub_YIW_port_ICN_mode_LCL_ds_40_mg_3000.1440.light.jpg) | [보기](app_compare_hub_YIW_port_ICN_mode_LCL_ds_40_mg_3000.390.dark.jpg) | [보기](app_compare_hub_YIW_port_ICN_mode_LCL_ds_40_mg_3000.768.dark.jpg) | [보기](app_compare_hub_YIW_port_ICN_mode_LCL_ds_40_mg_3000.1440.dark.jpg) |
 | `app_docs` | [보기](app_docs.390.light.jpg) | [보기](app_docs.768.light.jpg) | [보기](app_docs.1440.light.jpg) | [보기](app_docs.390.dark.jpg) | [보기](app_docs.768.dark.jpg) | [보기](app_docs.1440.dark.jpg) |
 | `app_integrations_wing` | [보기](app_integrations_wing.390.light.jpg) | [보기](app_integrations_wing.768.light.jpg) | [보기](app_integrations_wing.1440.light.jpg) | [보기](app_integrations_wing.390.dark.jpg) | [보기](app_integrations_wing.768.dark.jpg) | [보기](app_integrations_wing.1440.dark.jpg) |
 | `app_notifications` | [보기](app_notifications.390.light.jpg) | [보기](app_notifications.768.light.jpg) | [보기](app_notifications.1440.light.jpg) | [보기](app_notifications.390.dark.jpg) | [보기](app_notifications.768.dark.jpg) | [보기](app_notifications.1440.dark.jpg) |
@@ -88,9 +96,14 @@
 | `partner_rates_new.zh` | [보기](partner_rates_new.zh.390.light.jpg) | — | [보기](partner_rates_new.zh.1440.light.jpg) | — | — | — |
 | `partner_rates_upload` | [보기](partner_rates_upload.390.light.jpg) | [보기](partner_rates_upload.768.light.jpg) | [보기](partner_rates_upload.1440.light.jpg) | [보기](partner_rates_upload.390.dark.jpg) | [보기](partner_rates_upload.768.dark.jpg) | [보기](partner_rates_upload.1440.dark.jpg) |
 | `partner_reviews` | [보기](partner_reviews.390.light.jpg) | [보기](partner_reviews.768.light.jpg) | [보기](partner_reviews.1440.light.jpg) | [보기](partner_reviews.390.dark.jpg) | [보기](partner_reviews.768.dark.jpg) | [보기](partner_reviews.1440.dark.jpg) |
+| `partner_scorecard` | [보기](partner_scorecard.390.light.jpg) | [보기](partner_scorecard.768.light.jpg) | [보기](partner_scorecard.1440.light.jpg) | [보기](partner_scorecard.390.dark.jpg) | [보기](partner_scorecard.768.dark.jpg) | [보기](partner_scorecard.1440.dark.jpg) |
+| `partner_scorecard.zh` | [보기](partner_scorecard.zh.390.light.jpg) | — | [보기](partner_scorecard.zh.1440.light.jpg) | — | — | — |
 | `partner_shipments` | [보기](partner_shipments.390.light.jpg) | [보기](partner_shipments.768.light.jpg) | [보기](partner_shipments.1440.light.jpg) | [보기](partner_shipments.390.dark.jpg) | [보기](partner_shipments.768.dark.jpg) | [보기](partner_shipments.1440.dark.jpg) |
 | `partner_shipments_detail` | [보기](partner_shipments_detail.390.light.jpg) | [보기](partner_shipments_detail.768.light.jpg) | [보기](partner_shipments_detail.1440.light.jpg) | [보기](partner_shipments_detail.390.dark.jpg) | [보기](partner_shipments_detail.768.dark.jpg) | [보기](partner_shipments_detail.1440.dark.jpg) |
 | `partner_shipments_detail.zh` | [보기](partner_shipments_detail.zh.390.light.jpg) | — | [보기](partner_shipments_detail.zh.1440.light.jpg) | — | — | — |
+| `partners_sort_fast` | [보기](partners_sort_fast.390.light.jpg) | [보기](partners_sort_fast.768.light.jpg) | [보기](partners_sort_fast.1440.light.jpg) | [보기](partners_sort_fast.390.dark.jpg) | [보기](partners_sort_fast.768.dark.jpg) | [보기](partners_sort_fast.1440.dark.jpg) |
+| `partners_sort_fast.anon` | [보기](partners_sort_fast.anon.390.light.jpg) | [보기](partners_sort_fast.anon.768.light.jpg) | [보기](partners_sort_fast.anon.1440.light.jpg) | [보기](partners_sort_fast.anon.390.dark.jpg) | [보기](partners_sort_fast.anon.768.dark.jpg) | [보기](partners_sort_fast.anon.1440.dark.jpg) |
+| `partners_sort_stable` | [보기](partners_sort_stable.390.light.jpg) | [보기](partners_sort_stable.768.light.jpg) | [보기](partners_sort_stable.1440.light.jpg) | [보기](partners_sort_stable.390.dark.jpg) | [보기](partners_sort_stable.768.dark.jpg) | [보기](partners_sort_stable.1440.dark.jpg) |
 
 ## 운영 /admin
 
@@ -112,6 +125,7 @@
 | `admin_related` | [보기](admin_related.390.light.jpg) | [보기](admin_related.768.light.jpg) | [보기](admin_related.1440.light.jpg) | [보기](admin_related.390.dark.jpg) | [보기](admin_related.768.dark.jpg) | [보기](admin_related.1440.dark.jpg) |
 | `admin_research` | [보기](admin_research.390.light.jpg) | [보기](admin_research.768.light.jpg) | [보기](admin_research.1440.light.jpg) | [보기](admin_research.390.dark.jpg) | [보기](admin_research.768.dark.jpg) | [보기](admin_research.1440.dark.jpg) |
 | `admin_research_detail` | [보기](admin_research_detail.390.light.jpg) | [보기](admin_research_detail.768.light.jpg) | [보기](admin_research_detail.1440.light.jpg) | [보기](admin_research_detail.390.dark.jpg) | [보기](admin_research_detail.768.dark.jpg) | [보기](admin_research_detail.1440.dark.jpg) |
+| `admin_scorecard` | [보기](admin_scorecard.390.light.jpg) | [보기](admin_scorecard.768.light.jpg) | [보기](admin_scorecard.1440.light.jpg) | [보기](admin_scorecard.390.dark.jpg) | [보기](admin_scorecard.768.dark.jpg) | [보기](admin_scorecard.1440.dark.jpg) |
 | `admin_settings` | [보기](admin_settings.390.light.jpg) | [보기](admin_settings.768.light.jpg) | [보기](admin_settings.1440.light.jpg) | [보기](admin_settings.390.dark.jpg) | [보기](admin_settings.768.dark.jpg) | [보기](admin_settings.1440.dark.jpg) |
 | `admin_sourcing` | [보기](admin_sourcing.390.light.jpg) | [보기](admin_sourcing.768.light.jpg) | [보기](admin_sourcing.1440.light.jpg) | [보기](admin_sourcing.390.dark.jpg) | [보기](admin_sourcing.768.dark.jpg) | [보기](admin_sourcing.1440.dark.jpg) |
 | `admin_sourcing_detail` | [보기](admin_sourcing_detail.390.light.jpg) | [보기](admin_sourcing_detail.768.light.jpg) | [보기](admin_sourcing_detail.1440.light.jpg) | [보기](admin_sourcing_detail.390.dark.jpg) | [보기](admin_sourcing_detail.768.dark.jpg) | [보기](admin_sourcing_detail.1440.dark.jpg) |
