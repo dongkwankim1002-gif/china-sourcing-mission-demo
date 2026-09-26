@@ -9,6 +9,9 @@ import { dateKo, num } from '@/lib/format';
 
 export const metadata = { title: '판매 분석 · 입고 성과' };
 
+/** 선적별 목록에 먼저 보이는 줄 수 — 나머지는 접어 둔다 */
+const SHOW = 20;
+
 export default async function SalesInbound({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const sp = await searchParams;
   const v = await requireViewer('app');
@@ -17,6 +20,22 @@ export default async function SalesInbound({ searchParams }: { searchParams: Pro
   const byPartner = new Map<string, number[]>();
   for (const x of a.inbound) if (x.reflectDays != null) (byPartner.get(x.partner) ?? byPartner.set(x.partner, []).get(x.partner)!).push(x.reflectDays);
   const partners = [...byPartner.entries()].map(([name, d]) => ({ name, n: d.length, avg: Math.round((d.reduce((s, x) => s + x, 0) / d.length) * 10) / 10 })).sort((x, y) => x.avg - y.avg);
+  const row = (x: (typeof a.inbound)[number]) => (
+    <li key={x.shipmentId} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2 text-sm">
+      <span className="min-w-0">
+        <Link className="font-semibold hover:underline" href={`/app/shipments/${x.shipmentId}`}>
+          {x.shipmentNo}
+        </Link>
+        <span className="block truncate text-2xs text-muted">
+          {x.productName} · {x.partner} · {num(x.units)}개
+        </span>
+      </span>
+      <span className="flex items-center gap-2 text-xs tnum">
+        FC 입고 {dateKo(x.deliveredOn, { dow: false })}
+        {x.reflectDays == null ? <Chip tone="neutral">반영 못 찾음</Chip> : <Chip tone={x.reflectDays <= 2 ? 'ok' : x.reflectDays <= 4 ? 'info' : 'caution'}>{x.reflectDays}일</Chip>}
+      </span>
+    </li>
+  );
   return (
     <SalesFrame
       view={view}
@@ -48,29 +67,20 @@ export default async function SalesInbound({ searchParams }: { searchParams: Pro
             <Panel aria-labelledby="ib-h">
               <PanelHead id="ib-h" title="선적별" />
               <ul className="divide-y divide-line-2" data-testid="sales-inbound">
-                {a.inbound.map((x) => (
-                  <li key={x.shipmentId} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2 text-sm">
-                    <span className="min-w-0">
-                      <Link className="font-semibold hover:underline" href={`/app/shipments/${x.shipmentId}`}>
-                        {x.shipmentNo}
-                      </Link>
-                      <span className="block truncate text-2xs text-muted">
-                        {x.productName} · {x.partner} · {num(x.units)}개
-                      </span>
-                    </span>
-                    <span className="flex items-center gap-2 text-xs tnum">
-                      FC 입고 {dateKo(x.deliveredOn, { dow: false })}
-                      {x.reflectDays == null ? <Chip tone="neutral">반영 못 찾음</Chip> : <Chip tone={x.reflectDays <= 2 ? 'ok' : x.reflectDays <= 4 ? 'info' : 'caution'}>{x.reflectDays}일</Chip>}
-                    </span>
-                  </li>
-                ))}
+                {a.inbound.slice(0, SHOW).map(row)}
               </ul>
+              {a.inbound.length > SHOW ? (
+                <details className="border-t border-line-2">
+                  <summary className="cursor-pointer px-4 py-2.5 text-sm font-semibold text-muted hover:text-text">나머지 {num(a.inbound.length - SHOW)}건 더 보기</summary>
+                  <ul className="divide-y divide-line-2 border-t border-line-2">{a.inbound.slice(SHOW).map(row)}</ul>
+                </details>
+              ) : null}
             </Panel>
             <Panel aria-labelledby="ip-h">
               <PanelHead id="ip-h" title="물류사별 평균" sub="반영을 찾은 선적만" />
               {partners.length ? (
                 <div className="p-3">
-                  <DailyBars data={partners.map((p) => ({ d: p.name, v: p.avg }))} name="반영까지(일)" height={180} />
+                  <DailyBars data={partners.map((p) => ({ d: p.name, v: p.avg }))} name="반영까지(일)" height={180} intTicks />
                   <ul className="mt-2 grid gap-1 text-xs">
                     {partners.map((p) => (
                       <li key={p.name} className="flex justify-between gap-2">

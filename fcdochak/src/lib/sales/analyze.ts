@@ -251,7 +251,7 @@ export function analyzeSales(ds: SalesDataset, c: AnalyzeContext): SalesAnalysis
     products,
     lossCount: products.filter((p) => p.pnl && p.pnl.profit < 0 && p.units > 0).length,
     reasons,
-    returnsWeekly: bucketSeries(retDaily, 'week').map((x) => ({ d: x.d, units: x.units })),
+    returnsWeekly: bucketSeries(retDaily, 'week').filter((x) => x.days === 7).map((x) => ({ d: x.d, units: x.units })),
     inbound,
     inboundMedianDays: median(reflected),
     inboundAvgDays: reflected.length ? Math.round((reflected.reduce((a, b) => a + b, 0) * 10) / reflected.length) / 10 : null,

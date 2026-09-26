@@ -122,7 +122,7 @@ export default async function SourcingAdminRequest({ params }: { params: Promise
         <div className="grid min-w-0 content-start gap-4">
           <Panel aria-labelledby="acand-h">
             <PanelHead id="acand-h" title={`후보 ${d.views.length}곳`} sub={`요청당 ${d.ctx.config.rules.maxCandidates}곳까지 · 유사도는 넣을 때 셈해 남깁니다`} action={<FillMockButton requestId={req.id} />} />
-            {d.views.length ? <CandidateTable items={d.views} caption="후보 공급처" /> : <EmptyState title="아직 후보가 없습니다" body="아래에서 담당이 찾은 후보를 넣거나, 미리보기용 예시 후보(흉내 제공자)를 채웁니다." />}
+            {d.views.length ? <CandidateTable items={d.views} caption="후보 공급처" /> : <EmptyState title="아직 후보가 없습니다" body="아래에서 담당이 찾은 후보를 넣거나, 미리보기용 예시 후보를 채웁니다(실제 공급처가 아닙니다)." />}
           </Panel>
           {d.views.map((c) => {
             const row = rowById.get(c.id!);

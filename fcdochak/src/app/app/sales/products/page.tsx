@@ -85,19 +85,22 @@ export default async function SalesProducts({ searchParams }: { searchParams: Pr
                     <td className="px-3 py-2 text-right tnum">{p.onHand == null ? '—' : num(p.onHand)}</td>
                     <td className="px-3 py-2 text-right tnum">{p.daysOfStock == null ? '—' : `${num(p.daysOfStock)}일`}</td>
                     <td className="px-3 py-2 tnum">{p.stockout ? dateKo(p.stockout, { dow: false }) : '—'}</td>
-                    <td className="px-3 py-2 tnum">
+                    <td className="min-w-[168px] px-3 py-2 tnum">
                       <span className="flex flex-wrap items-center gap-1.5">
                         <Chip tone={st.tone}>{st.label}</Chip>
                         {p.reorder ? dateKo(p.reorder, { dow: false }) : ''}
                       </span>
                       {p.transit ? (
-                        <span className="block text-2xs text-muted">
-                          운송 {p.transit.days}일({p.transit.basis === 'market' ? '구간 시세' : '방식 기준'} {p.transit.lane}) + 준비 {r.prepDays}일
+                        <span className="block whitespace-normal text-2xs text-muted">
+                          운송 {p.transit.days}일 + 준비 {r.prepDays}일
+                          <span className="block">
+                            {p.transit.basis === 'market' ? '구간 시세' : '방식 기준'} {p.transit.lane}
+                          </span>
                         </span>
                       ) : null}
                     </td>
                     <td className="px-3 py-2 text-right tnum">{p.suggestUnits ? `${num(p.suggestUnits)}개` : '—'}</td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="whitespace-nowrap px-3 py-2 text-right">
                       {view.preview ? (
                         <span className="text-2xs text-muted">예시</span>
                       ) : (

@@ -68,7 +68,7 @@ export function FillMockButton({ requestId }: { requestId: string }) {
         start(async () => {
           const r = await fillMockCandidates({ requestId });
           if (!r.ok) return void toast.error(r.error ?? '예시 후보를 채우지 못했습니다');
-          toast.success(`예시 후보 ${r.added ?? 0}곳을 넣었습니다(흉내 제공자 — 밖을 부르지 않음)`);
+          toast.success(`예시 후보 ${r.added ?? 0}곳을 넣었습니다(예시 — 밖을 부르지 않음)`);
           router.refresh();
         })
       }

@@ -30,14 +30,14 @@ function axisTick(v: number, f: Fmt) {
   return fmt(v, f).replace(' 원', '');
 }
 
-export function DailyBars({ data, f = 'num', name, height = 200 }: { data: { d: string; v: number }[]; f?: Fmt; name: string; height?: number }) {
+export function DailyBars({ data, f = 'num', name, height = 200, intTicks = false }: { data: { d: string; v: number }[]; f?: Fmt; name: string; height?: number; intTicks?: boolean }) {
   return (
     <div style={{ height }} className="w-full min-w-0">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--grid)" strokeWidth={1} />
           <XAxis dataKey="d" tick={axis} tickLine={false} axisLine={{ stroke: 'var(--line)' }} interval="preserveStartEnd" minTickGap={28} />
-          <YAxis tick={axis} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => axisTick(v, f)} />
+          <YAxis tick={axis} tickLine={false} axisLine={false} width={64} allowDecimals={!intTicks} tickFormatter={(v) => axisTick(v, f)} />
           <Tooltip cursor={{ fill: 'var(--surface-2)' }} content={<ChartTip f={f} name={name} />} />
           <Bar dataKey="v" fill="var(--chart-1)" radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false} />
         </BarChart>

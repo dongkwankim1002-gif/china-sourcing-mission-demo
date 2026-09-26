@@ -65,59 +65,62 @@ function Certs({ c }: { c: CandView }) {
 
 export function CandidateTable({ items, caption }: { items: CandView[]; caption: string }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] text-sm" data-testid="sourcing-compare">
-        <caption className="sr-only">{caption}</caption>
-        <thead className="bg-surface-2 text-left text-xs text-muted">
-          <tr>
-            <th scope="col" className="px-3 py-2 font-semibold">후보</th>
-            <th scope="col" className="px-3 py-2 font-semibold">단가 구간</th>
-            <th scope="col" className="whitespace-nowrap px-3 py-2 font-semibold">최소 주문량 · 생산 일수</th>
-            <th scope="col" className="px-3 py-2 font-semibold">인증</th>
-            <th scope="col" className="px-3 py-2 text-right font-semibold">샘플비</th>
-            <th scope="col" className="px-3 py-2 text-right font-semibold">유사도</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((c) => (
-            <tr key={c.key} className={cn('border-t border-line-2 align-top', c.withdrawn && 'opacity-60')}>
-              <th scope="row" className="px-3 py-2 text-left font-normal">
-                <span className="flex flex-wrap items-center gap-1.5 font-semibold">
-                  {c.label}
-                  <Chip tone={c.kind === 'factory' ? 'info' : 'neutral'}>{SUPPLIER_KIND_LABEL[c.kind]}</Chip>
-                  {c.source === 'mock' ? <Chip tone="caution">예시</Chip> : <Chip tone="neutral">{CANDIDATE_SOURCE_LABEL[c.source]}</Chip>}
-                  {c.withdrawn ? <Chip tone="stamp">내림</Chip> : null}
-                </span>
-                <span className="mt-0.5 block text-xs text-muted">{c.productTitle}</span>
-                <span className="block text-2xs text-muted tnum">
-                  {[c.region ?? c.hubName, c.yearsActive != null ? `${c.yearsActive}년째` : null, c.rating != null ? `평점 ${c.rating.toFixed(1)}` : '평점 없음'].filter(Boolean).join(' · ')}
-                </span>
-              </th>
-              <td className="px-3 py-2 text-xs tnum">
-                <ul aria-label="단가 구간">
-                  {c.tiers.map((x) => (
-                    <li key={x.minQty} className="whitespace-nowrap">{num(x.minQty)}개~ {fmtPrice(x.unitPrice)}{cur(c.currency)}</li>
-                  ))}
-                </ul>
-              </td>
-              <td className="whitespace-nowrap px-3 py-2 tnum">
-                {num(c.moq)}개부터
-                <span className="block text-xs text-muted">생산 {c.leadMin}~{c.leadMax}일</span>
-              </td>
-              <td className="whitespace-nowrap px-3 py-2"><Certs c={c} /></td>
-              <td className="whitespace-nowrap px-3 py-2 text-right tnum">
-                {c.sampleFee != null ? `${fmtPrice(c.sampleFee)}${cur(c.currency)}` : '—'}
-                <span className="block text-2xs text-muted">처리 포함 {won(c.sampleCostKrw)}</span>
-              </td>
-              <td className="px-3 py-2 text-right">
-                <b className="tnum">{c.similarity}</b>
-                <span className="block text-2xs text-muted">{SIMILARITY_LEVEL_LABEL[c.level]}</span>
-              </td>
+    <>
+      <p className="px-4 pt-2 text-2xs text-muted md:hidden">표를 옆으로 넘기면 최소 주문량·인증·샘플비·유사도 칸이 더 있습니다.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm" data-testid="sourcing-compare">
+          <caption className="sr-only">{caption}</caption>
+          <thead className="bg-surface-2 text-left text-xs text-muted">
+            <tr>
+              <th scope="col" className="px-3 py-2 font-semibold">후보</th>
+              <th scope="col" className="px-3 py-2 font-semibold">단가 구간</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 font-semibold">최소 주문량 · 생산 일수</th>
+              <th scope="col" className="px-3 py-2 font-semibold">인증</th>
+              <th scope="col" className="px-3 py-2 text-right font-semibold">샘플비</th>
+              <th scope="col" className="px-3 py-2 text-right font-semibold">유사도</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {items.map((c) => (
+              <tr key={c.key} className={cn('border-t border-line-2 align-top', c.withdrawn && 'opacity-60')}>
+                <th scope="row" className="px-3 py-2 text-left font-normal">
+                  <span className="flex flex-wrap items-center gap-1.5 font-semibold">
+                    {c.label}
+                    <Chip tone={c.kind === 'factory' ? 'info' : 'neutral'}>{SUPPLIER_KIND_LABEL[c.kind]}</Chip>
+                    {c.source === 'mock' ? <Chip tone="caution">예시</Chip> : <Chip tone="neutral">{CANDIDATE_SOURCE_LABEL[c.source]}</Chip>}
+                    {c.withdrawn ? <Chip tone="stamp">내림</Chip> : null}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted">{c.productTitle}</span>
+                  <span className="block text-2xs text-muted tnum">
+                    {[c.region ?? c.hubName, c.yearsActive != null ? `${c.yearsActive}년째` : null, c.rating != null ? `평점 ${c.rating.toFixed(1)}` : '평점 없음'].filter(Boolean).join(' · ')}
+                  </span>
+                </th>
+                <td className="px-3 py-2 text-xs tnum">
+                  <ul aria-label="단가 구간">
+                    {c.tiers.map((x) => (
+                      <li key={x.minQty} className="whitespace-nowrap">{num(x.minQty)}개~ {fmtPrice(x.unitPrice)}{cur(c.currency)}</li>
+                    ))}
+                  </ul>
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 tnum">
+                  {num(c.moq)}개부터
+                  <span className="block text-xs text-muted">생산 {c.leadMin}~{c.leadMax}일</span>
+                </td>
+                <td className="whitespace-nowrap px-3 py-2"><Certs c={c} /></td>
+                <td className="whitespace-nowrap px-3 py-2 text-right tnum">
+                  {c.sampleFee != null ? `${fmtPrice(c.sampleFee)}${cur(c.currency)}` : '—'}
+                  <span className="block text-2xs text-muted">처리 포함 {won(c.sampleCostKrw)}</span>
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <b className="tnum">{c.similarity}</b>
+                  <span className="block text-2xs text-muted">{SIMILARITY_LEVEL_LABEL[c.level]}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
