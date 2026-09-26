@@ -83,6 +83,7 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
 
   // 비교실이 막 옮긴 칸 — 그 칸이 옮기기 전 쪽을 늦게 알려 와도 「따라가기」로 되돌리지 않는다(잠깐만)
   const pending = useRef<Record<string, { path: string; until: number }>>({});
+  const typing = useRef(false);
   const expect = (keys: string[], p: string) => {
     const until = Date.now() + PENDING_MS;
     for (const k of keys) pending.current[k] = { path: p, until };
@@ -91,6 +92,7 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
   const goAll = useCallback(
     (p: string) => {
       const np = normPath(p);
+      typing.current = false;
       setPath(np);
       setDraft(np);
       expect(versions.map((v) => v.key), np);
@@ -133,7 +135,7 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
         return changed ? next : s;
       });
       setPath(p);
-      setDraft(p);
+      if (!typing.current) setDraft(p); // 경로 칸에 치는 중이면 덮지 않는다
     }
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
@@ -212,7 +214,10 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
             <input
               id="lab-path"
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                typing.current = true;
+                setDraft(e.target.value);
+              }}
               className="h-8 min-w-0 flex-1 rounded-sm border border-white/25 bg-white/10 px-2 text-sm text-on-ink placeholder:text-on-ink-muted"
               placeholder="/check"
             />
