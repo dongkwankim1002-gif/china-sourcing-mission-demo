@@ -225,3 +225,30 @@ export const METRICS_SETTINGS: { key: string; value: unknown; note: string }[] =
     note: '쿠팡 FC 밖 목적지(3PL·쇼핑몰 창고)의 마지막 구간 참고치 — 팔레트당 기본 + km당(원). 업체 요금표의 「FC 운송」은 쿠팡 FC 기준이라 이 값으로 바꿔 계산한다.',
   },
 ];
+
+// v2 interview — 셀러 인터뷰 · 먼저 검증할 실험 셋(docs/research-plan.md) ----------------------
+/** 판정선·사다리·보관 기간·링크 일수. 키가 한 번도 없을 때만 첫 판을 넣는다(SETTINGS 와 같은 규칙). */
+export const RESEARCH_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  {
+    key: 'research.rules',
+    value: {
+      ladderBp: [100, 300, 500, 800],
+      thresholdBp: 300,
+      majorityBp: 5000,
+      minSample: 12,
+      uploadTargetBp: 1500,
+      uploadMinVisitors: 100,
+      volumeBucketsCbm: [1, 3, 5, 10, 20, 40],
+      consolidationVolumeCbm: 10,
+      consolidationBaseCbm: 3,
+      consolidationDiscountBp: 1500,
+      consolidationMinQuotes: 3,
+      inviteDays: 14,
+      consentVersion: '2026-09 초안(법률 검토 전)',
+      retentionDays: 180,
+      publicPerMinute: 30,
+    },
+    note: '셀러 인터뷰 판정선(제안값 — 사람이 정한다). 확정가 +3% 이상(반대 질문 통과)이 절반 초과·12명 이상이면 방안 A 기준 충족 · 점검 업로드 15%·방문 100 · 콘솔사 10 CBM 이상이 포워더 3 CBM 이하보다 15% 싸면 충족',
+  },
+];
+SETTINGS.push(...RESEARCH_SETTINGS);

@@ -12,6 +12,8 @@ import { NumberField } from '@/components/number-field';
 import { Button, Field, Input, NativeSelect, Textarea } from '@/components/ui/core';
 import { CheckResultView } from './result';
 import { runCheck, saveCheck, loadSavedInput } from '@/app/actions/check';
+import { trackCheck } from '@/app/actions/research';
+import { visitorId } from '@/lib/research/visitor';
 import { classifyItem, inferMode, lineFromRow, parseInvoiceText } from '@/lib/invoice-parse';
 import { SEGMENTS, SEGMENT_LABEL_KO } from '@/lib/money/segments';
 import type { Currency, LineSegment } from '@/lib/money';
@@ -114,6 +116,24 @@ export function InvoiceChecker({
   const [from, setFrom] = React.useState<{ id: string; title: string } | null>(null);
   const resultRef = React.useRef<HTMLDivElement>(null);
   const restored = React.useRef(false);
+  // 실험 ② 퍼널(v2 interview) — 기기 번호 해시만. 기록이 실패해도 점검 흐름은 그대로
+  const funnel = React.useRef<{ vid: string | null; method: 'paste' | 'excel' | 'manual' | null; inputs: Set<string> }>({ vid: null, method: null, inputs: new Set() });
+  const track = (kind: 'check_visit' | 'check_input' | 'check_run' | 'check_saved', method: 'paste' | 'excel' | 'manual' | null = funnel.current.method) => {
+    try {
+      funnel.current.vid ??= visitorId();
+      void trackCheck(kind, method, funnel.current.vid).catch(() => {});
+    } catch {}
+  };
+  const inputFrom = (method: 'paste' | 'excel' | 'manual') => {
+    funnel.current.method = method;
+    if (funnel.current.inputs.has(method)) return;
+    funnel.current.inputs.add(method);
+    track('check_input', method);
+  };
+  React.useEffect(() => {
+    track('check_visit', null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setC = <K extends keyof CargoState>(k: K, v: CargoState[K]) => setCargo((s) => ({ ...s, [k]: v }));
   const shandong = ['QDG', 'WEH', 'YNT', 'RZH'].includes(cargo.hub);
@@ -186,6 +206,7 @@ export function InvoiceChecker({
     setLines(got.map(({ raw: _raw, ...l }) => mk({ ...l, auto: true })));
     pickModeFrom(got.map((g) => g.label));
     setPasteNote(`${got.length}줄을 읽었습니다. 아래에서 구간이 맞는지 확인하세요.`);
+    inputFrom('paste');
     setOutcome(null);
     setSaved(null);
   };
@@ -228,6 +249,7 @@ export function InvoiceChecker({
       }
       setOutcome(r.data);
       setChecked({ key: JSON.stringify(i), mode: i.mode });
+      track('check_run');
       requestAnimationFrame(() => resultRef.current?.focus());
     });
   };
@@ -246,6 +268,7 @@ export function InvoiceChecker({
       }
       setSaveError(null);
       setSaved(r.data);
+      track('check_saved');
       setFrom(null);
       try {
         window.sessionStorage.removeItem(DRAFT_KEY);
@@ -353,6 +376,7 @@ export function InvoiceChecker({
                 pickModeFrom(got.map((g) => g.label));
                 setOutcome(null);
                 setSaved(null);
+                inputFrom('excel');
                 return { ok: true, created: got.length };
               }}
             />
@@ -367,11 +391,18 @@ export function InvoiceChecker({
               onClick={() => {
                 setLines(SEGMENTS.map((s) => mk({ label: SEGMENT_LABEL_KO[s], amount: null, currency: 'KRW', segment: s, auto: false })));
                 setOutcome(null);
+                inputFrom('manual');
               }}
             >
               <ListPlus aria-hidden /> 9구간 칸 만들기
             </Button>
-            <Button variant="ghost" onClick={() => setLines((ls) => [...ls, mk({ label: '', amount: null, currency: 'KRW', segment: null, auto: true })])}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setLines((ls) => [...ls, mk({ label: '', amount: null, currency: 'KRW', segment: null, auto: true })]);
+                inputFrom('manual');
+              }}
+            >
               <Plus aria-hidden /> 한 줄 더하기
             </Button>
             <p className="w-full text-xs text-muted">항목 이름을 적으면 구간을 알아서 고릅니다. 틀리면 옆에서 바꾸세요.</p>

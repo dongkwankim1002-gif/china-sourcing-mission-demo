@@ -4,6 +4,7 @@
  * assure 스위치·요율은 assure-settings.ts 에 따로 있다.
  */
 import { z } from 'zod';
+import { parseResearchRules } from './money/research';
 
 const nonNegInt = z.number().int().min(0);
 
@@ -51,3 +52,13 @@ export const V2_SETTING_LABEL: Record<string, string> = {
   'workspace.billing_flag_bp': '청구 「차이 큼」 기준(bp)',
   destination_leg: '쿠팡 FC 밖 목적지 마지막 구간 참고치',
 };
+
+// v2 interview — 셀러 인터뷰 판정선(읽는 쪽 parseResearchRules 와 같은 검사)
+V2_SETTING_SCHEMAS['research.rules'] = z.unknown().superRefine((v, ctx) => {
+  try {
+    parseResearchRules(v);
+  } catch (e) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: (e as Error).message });
+  }
+});
+V2_SETTING_LABEL['research.rules'] = '셀러 인터뷰 판정선(사다리·다수·표본·업로드·물량 단가)';
