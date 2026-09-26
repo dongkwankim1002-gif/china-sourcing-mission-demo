@@ -202,7 +202,10 @@ export function analyzeSales(ds: SalesDataset, c: AnalyzeContext): SalesAnalysis
   );
 
   const nameBy = new Map(ds.products.map((p) => [p.ext, p.name]));
+  // 재고 스냅숏이 있는 기간(첫날 다음 날부터)의 입고만 — 그 전 입고는 반영을 잴 수 없다
+  const firstSnap = ds.inventory.reduce<string | null>((m, x) => (m == null || x.on < m ? x.on : m), null);
   const inbound = c.delivered
+    .filter((s) => firstSnap != null && s.deliveredOn > firstSnap)
     .map((s) => ({ ...s, productName: nameBy.get(s.productExt) ?? s.productExt, reflectDays: inboundReflectDays(s.deliveredOn, s.units, invBy.get(s.productExt)?.map((x) => ({ on: x.on, onHand: x.onHand })) ?? [], c.rules.inboundReflectBp) }))
     .sort((a, b) => (a.deliveredOn < b.deliveredOn ? 1 : -1));
 
@@ -221,7 +224,8 @@ export function analyzeSales(ds: SalesDataset, c: AnalyzeContext): SalesAnalysis
     profit: { cur: profitCur, prev: profitPrev, changeBp: changeBp(profitCur, profitPrev), excluded },
     returnRate: { curBp: returnRateBp(retCur, tc.units), prevBp: returnRateBp(retPrev, tp.units) },
     daily: allDaily.slice(-Math.max(c.periodDays, 30)),
-    weekly: bucketSeries(allDaily, 'week'),
+    // 주 묶음은 온전한 주(7일)만 — 앞뒤 자투리 주가 뚝 떨어져 보이지 않게
+    weekly: bucketSeries(allDaily, 'week').filter((x) => x.days === 7),
     monthly: bucketSeries(allDaily, 'month'),
     products,
     lossCount: products.filter((p) => p.pnl && p.pnl.profit < 0 && p.units > 0).length,

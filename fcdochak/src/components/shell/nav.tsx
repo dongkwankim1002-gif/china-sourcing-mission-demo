@@ -32,6 +32,7 @@ import { TrendingUp } from 'lucide-react'; // v2 metrics
 import { Plug2 } from 'lucide-react'; // v2 2차 wing
 import { BadgeCheck as AllianceIcon } from 'lucide-react'; // v2 alliance
 import { MessagesSquare } from 'lucide-react'; // v2 interview
+import { ChartNoAxesCombined } from 'lucide-react'; // v2 3차 sales
 
 export type AreaKey = 'app' | 'partner' | 'admin';
 export interface NavItem {
@@ -51,6 +52,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
       { href: '/app/shipments', label: '선적', icon: Ship, tab: true },
       { href: '/app/docs', label: '서류함', icon: FolderOpen },
       { href: '/app/integrations/wing', label: '쿠팡 WING 연동', icon: Plug2 },
+      { href: '/app/sales', label: '판매 분석', icon: ChartNoAxesCombined }, // v2 3차 sales
       { href: '/app/partners', label: '거래처', icon: Users },
       { href: '/app/pnl', label: '판매손익', icon: Calculator },
       { href: '/app/checks', label: '청구서 점검', icon: ClipboardCheck },

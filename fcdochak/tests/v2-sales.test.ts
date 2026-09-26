@@ -33,6 +33,10 @@ import { DEMO_SALES_SEED, PREVIEW_PRODUCTS, PREVIEW_SALES_SEED, mockReflectLag, 
 import { parseEgressIps, parseSalesRules } from '@/lib/sales/settings';
 import { SALES_CONSENT, consentScopes } from '@/lib/sales/consent';
 import { storeSalesDataset } from '@/lib/sales/store';
+import { expiryAlertFor } from '@/lib/sales/alerts';
+import { quoteRequestHref, scaledCargo } from '@/lib/sales/quote-link';
+import { WingDisabledError, WingUnsupportedError } from '@/lib/wing/types';
+import { SalesHttpSource } from '@/lib/sales/http';
 import type { SalesRules } from '@/lib/sales/types';
 import { V2_SETTING_SCHEMAS } from '@/lib/v2-setting-schemas';
 import { DEMO_TABLES, demoCounts } from '@/lib/server/demo-status';
@@ -238,7 +242,8 @@ describe('흉내 어댑터 — 결정적 · 미래 없음 · 재고 음수 없�
     const b = mockSales({ seed: DEMO_SALES_SEED, today: addDays(today, 3), start: a.inventory[0].on, products });
     const keyA = new Map(a.orders.map((o) => [o.ext, o]));
     for (const o of b.orders) if (keyA.has(o.ext)) expect(o).toEqual(keyA.get(o.ext));
-    expect(b.orders.length).toBeGreaterThan(a.orders.length);
+    expect(b.inventory.length).toBe(a.inventory.length + 2 * 3);
+    expect(b.orders.length).toBeGreaterThanOrEqual(a.orders.length);
   });
 });
 
@@ -288,6 +293,36 @@ describe('설정 · 동의 문구', () => {
     expect(SALES_CONSENT.reads.map((r) => r.key)).toEqual(['products', 'orders', 'inventory', 'returns', 'settlements']);
     for (const w of ['상품 등록·수정·삭제', '가격 변경', '주문 처리(발주 확인·송장 입력·취소)']) expect(SALES_CONSENT.notDo).toContain(w);
     expect(consentScopes().reads).toHaveLength(5);
+  });
+});
+
+describe('만료 알림 · 지금 견적 요청 링크 · 실제 호출 자리', () => {
+  const set = { keyValidDays: 180, keyWarnDays: 14 };
+  it('D-14 안이면 「곧 만료」, 지나면 「만료」, 그 밖·키 없음·발급일 없음은 null', () => {
+    // 2026-04-01 + 180 = 2026-09-28
+    expect(expiryAlertFor({ has_key: true, issued_on: '2026-04-01' }, set, '2026-09-26')).toMatchObject({ kind: 'soon', expiresOn: '2026-09-28', daysLeft: 2, title: '쿠팡 OPEN API 키 만료 D-2' });
+    expect(expiryAlertFor({ has_key: true, issued_on: '2026-04-01' }, set, '2026-09-13')).toBeNull();
+    expect(expiryAlertFor({ has_key: true, issued_on: '2026-04-01' }, set, '2026-09-14')!.kind).toBe('soon');
+    expect(expiryAlertFor({ has_key: true, issued_on: '2026-01-01' }, set, '2026-09-26')!.kind).toBe('expired');
+    expect(expiryAlertFor({ has_key: false, issued_on: '2026-01-01' }, set, '2026-09-26')).toBeNull();
+    expect(expiryAlertFor({ has_key: true, issued_on: null }, set, '2026-09-26')).toBeNull();
+    expect(expiryAlertFor(null, set, '2026-09-26')).toBeNull();
+  });
+  it('권장 수량으로 SKU 화물을 비례해 늘려 견적 요청 화면으로', () => {
+    const sku = { id: '00000000-0000-4000-8000-00000000000a', units: 1000, cartons: 40, kg: 650, cbm: 3, goods: 24_000, cur: 'RMB' as const, hub: 'YIW', port: 'ICN', mode: 'LCL', traits: ['battery'] };
+    expect(scaledCargo(sku, 1500)).toEqual({ units: 1500, cartons: 60, kg: 975, cbm: 4.5, goods: 36_000 });
+    const href = quoteRequestHref(sku, 1500);
+    expect(href.startsWith(`/app/requests/new?sku=${sku.id}&`)).toBe(true);
+    const q = new URL(href, 'http://x').searchParams;
+    expect(Object.fromEntries(['hub', 'port', 'mode', 'units', 'cartons', 'kg', 'cbm', 'goods', 'cur', 'traits'].map((k) => [k, q.get(k)]))).toEqual({ hub: 'YIW', port: 'ICN', mode: 'LCL', units: '1500', cartons: '60', kg: '975', cbm: '4.5', goods: '36000', cur: 'RMB', traits: 'battery' });
+    // 권장 수량이 0 이면 SKU 기본 수량
+    expect(new URL(quoteRequestHref({ ...sku, mode: null }, 0), 'http://x').searchParams.get('units')).toBe('1000');
+    expect(new URL(quoteRequestHref({ ...sku, mode: null }, 0), 'http://x').searchParams.get('mode')).toBe('ANY');
+  });
+  it('판매 기록 실제 호출은 부르지 않는다 — 꺼짐이면 꺼짐, 켜져도 응답 칸 확인 필요', async () => {
+    await expect(new SalesHttpSource(null, false).fetchDataset({ from: '2026-09-01', to: '2026-09-25' })).rejects.toBeInstanceOf(WingDisabledError);
+    await expect(new SalesHttpSource(null, true).fetchDataset({ from: '2026-09-01', to: '2026-09-25' })).rejects.toBeInstanceOf(WingUnsupportedError);
+    await expect(new SalesHttpSource(null, true).testConnection()).rejects.toBeInstanceOf(WingDisabledError);
   });
 });
 

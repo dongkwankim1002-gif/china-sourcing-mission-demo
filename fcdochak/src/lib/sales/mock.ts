@@ -3,7 +3,7 @@
  * 같은 씨앗·같은 오늘이면 늘 같은 180일 주문·재고·반품을 만든다(sha-256 기반 결정적 난수, 2차 wing 흉내와 같은 방식).
  *
  *  · 날짜는 오늘 전날까지만(미래 날짜 없음). 재고는 음수가 되지 않는다 — 재고가 없으면 그날은 덜 팔린다(품절).
- *  · 입고(inbounds)가 주어지면 그날부터 1~4일 뒤 재고에 반영된다(입고 성과가 보이게).
+ *  · 입고(inbounds)가 주어지면 그날부터 1~4일 뒤 재고에 반영된다(입고 성과가 보이게). 첫 136일은 재고가 떨어지면 예시 입고로 채운다.
  *  · 번호는 EX-VI-(상품)·EX-OD-(주문 하루 묶음)·EX-RT-(반품) — 실제 번호와 헷갈리지 않는다.
  */
 import { createHash } from 'node:crypto';
@@ -66,25 +66,31 @@ export function mockSales(o: MockSalesOptions): SalesDataset {
     const g = -0.4 + r('trend') * 0.9;
     const returnRate = 0.01 + r('rr') * 0.07;
     const reasonW = RETURN_REASONS.map((_, k) => 0.2 + rand(o.seed, i, `rw${k}`) * (k === 0 ? 3 : 1));
-    // 입고 — 주어지지 않으면 50~70일마다 예시 입고
+    // 입고 — 주어진 입고(FC도착 선적)는 1~4일 뒤 재고에. 그 밖에 첫 136일 동안은 재고가 열흘 치 밑으로 내려가면 8~15일 뒤 예시 입고
+    // (첫날에 묶인 규칙이라 다시 동기화해도 앞날이 바뀌지 않는다. 마지막 44일쯤은 채우지 않아 재입고 권장이 보인다)
     const arrivals = new Map<string, number>();
+    const given = (p.inbounds ?? []).map((x) => x.on);
     const addArrival = (on: string, units: number) => {
       const lag = mockReflectLag(o.seed, i, on);
       const d = addDays(on, lag);
       if (d > end) return;
       arrivals.set(d, (arrivals.get(d) ?? 0) + units);
     };
-    if (p.inbounds && p.inbounds.length) for (const x of p.inbounds) addArrival(x.on, x.units);
-    else {
-      for (let d = addDays(start, int(r('first'), 20, 50)); d <= end; d = addDays(d, int(rand(o.seed, i, `gap:${d}`), 50, 70))) {
-        addArrival(d, Math.max(50, Math.round((base * 60) / 50) * 50));
-      }
-    }
-    let stock = Math.round(base * int(r('stock0'), 25, 60));
+    for (const x of p.inbounds ?? []) addArrival(x.on, x.units);
+    const nearGiven = (d: string) => given.some((g) => g >= addDays(d, -5) && g <= addDays(d, 30));
+    let autoAt: string | null = null;
+    const autoUnits = Math.max(50, Math.round((base * 60) / 50) * 50);
+    // 첫 재고 — 입고가 주어지면 적게(10~25일 치), 아니면 25~60일 치
+    let stock = Math.round(base * (given.length ? int(r('stock0'), 10, 25) : int(r('stock0'), 25, 60)));
     let retCarry = 0;
     let dayIdx = 0;
     for (let d = start; d <= end; d = addDays(d, 1), dayIdx++) {
       stock += arrivals.get(d) ?? 0;
+      if (autoAt === d) {
+        stock += autoUnits;
+        autoAt = null;
+      }
+      if (autoAt == null && dayIdx <= 135 && stock < base * 10 && !nearGiven(d)) autoAt = addDays(d, int(rand(o.seed, i, `auto:${d}`), 8, 15));
       // 추세는 첫날부터 179일에 걸쳐(다시 동기화해 기간이 늘어도 앞날의 값이 바뀌지 않게)
       const progress = Math.min(1, dayIdx / 179);
       const dow = new Date(`${d}T00:00:00Z`).getUTCDay();

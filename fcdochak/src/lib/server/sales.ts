@@ -18,7 +18,9 @@ import type { SalesAccess, SalesDataset, SalesRules } from '../sales/types';
 import { parseFeeBasis, type CoupangFeeBasis } from '../tools-settings';
 import { compare, rankOffers, sortOffers } from './compare';
 import { loadSettings, type AppSettings } from './settings';
-import { currentConnection, type WingConnectionRow } from './wing';
+import { currentConnection, wingSettings, type WingConnectionRow } from './wing';
+import { ensureKeyExpiryAlert } from './sales-alerts';
+import type { ExpiryAlert } from '../sales/alerts';
 import type { Viewer } from './viewer';
 
 export async function salesRules(q: Queryable): Promise<SalesRules> {
@@ -225,6 +227,8 @@ export interface SalesView {
   /** 상품 → 우리 SKU 화물 조건(「지금 견적 요청」) */
   skuCargo: Record<string, { id: string; units: number; cartons: number; kg: number; cbm: number; goods: number; cur: Currency; hub: string; port: string; mode: string | null; traits: string[] }>;
   settlementsVerified: number;
+  /** 키 만료 D-N·만료 — 알림함에도 한 번 남긴다(발송 없음) */
+  expiry: ExpiryAlert | null;
 }
 
 const PERIODS = [7, 30, 90] as const;
@@ -236,8 +240,9 @@ export function parsePeriod(v: string | undefined): number {
 /** 판매 분석 한 번(요청마다 한 번 — 화면 안 여러 칸이 같이 쓴다) */
 export const loadSalesView = cache(async (v: Viewer, periodDays: number, enabled: boolean): Promise<SalesView> => {
   const today = todayKst();
-  return asUser(v, async (q) => {
+  const view = await asUser(v, async (q) => {
     const s = await loadSettings(q);
+    const wset = await wingSettings(q);
     const rules = await salesRules(q);
     const feeRow = await q.query<{ value: unknown }>(`select value from fcd.v_current_settings where key = 'tools.coupang_fee_basis'`);
     const fee = parseFeeBasis(feeRow[0]?.value, { saleFeeBp: s.saleFeeBp, fulfillmentPerUnit: s.fulfillmentPerUnit });
@@ -281,6 +286,9 @@ export const loadSalesView = cache(async (v: Viewer, periodDays: number, enabled
     const analysis = analyzeSales(ds, { today, periodDays, rules, fee, vatRateBp: s.vatRateBp, arrival, transit, delivered });
     const runs = access === 'none' ? [] : await syncRuns(q, v.org.id);
     const settlementsVerified = access === 'none' ? 0 : (await q.query<{ n: number }>(`select count(*)::int n from fcd.sales_settlements where org_id = $1 and verified`, [v.org.id]))[0].n;
-    return { access, example: access === 'example' || preview, preview, conn, enabled, rules, fee, analysis, runs, today, periodDays, skuCargo, settlementsVerified };
+    return { access, example: access === 'example' || preview, preview, conn, enabled, rules, fee, analysis, runs, today, periodDays, skuCargo, settlementsVerified, wset };
   });
+  const { wset, ...rest } = view;
+  const expiry = await ensureKeyExpiryAlert(v.org.id, view.conn, wset, today);
+  return { ...rest, expiry };
 });

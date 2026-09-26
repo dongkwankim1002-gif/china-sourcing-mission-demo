@@ -15,7 +15,7 @@ import { storeSalesDataset } from '@/lib/sales/store';
 const HOUR = 3_600_000;
 
 /** 데모 SKU → 흉내 상품 입력(데모 시드와 「예시 다시 가져오기」가 같이 쓴다) */
-export async function demoSalesProducts(q: Queryable, orgId: string): Promise<MockProductInput[]> {
+export async function demoSalesProducts(q: Queryable, orgId: string, since: string): Promise<MockProductInput[]> {
   const skus = await q.query<{ id: string; name: string; target_price: number | null }>(
     `select id, name, target_price from fcd.skus where org_id = $1 and not archived order by created_at, id`,
     [orgId],
@@ -23,18 +23,23 @@ export async function demoSalesProducts(q: Queryable, orgId: string): Promise<Mo
   const ships = await q.query<{ sku_id: string; on: string; units: number }>(
     `select r.sku_id, (s.delivered_at at time zone 'Asia/Seoul')::date::text "on", s.units
        from fcd.shipments s join fcd.bookings b on b.id = s.booking_id join fcd.quote_requests r on r.id = b.request_id
-      where s.shipper_org_id = $1 and s.stage = 9 and s.delivered_at is not null and r.sku_id is not null`,
-    [orgId],
+      where s.shipper_org_id = $1 and s.stage = 9 and s.delivered_at is not null and r.sku_id is not null
+        and (s.delivered_at at time zone 'Asia/Seoul')::date >= $2::date`,
+    [orgId, since],
   );
   return skus.map((s, i) => {
     const tp = s.target_price ?? 15_900;
     const loss = skus.length > 1 && i === skus.length - 1;
+    const inbounds = ships.filter((x) => x.sku_id === s.id).map((x) => ({ on: x.on, units: Number(x.units) }));
+    // 하루 수요는 기간 안에 들어온 물량이 대략 팔려 나갈 만큼(데모 선적 수량이 커서 재고가 쌓이기만 하지 않게)
+    const sum = inbounds.reduce((a, x) => a + x.units, 0);
     return {
       name: s.name,
       skuId: s.id,
+      baseDaily: sum > 0 ? Math.max(3, Math.round(sum / 165)) : undefined,
       // 마지막 SKU 는 판매가를 낮춘 예시(적자 SKU 가 화면에 보이게)
       price: loss ? Math.max(1_000, Math.round((tp * 0.45) / 100) * 100 - 100) : tp,
-      inbounds: ships.filter((x) => x.sku_id === s.id).map((x) => ({ on: x.on, units: Number(x.units) })),
+      inbounds,
     };
   });
 }
@@ -48,10 +53,10 @@ export async function seedSalesDemo(q: Queryable, opts: { now: number; today: st
   )[0];
   if (!me) return 0;
   if (opts.onlyIfEmpty && (await q.query<{ n: number }>(`select count(*)::int n from fcd.sales_sync_runs where org_id = $1`, [me.org_id]))[0].n > 0) return 0;
-  const products = await demoSalesProducts(q, me.org_id);
+  const end = addDays(opts.today, -1);
+  const products = await demoSalesProducts(q, me.org_id, addDays(end, -179));
   if (!products.length) return 0;
   const ds = mockSales({ seed: DEMO_SALES_SEED, today: opts.today, days: 180, products });
-  const end = addDays(opts.today, -1);
   const s = await storeSalesDataset(q, {
     orgId: me.org_id,
     userId: me.user_id,

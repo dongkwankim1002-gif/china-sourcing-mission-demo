@@ -10,17 +10,13 @@ import { Chip, PageTitle, Panel, PanelHead } from '@/components/ui/core';
 import { dateTimeKo, num } from '@/lib/format';
 import { measuredReturnRate, reasonText, suggestMatches } from '@/lib/wing/match';
 import { keyExpiry, keyExpiryState } from '@/lib/wing/settings';
+import { consentOk, egressIps, latestConsent } from '@/lib/server/sales'; // v2 3차 sales
+import { ensureKeyExpiryAlert } from '@/lib/server/sales-alerts';
+import { WingSetupGuide } from '@/components/sales/wing-guide';
+import { ConsentPanel } from '@/components/sales/consent-panel';
+import { ConnectionTestPanel } from '@/components/sales/connection-test';
 
 export const metadata = { title: '쿠팡 WING 연동' };
-
-const STEPS: { title: string; body: string }[] = [
-  { title: 'WING 로그인', body: '사업자 인증을 마친 판매자 계정으로 wing.coupang.com 에 들어갑니다.' },
-  { title: '판매자정보 → 추가판매정보', body: '「API Key 발급 받기」를 누릅니다(판매자 ID 에 따라 메뉴 위치가 다를 수 있습니다).' },
-  { title: 'OPEN API 선택 · 약관 동의', body: '키 사용 목적 「OPEN API」를 고르고 약관을 읽은 뒤 발급합니다.' },
-  { title: '연동 방식 고르기', body: '「자체개발(직접입력)」이면 업체명·URL·IP 를 적습니다. FC도착이 연동 업체 목록에 오르면 목록에서 고르면 됩니다(준비 중).' },
-  { title: '업체 코드·키 복사', body: '발급 화면의 업체코드·Access Key·Secret Key 를 복사해 아래 「WING 키」 칸에 넣습니다. 권한은 최대 24시간 뒤에 열릴 수 있습니다.' },
-  { title: '180일마다 다시', body: '키 유효기간은 180일입니다. 만료가 가까우면 WING 에서 키를 지우고 다시 발급받아 새로 넣습니다.' },
-];
 
 export default async function WingPage() {
   const v = await requireViewer('app');
@@ -33,7 +29,14 @@ export default async function WingPage() {
     log: await accessLog(q, v.org.id),
     set: await wingSettings(q),
     fcs: await coupangFcs(q),
+    consent: await latestConsent(q, v.org.id), // v2 3차 sales
+    ips: await egressIps(q),
   }));
+  // v2 3차 sales — 만료 D-(wing.key_warn_days) 알림을 알림함에 한 번(발송 없음)
+  const expiryAlert = await ensureKeyExpiryAlert(v.org.id, d.conn, d.set, today);
+  const consented = consentOk(d.consent);
+  const canManage = v.org.role === 'shipper_admin';
+  const live = !!d.conn?.has_key;
   const shipById = new Map(d.ships.map((s) => [s.id, s]));
   const confirmed = new Map(d.matches.filter((m) => m.action === 'confirmed' && m.shipment_id).map((m) => [m.external_no, m.shipment_id!]));
   const idByNo = new Map(d.inbound.map((i) => [i.external_no, i.id]));
@@ -91,9 +94,24 @@ export default async function WingPage() {
     <>
       <PageTitle
         title="쿠팡 WING 연동"
-        sub="WING 의 입고 요청을 가져와 선적과 짝을 맞춥니다 — 바코드 PDF 는 서류함으로, 입고 결과는 실측 회송률로. 읽기만 합니다."
-        actions={env.wingEnabled ? <Chip tone="ok">연동 켜짐</Chip> : <Chip tone="caution">연동 준비 중</Chip>}
+        sub="쿠팡 API 를 맡기는 법(단계 안내) · 입고 요청을 선적과 짝 · 바코드 PDF 는 서류함으로 · 맡긴 키로 판매 분석을 엽니다. 읽기만 합니다."
+        actions={
+          <>
+            {env.wingEnabled ? <Chip tone="ok">연동 켜짐</Chip> : <Chip tone="caution">연동 준비 중</Chip>}
+            <Link className="text-sm font-semibold text-text underline-offset-2 hover:underline" href="/app/sales">
+              판매 분석 보기
+            </Link>
+          </>
+        }
       />
+      {expiryAlert ? (
+        <p role="status" data-testid="wing-expiry-alert" className={`mb-4 rounded-md border px-4 py-3 text-sm font-semibold ${expiryAlert.kind === 'expired' ? 'border-stamp/40 bg-stamp-bg text-stamp' : 'border-caution/40 bg-caution-bg text-caution'}`}>
+          {expiryAlert.title} — {expiryAlert.body} (알림함에도 남겼습니다 · 메일·문자는 보내지 않습니다)
+        </p>
+      ) : null}
+      <div className="mb-6">
+        <WingSetupGuide egressIps={d.ips} consented={consented} hasKey={live} verified={d.conn?.status === 'verified'} validDays={d.set.keyValidDays} warnDays={d.set.keyWarnDays} />
+      </div>
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid min-w-0 content-start gap-4">
           <WingImportPanel demo={v.org.is_demo} enabled={env.wingEnabled} />
@@ -136,24 +154,15 @@ export default async function WingPage() {
           </Panel>
         </div>
         <div className="grid min-w-0 content-start gap-4">
-          <Panel aria-labelledby="wg-h">
-            <PanelHead id="wg-h" title="연결 안내" sub="판매자 본인 키로 읽기만 연결합니다" />
-            <ol className="grid gap-2 p-4" data-testid="wing-steps">
-              {STEPS.map((s, n) => (
-                <li key={s.title} className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2">
-                  <span className="grid size-6 place-items-center rounded-xs border border-line bg-surface-2 text-xs font-bold tnum">{n + 1}</span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">{s.title}</p>
-                    <p className="text-xs text-muted">{s.body}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            <p className="border-t border-line-2 px-4 py-3 text-2xs text-muted">
-              근거: 쿠팡 Open API 문서·연동 솔루션사 안내(2026-09-25 조사). 메뉴 이름·IP 조건은 쿠팡 원문 확인 필요.
+          <ConsentPanel consented={consented} at={d.consent?.agreed ? d.consent.created_at : null} who={d.consent?.agreed ? d.consent.who : null} canManage={canManage} />
+          {consented || live || !canManage ? (
+          <WingKeyPanel current={key} canStore={!!env.wingKeyEncryptionKey} enabled={env.wingEnabled} today={today} warnDays={d.set.keyWarnDays} canManage={canManage} />
+          ) : (
+            <p className="rounded-md border border-dashed border-line px-4 py-3 text-sm text-muted" data-testid="wing-key-needs-consent">
+              위 「읽는 것 · 하지 않는 것」에 동의하면 WING 키 칸이 열립니다.
             </p>
-          </Panel>
-          <WingKeyPanel current={key} canStore={!!env.wingKeyEncryptionKey} enabled={env.wingEnabled} today={today} warnDays={d.set.keyWarnDays} canManage={v.org.role === 'shipper_admin'} />
+          )}
+          <ConnectionTestPanel testMode={!env.wingEnabled || v.org.is_demo} />
           <Panel aria-labelledby="wa-h">
             <PanelHead id="wa-h" title="접근 기록" sub="키 저장·꺼냄·가져오기·짝 — 키 값은 적지 않습니다" />
             {d.log.length ? (

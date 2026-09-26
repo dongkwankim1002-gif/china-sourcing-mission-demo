@@ -230,3 +230,22 @@ export const RESEARCH_ACTION = {
 export const RESEARCH_ACTION_MORE = {
   recordWithdrawal: '철회·삭제 요청 받음',
 } as const;
+
+/** 쿠팡 API 제공 · 판매 분석 행동 이름(v2 3차 sales) — 화면·e2e 가 같은 말을 쓴다 */
+export const SALES_ACTION = {
+  agree: '동의하고 키 넣기',
+  test: '연결 시험',
+  sync: '판매 기록 가져오기',
+  quote: '지금 견적 요청',
+  connect: '쿠팡 연결하러 가기',
+  disconnect: '연결 끊기(키 폐기)',
+} as const;
+
+export const SALES_RETURN_REASON_LABEL: Record<'change_of_mind' | 'defect' | 'damaged' | 'wrong_item' | 'not_as_described' | 'other', string> = {
+  change_of_mind: '단순 변심',
+  defect: '상품 불량',
+  damaged: '배송 중 파손',
+  wrong_item: '오배송',
+  not_as_described: '설명과 다름',
+  other: '기타',
+};
