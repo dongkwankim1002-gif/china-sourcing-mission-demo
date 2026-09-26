@@ -41,7 +41,7 @@
   - `UNIPASS_ENABLED` — 관세청 UNI-PASS 조회. **비워 둔다(꺼짐)**. 꺼져 있으면 관세청을 한 번도 부르지 않고, 공개 조회는 흉내(「예시 자료」 띠), 폴링은 예시 조직 번호만 흉내로 돈다.
   - `UNIPASS_API_KEY` — API001 인증키. **Sensitive**, 서버 쪽만. 켜기 전 준비(원문·약관·호출 한도 확인)는 기획 9절. 인증키는 요청 주소의 쿼리(`crkyCn`)에 실린다(공개 라이브러리 기준 — 머리글·본문으로 받는지는 확인 필요). 앱은 주소를 로그·오류에 싣지 않지만, **나가는 요청 주소 전체를 남기는 도구(APM·프록시 로그)를 켜지 않는다**. 키가 샌 것으로 보이면 UNI-PASS 에서 재발급하고 Vercel 값을 바꾼 뒤 다시 배포한다.
   - `CRON_SECRET` — `/api/cron/unipass` 확인 값(무작위 32자 이상, Sensitive). 없으면 예약 경로가 닫힌다(503). **`vercel.json` 의 crons 는 넣지 않았다** — 켤지·주기는 사람이 정한다(기획 5-2 에 넣는 법).
-  - 규칙·달력은 `fcd.settings`: `tracker.rules` · `calendar.kr_holidays`(첫 판 확인 필요) · `tracker.arrival_promise_enabled`(꺼짐).
+  - 규칙·달력은 `fcd.settings`: `tracker.rules` · `calendar.kr_holidays`(첫 판 확인 필요) · `tracker.arrival_promise_enabled`(꺼짐) · `tracker.partner_public_enabled`(꺼짐 — 업체 화면 실측은 예시 판만).
 - 로컬에서 같은 모양 보기: `PREVIEW_BANNER=v2 npm run build && PREVIEW_BANNER=v2 npm start` (DATABASE_URL 없이 → PGlite). 캡처는 `node scripts/shots-all.mjs http://localhost:3000`.
 - v2 를 운영으로 옮길지는 사람이 정한다. 옮길 때는 `fcdochak-v2` → `fcdochak` PR, 운영 DB 에는 빌드 앞단 `vercel:prepare` 가 0006~0012 를 덧붙인다(지우거나 덮지 않음) — 먼저 Supabase 백업.
 
@@ -143,6 +143,20 @@ git config --unset core.hooksPath                  # 끄기
 ```
 
 `pre-push` 는 `main`·`fcdochak` 으로의 직접 push 를 막고, `fcdochak/` 이 바뀌었으면 `npm run verify` 를 돌립니다.
+
+## 통관 알리미 예약 작업(크론) 켜기 — 사람이 정한 뒤에만
+
+지금은 **예약이 없다**(`vercel.json` 자체가 없다). 운영자가 `/admin/tracking` 의 「폴링 한 번 돌리기」로만 회차가 돈다. 켜기로 정했으면(`docs/V2.md` 「5차에서 나온 사람이 정할 일」 1~5) 이 순서로 한다. 값은 어디에도 붙여 넣어 공유하지 않는다.
+
+1. **예약 경로만 먼저 연다(관세청은 아직 꺼짐).** Vercel 프로젝트(v2 면 `fcdochak-v2-public`) → Settings → Environment Variables 에 `CRON_SECRET` 을 서버 쪽 Sensitive 로 넣는다 — 무작위 32자 이상, 공백 없음, 서로 다른 글자 16개 이상(예: `openssl rand -base64 32` 로 만든 값). 규칙에 맞지 않으면 앱은 없는 것으로 보고 경로를 닫는다(503).
+2. **예약을 더한다.** Root Directory 가 `fcdochak` 이므로 `fcdochak/vercel.json` 을 새로 만들어 PR 로 합친다:
+   ```json
+   { "crons": [{ "path": "/api/cron/unipass", "schedule": "*/30 * * * *" }] }
+   ```
+   주기는 Vercel 요금제의 크론 최소 간격·횟수와 관세청 호출 한도에 맞춘다(확인 필요 — Hobby 는 하루 한 번까지라는 안내가 있다). 크론은 Production 배포에서만 돈다(Vercel 문서 https://vercel.com/docs/cron-jobs — 확인 필요). Vercel 은 `CRON_SECRET` 이 있으면 `Authorization: Bearer <값>` 머리글을 붙여 부르고, 경로는 그 값이 맞을 때만 한 회차를 돈다(틀리면 401).
+3. **꺼진 채로 한 번 본다.** `UNIPASS_ENABLED` 를 비워 둔 채 배포하고, `/admin/tracking` 「예약 경로」가 「열림」인지, 「최근 회차」에 방식 「흉내」·계기 「예약」 줄이 쌓이는지 본다(실제 조직 번호는 건드리지 않는다).
+4. **관세청을 켠다.** 원문·약관·호출 한도 확인이 끝난 뒤 `UNIPASS_API_KEY`(Sensitive) 를 넣고 `UNIPASS_ENABLED=on` → 다시 배포. `/admin/tracking` 에서 「오늘 호출 / 상한」과 실패 수를 하루 지켜본다. 상한은 `tracker.rules.dailyCallBudget`(공개 몫 `publicDailyBudget`) — 어드민 설정에서 새 판으로.
+5. **끄기**: `UNIPASS_ENABLED` 를 비우고 다시 배포하면 곧바로 관세청 호출이 멈춘다(예약은 흉내로 돈다). 예약 자체를 멈추려면 `vercel.json` 의 crons 를 빼는 PR 또는 `CRON_SECRET` 을 지우고 다시 배포(경로 503).
 
 ## 밖으로 나가는 것
 
