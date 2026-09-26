@@ -14,6 +14,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/tools/pnl`, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${base}/track`, changeFrequency: 'weekly', priority: 0.7 }, // v2 5차 tracker
     { url: `${base}/track/stats`, changeFrequency: 'daily', priority: 0.5 },
+    { url: `${base}/market/customs`, changeFrequency: 'daily', priority: 0.6 }, // v2 6차 scorecard
+    { url: `${base}/brokers`, changeFrequency: 'weekly', priority: 0.5 },
     { url: `${base}/check`, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/partners`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
     { url: `${base}/faq`, changeFrequency: 'monthly', priority: 0.4 },

@@ -36,6 +36,7 @@ import { PackageSearch } from 'lucide-react'; // v2 3차 sourcing
 import { ChartNoAxesCombined } from 'lucide-react'; // v2 3차 sales
 import { PackageCheck } from 'lucide-react'; // v2 4차 onestop
 import { Radar } from 'lucide-react'; // v2 5차 tracker
+import { Award } from 'lucide-react'; // v2 6차 scorecard
 
 export type AreaKey = 'app' | 'partner' | 'admin';
 export interface NavItem {
@@ -78,6 +79,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
       { href: '/partner/profile', label: zh ? '公司资料' : '회사 프로필', icon: Building2 },
       { href: '/partner/alliance', label: zh ? '合作货代' : '제휴 주선사', icon: AllianceIcon }, // v2 alliance
       { href: '/partner/notifications', label: zh ? '通知' : '알림', icon: Bell },
+      { href: '/partner/scorecard', label: zh ? '成绩单' : '성적표', icon: Award }, // v2 6차 scorecard
     ];
   }
   return [
@@ -99,6 +101,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
     { href: '/admin/sourcing', label: '소싱 요청', icon: PackageSearch }, // v2 3차 sourcing
     { href: '/admin/onestop', label: '원스톱 주문', icon: PackageCheck }, // v2 4차 onestop
     { href: '/admin/tracking', label: '통관 조회 폴링', icon: Radar }, // v2 5차 tracker
+    { href: '/admin/scorecard', label: '물류사 성적표', icon: Award }, // v2 6차 scorecard
   ];
 }
 

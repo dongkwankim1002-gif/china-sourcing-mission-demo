@@ -26,6 +26,13 @@ import { assureView, basisFromOffers, currentFirmQuote, laneKey, loadAssureConfi
 import { AssurePanel } from '@/components/assure/assure-panel';
 import { contractParty } from '@/lib/server/alliance';
 import { cargoToSearch } from '@/lib/cargo-params';
+// v2 6차 scorecard — 성적 칩 · 실질 비용(견적가 + 예상 지연 비용)
+import { indexSnaps, loadScorecardConfig, namedSnaps, snapKey, type Snap } from '@/lib/server/scorecard';
+import { delayBaseline, realCost, type RealCostResult } from '@/lib/money';
+import { loadSalesView } from '@/lib/server/sales';
+import { env } from '@/lib/env';
+import { ScoreChips } from '@/components/scorecard/parts';
+import { RealCostPanel } from '@/components/scorecard/real-cost';
 
 export const metadata = { title: '같은 조건 비교' };
 
@@ -46,7 +53,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   const f = { confirmedOnly: sp.conf === '1', fcReadyOnly: sp.fcr === '1', officialOnly: sp.off === '1' };
   const withRelated = sp.rel === '1';
   const today = todayKst();
-  const { result, skus, traitNotes, assure } = await asUser(v, async (q) => {
+  const { result, skus, traitNotes, assure, score } = await asUser(v, async (q) => {
     const s = await loadSettings(q);
     const [result, skus, traitNotes] = await Promise.all([
       compare(q, { hub: cq.hub, port: cq.port, mode: cq.mode, cargo: toCargo(cq), traits: cq.traits, fc: cq.fc }, s, today),
@@ -58,7 +65,8 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
     const assureBasis = basisFromOffers(result.offers);
     const party = await contractParty(q, assureBasis.lead?.partnerId); // v2 alliance — 확정가 계약 상대(꺼짐이면 null)
     const assure = { view: assureView(config, assureBasis), mine: [...mine], current, party };
-    return { result, skus, traitNotes, assure };
+    const score = { snaps: await namedSnaps(q), cfg: await loadScorecardConfig(q) };
+    return { result, skus, traitNotes, assure, score };
   });
   // 특수관계 업체는 기본으로 순위에서 뺀다 — 「특수관계 포함」을 켜면 넣고, 1위가 특수관계면 경고 띠
   const ranked = rankOffers(filterOffers(result.offers, f), { sort, includeRelated: withRelated });
@@ -66,6 +74,39 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   const ad = result.ad && filterOffers([result.ad], f).length && (withRelated || !result.ad.partner.related_party_note) ? result.ad : null;
   const list = ad ? offers.filter((o) => o.cardId !== ad.cardId) : offers;
   const scaleMax = Math.max(1, ...offers.map((o) => o.quote.total));
+
+  // v2 6차 scorecard — 업체 성적(이 항구 × 방식 판) · 실질 비용. 판매량·마진: 셀러가 넣은 값 → 판매 분석(고른 SKU) → 없으면 지연 일수만
+  const sIdx = indexSnaps(score.snaps);
+  const minN = score.cfg.rules.minSamples;
+  const statOf = (o: Offer): Snap | null => {
+    const r = sIdx.get(snapKey('partner', o.partner.id, cq.port, o.mode));
+    return r && r.n >= minN && r.metrics.clear ? r : null;
+  };
+  const allOf = (o: Offer): Snap | null => sIdx.get(snapKey('partner', o.partner.id)) ?? null;
+  const num0 = (x: string | undefined, max: number) => {
+    const n = Number(x);
+    return x != null && x !== '' && Number.isFinite(n) && n >= 0 && n <= max ? n : null;
+  };
+  let perDay = num0(sp.ds, 100_000);
+  let margin = num0(sp.mg, 10_000_000);
+  let salesBasis: 'input' | 'sales' | null = perDay != null && margin != null ? 'input' : null;
+  if (!salesBasis && sp.sku) {
+    const sv = await loadSalesView(v, 30, env.wingEnabled).catch(() => null);
+    const pr = sv && !sv.preview ? sv.analysis.products.find((p) => p.skuId === sp.sku) : null;
+    if (pr && pr.perDay > 0 && pr.pnl) {
+      perDay = perDay ?? Math.round(pr.perDay * 100) / 100;
+      margin = margin ?? pr.pnl.profit;
+      salesBasis = 'sales';
+    }
+  }
+  const overallPm = sIdx.get(snapKey('overall', null, cq.port, cq.mode ?? null));
+  const baseline = delayBaseline(offers.map((o) => statOf(o)?.metrics.clear ?? null), overallPm && overallPm.n >= minN ? (overallPm.metrics.clear?.p50 ?? null) : null);
+  const real = new Map<string, RealCostResult>(
+    [...offers, ...(result.ad ? [result.ad] : [])].map((o) => {
+      const st = statOf(o)?.metrics.clear ?? null;
+      return [o.cardId, realCost({ quote: o.quote.total, stat: st, baselineDays: baseline?.days ?? null, perDay: salesBasis ? perDay : null, marginPerUnit: salesBasis ? margin : null })];
+    }),
+  );
 
   const qs = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams(Object.entries(sp).filter(([, x]) => x != null) as [string, string][]);
@@ -169,6 +210,17 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
         </p>
       ) : null}
 
+      {offers.length ? (
+        <RealCostPanel
+          hidden={Object.entries(sp).filter(([k, x]) => x != null && k !== 'ds' && k !== 'mg') as [string, string][]}
+          perDay={perDay}
+          margin={margin}
+          basis={salesBasis}
+          baseline={baseline}
+          portName={nameOf(ref, 'port', cq.port)}
+          rows={list.slice(0, 6).map((o) => ({ name: o.partner.name, quote: o.quote.total, real: real.get(o.cardId) ?? null }))}
+        />
+      ) : null}
       {offers.length === 0 ? (
         <Panel className="mt-3">
           <EmptyState
@@ -226,9 +278,9 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
         </Panel>
       ) : (
         <div className={cn('mt-3', view === 'cards' ? 'grid gap-3 md:grid-cols-2 xl:grid-cols-3' : 'grid gap-2')}>
-          {ad ? <OfferItem o={ad} rank={0} ad scaleMax={scaleMax} card={view === 'cards'} requestHref={requestHref(ad)} modeName={nameOf(ref, 'mode', ad.mode)} /> : null}
+          {ad ? <OfferItem o={ad} rank={0} ad scaleMax={scaleMax} card={view === 'cards'} requestHref={requestHref(ad)} modeName={nameOf(ref, 'mode', ad.mode)} score={statOf(ad) ?? allOf(ad)} certified={!!allOf(ad)?.certified} minN={minN} real={real.get(ad.cardId) ?? null} /> : null}
           {list.map((o, i) => (
-            <OfferItem key={o.cardId} o={o} rank={i + 1} scaleMax={scaleMax} card={view === 'cards'} requestHref={requestHref(o)} modeName={nameOf(ref, 'mode', o.mode)} />
+            <OfferItem key={o.cardId} o={o} rank={i + 1} scaleMax={scaleMax} card={view === 'cards'} requestHref={requestHref(o)} modeName={nameOf(ref, 'mode', o.mode)} score={statOf(o) ?? allOf(o)} certified={!!allOf(o)?.certified} minN={minN} real={real.get(o.cardId) ?? null} />
           ))}
         </div>
       )}
@@ -287,7 +339,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   );
 }
 
-function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName }: { o: Offer; rank: number; ad?: boolean; scaleMax: number; card: boolean; requestHref: string; modeName: string }) {
+function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName, score, certified, minN, real }: { o: Offer; rank: number; ad?: boolean; scaleMax: number; card: boolean; requestHref: string; modeName: string; score: Snap | null; certified: boolean; minN: number; real: RealCostResult | null }) {
   const certainty = o.quote.total ? o.raw.confirmedTotal / o.quote.total : 0;
   const m = o.metrics;
   const t = totalsBreakdown(o.quote.segments);
@@ -318,6 +370,12 @@ function OfferItem({ o, rank, ad, scaleMax, card, requestHref, modeName }: { o: 
             {o.fuelSeparate ? ' · 유류할증 별도' : ''} · {dateKo(o.validTo, { dow: false })}까지{o.daysLeft <= 10 ? <span className="font-semibold text-caution">(곧 만료)</span> : null} · 제공 {dateKo(o.createdAt, { dow: false })} · {o.cardNo} v{o.version}
           </p>
           <ScoreBreakdown variant="inline" className="mt-1" parts={o.parts} score={o.score} trust={o.trust} metrics={m} certainty={certainty} />
+          <ScoreChips s={score} minSamples={minN} compact certified={certified} className="mt-1.5" />
+          {real?.usual ? (
+            <p className="mt-1 text-2xs text-muted tnum" data-testid="offer-real-cost">
+              실질 비용 평소 {real.usual.total != null ? <b className="text-text">{won(real.usual.total)}</b> : '—'}(지연 {real.usual.delayDays}일) · 늦을 때 {real.late?.total != null ? <b className="text-text">{won(real.late.total)}</b> : '—'}(지연 {real.late?.delayDays}일)
+            </p>
+          ) : null}
         </div>
         <div className={cn('flex flex-wrap items-end justify-between gap-3', !card && 'lg:flex-col lg:flex-nowrap lg:items-end')}>
           <div className={cn(!card && 'lg:text-right')}>
