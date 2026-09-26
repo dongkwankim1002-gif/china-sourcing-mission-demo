@@ -18,6 +18,7 @@ import { DEMO_WING_SEED, demoWingHints, mockInbounds } from '@/lib/wing/mock';
 import { API_KEY_RE, VENDOR_ID_RE } from '@/lib/wing/settings';
 import { WingDisabledError, WingHttpError, type WingInbound } from '@/lib/wing/types';
 import { uploadDocument } from './docs';
+import { consentOk, latestConsent } from '@/lib/server/sales'; // v2 3차 sales
 
 export interface WingResult<T = undefined> {
   ok: boolean;
@@ -51,6 +52,9 @@ const isAdmin = (v: Viewer) => v.org.role === 'shipper_admin';
 export async function saveWingKey(input: z.infer<typeof KeyInput>): Promise<WingResult<{ status: 'saved'; enabled: boolean }>> {
   const v = await requireViewer('app');
   if (!isAdmin(v)) return { ok: false, error: NOT_ADMIN };
+  // v2 3차 sales — 「읽는 것·하지 않는 것」 현재 판 동의가 있어야 키를 받는다
+  const consented = await asUser(v, async (q) => consentOk(await latestConsent(q, v.org.id))).catch(() => false);
+  if (!consented) return { ok: false, error: '먼저 「읽는 것·하지 않는 것」에 동의해 주세요(단계 ⑤)' };
   const p = KeyInput.safeParse(input);
   if (!p.success) return { ok: false, error: '입력이 올바르지 않습니다' };
   const d = p.data;

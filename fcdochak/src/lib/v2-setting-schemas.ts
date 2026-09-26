@@ -91,3 +91,28 @@ V2_SETTING_LABEL['research.rules'] = '셀러 인터뷰 판정선(사다리·다�
 import { SOURCING_SETTING_LABEL, SOURCING_SETTING_SCHEMAS } from './sourcing/settings';
 Object.assign(V2_SETTING_SCHEMAS, SOURCING_SETTING_SCHEMAS);
 Object.assign(V2_SETTING_LABEL, SOURCING_SETTING_LABEL);
+
+// v2 3차 sales — 판매 분석 기준 · 연동 IP(읽는 쪽: src/lib/sales/settings.ts)
+export const SALES_SETTING_SCHEMAS = {
+  'sales.rules': z
+    .object({
+      velocityDays: z.number().int().min(1).max(180),
+      prepDays: z.number().int().min(0).max(120),
+      coverDays: z.number().int().min(1).max(365),
+      abcABp: z.number().int().min(1).max(10_000),
+      abcBBp: z.number().int().min(1).max(10_000),
+      lowStockDays: z.number().int().min(1).max(365),
+      actualShipments: z.number().int().min(1).max(50),
+      inboundReflectBp: z.number().int().min(1).max(10_000),
+      roundUnits: z.number().int().min(1).max(10_000),
+    })
+    .refine((v) => v.abcABp <= v.abcBBp, 'A 경계는 B 경계보다 작거나 같아야 합니다'),
+  'wing.egress_ips': z
+    .array(z.string().regex(/^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/, 'IPv4 주소(예: 203.0.113.10)'))
+    .max(10),
+};
+Object.assign(V2_SETTING_SCHEMAS, SALES_SETTING_SCHEMAS);
+Object.assign(V2_SETTING_LABEL, {
+  'sales.rules': '판매 분석 기준(속도 창·준비일·ABC·곧 품절)',
+  'wing.egress_ips': '쿠팡 연동 IP(셀러가 WING 키 설정에 적는 값)',
+});

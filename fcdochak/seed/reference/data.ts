@@ -321,3 +321,13 @@ export const SOURCING_SETTINGS: { key: string; value: unknown; note: string }[] 
   },
 ];
 SETTINGS.push(...SOURCING_SETTINGS);
+// v2 3차 sales — 쿠팡 API 제공 · 판매 분석(docs/sales-plan.md). 키가 한 번도 없을 때만 첫 판을 넣는다(SETTINGS 와 같은 규칙).
+export const SALES_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  {
+    key: 'sales.rules',
+    value: { velocityDays: 28, prepDays: 7, coverDays: 60, abcABp: 8000, abcBBp: 9500, lowStockDays: 21, actualShipments: 5, inboundReflectBp: 5000, roundUnits: 50 },
+    note: '판매 분석 기준(제안값 — 사람이 정한다): 판매 속도 창(일) · 재입고 준비일(생산·집하) · 권장 수량이 덮을 일수 · ABC 누적 매출 경계(bp) · 곧 품절(일) · 실제 도착원가에 쓸 최근 선적 수 · 입고 반영으로 볼 재고 증가 비율(bp) · 권장 수량 올림 단위',
+  },
+  { key: 'wing.egress_ips', value: [], note: 'FC도착이 쿠팡을 부를 때 나가는 고정 IP — 셀러가 WING 키 설정의 연동 IP 칸에 적는다. 비어 있으면 화면에 「준비 중 — 운영이 정하면 표시」' },
+];
+SETTINGS.push(...SALES_SETTINGS);

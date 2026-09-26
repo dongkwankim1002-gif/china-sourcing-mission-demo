@@ -36,7 +36,7 @@ test('화주 — 연결 안내 · 연동 준비 중 · WING 파일 올리기(칸
   await page.getByRole('link', { name: '쿠팡 WING 연동' }).first().click();
   await expect(page).toHaveURL(/\/app\/integrations\/wing$/);
   await expect(page.getByRole('heading', { level: 1, name: '쿠팡 WING 연동' })).toBeVisible();
-  await expect(page.getByTestId('wing-steps').locator('li')).toHaveCount(6);
+  await expect(page.getByTestId('wing-steps').locator(':scope > li')).toHaveCount(8); // v2 3차 sales — 단계 안내 여덟
   await expect(page.getByText('연동 준비 중').first()).toBeVisible();
   // 실제 셀러에게는 예시 가져오기가 없다
   await expect(page.getByRole('button', { name: '예시 입고 요청 가져오기' })).toHaveCount(0);
@@ -73,6 +73,10 @@ test('화주 — 연결 안내 · 연동 준비 중 · WING 파일 올리기(칸
   await expect(page.getByTestId('wing-inbound-list')).toContainText(noB);
   await expect(page.getByText('가져온 입고 요청 2건')).toBeVisible();
 
+  // v2 3차 sales — 「읽는 것·하지 않는 것」에 동의해야 키 칸이 열린다
+  await expect(page.getByTestId('wing-key-needs-consent')).toBeVisible();
+  await page.getByRole('button', { name: '동의하고 키 넣기' }).click();
+  await expect(page.getByTestId('wing-consent')).toContainText('동의함');
   // 키 저장 — 끝 4자리만 보인다(시험용 가짜 키)
   const secret = `e2e-secret-${stamp}-000000000000`;
   await page.locator('#wk-vendor').fill('A00012345');
