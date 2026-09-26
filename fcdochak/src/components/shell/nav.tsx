@@ -31,6 +31,7 @@ import {
 import { TrendingUp } from 'lucide-react'; // v2 metrics
 import { Plug2 } from 'lucide-react'; // v2 2차 wing
 import { BadgeCheck as AllianceIcon } from 'lucide-react'; // v2 alliance
+import { MessagesSquare } from 'lucide-react'; // v2 interview
 
 export type AreaKey = 'app' | 'partner' | 'admin';
 export interface NavItem {
@@ -86,6 +87,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
     { href: '/admin/demo', label: '데모 관리', icon: Sparkles },
     { href: '/admin/assure', label: '확정가·보장', icon: ShieldCheck },
     { href: '/admin/alliance', label: '제휴 주선사', icon: AllianceIcon }, // v2 alliance
+    { href: '/admin/research', label: '셀러 인터뷰', icon: MessagesSquare },
     { href: '/styleguide', label: '스타일가이드', icon: Palette },
   ];
 }

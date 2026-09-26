@@ -207,3 +207,21 @@ export const WING_SOURCE_LABEL: Record<'mock' | 'file' | 'api', string> = {
   file: 'WING 파일',
   api: 'WING 연동',
 };
+/** 셀러 인터뷰 행동 이름(v2 interview) — 셀러 화면·인터뷰어 모드·운영 보드가 같은 말을 쓴다 */
+export const RESEARCH_ACTION = {
+  agree: '동의하고 시작',
+  decline: '동의하지 않음',
+  next: '저장하고 다음',
+  back: '이전',
+  finish: '끝내기',
+  addParticipant: '대상 넣기',
+  makeLink: '인터뷰 링크 만들기',
+  newLink: '새 링크 만들기',
+  revokeLink: '링크 거두기',
+  conduct: '통화하며 대신 적기',
+  revealContact: '연락처 보기',
+  clearContact: '연락처 지우기',
+  verbalAgree: '구두 동의 받음',
+  verbalDecline: '거부함',
+  addQuote: '단가 넣기',
+} as const;

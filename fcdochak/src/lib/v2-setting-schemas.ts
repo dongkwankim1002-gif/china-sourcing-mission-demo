@@ -4,6 +4,7 @@
  * assure 스위치·요율은 assure-settings.ts 에 따로 있다.
  */
 import { z } from 'zod';
+import { parseResearchRules } from './money/research';
 
 const nonNegInt = z.number().int().min(0);
 
@@ -75,3 +76,12 @@ Object.assign(V2_SETTING_LABEL, {
   'wing.match_rule': '쿠팡 입고 요청 ↔ 선적 짝 제안 기준',
   'wing.key_valid_days': '쿠팡 OPEN API 키 유효 일수',
 });
+// v2 interview — 셀러 인터뷰 판정선(읽는 쪽 parseResearchRules 와 같은 검사)
+V2_SETTING_SCHEMAS['research.rules'] = z.unknown().superRefine((v, ctx) => {
+  try {
+    parseResearchRules(v);
+  } catch (e) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: (e as Error).message });
+  }
+});
+V2_SETTING_LABEL['research.rules'] = '셀러 인터뷰 판정선(사다리·다수·표본·업로드·물량 단가)';

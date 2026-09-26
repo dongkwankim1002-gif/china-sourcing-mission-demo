@@ -27,6 +27,7 @@ import { seedDemoEvents } from './events';
 import { seedWorkspaceDemo } from './workspace';
 import { seedWingDemo } from './wing'; // v2 2차 wing
 import { seedAllianceDemo } from './alliance';
+import { seedResearchDemo } from './research';
 
 export const DEMO_SEED = 0x0fcd0c4a;
 export const DEMO_ACCOUNTS = {
@@ -97,6 +98,8 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
     if (ev) log(`데모 이벤트 ${ev}줄을 기존 데모 자료에서 만들었습니다.`);
     const al = await db.transaction((q) => seedAllianceDemo(q, { now: opts.now ?? Date.now(), adminEmail: DEMO_ACCOUNTS.admin.email })); // v2 alliance — 제휴 기록이 없던 데모에만
     if (al) log(`데모 제휴 기록 ${al}줄을 넣었습니다.`);
+    const rs = await db.transaction((q) => seedResearchDemo(q, { now: opts.now ?? Date.now() })); // v2 interview — 인터뷰 예시가 없던 데모에만
+    if (rs) log(`데모 인터뷰 참여자 ${rs}명을 넣었습니다.`);
     return { inserted: false };
   }
   const rng = new Rng(DEMO_SEED);
@@ -909,6 +912,7 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
   await db.transaction((q) => seedWingDemo(q, { now, today: opts.today, shipperEmail: DEMO_ACCOUNTS.shipper.email }));
   const demoEvents = await db.transaction((q) => seedDemoEvents(q)); // v2 metrics — 방금 넣은 자료에서 이벤트
   await db.transaction((q) => seedAllianceDemo(q, { now, adminEmail: DEMO_ACCOUNTS.admin.email })); // v2 alliance — 예시 제휴 두 곳
+  await db.transaction((q) => seedResearchDemo(q, { now })); // v2 interview — 예시 인터뷰·물량 단가·점검 퍼널
   if (pw && opts.createAuthUser) {
     for (const [k, id] of Object.entries(demoIds)) {
       const a = DEMO_ACCOUNTS[k as keyof typeof DEMO_ACCOUNTS];
