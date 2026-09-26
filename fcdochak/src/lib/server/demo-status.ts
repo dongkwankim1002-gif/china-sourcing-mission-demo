@@ -68,6 +68,12 @@ export const DEMO_TABLES: { table: string; sql: string }[] = [
   { table: 'cargo_track_events', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.cargo_track_events x join fcd.orgs o on o.id = x.org_id` },
   { table: 'track_watches', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.track_watches x join fcd.orgs o on o.id = x.org_id` },
   { table: 'lead_time_stats', sql: `select count(*) filter (where x.demo_org_id is not null)::int demo, count(*) filter (where x.demo_org_id is null)::int real from fcd.lead_time_stats x` },
+  // v2 6차 scorecard
+  { table: 'partner_cargo_submissions', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.partner_cargo_submissions x join fcd.orgs o on o.id = x.partner_org_id` },
+  { table: 'partner_customs_codes', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.partner_customs_codes x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'broker_profiles', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.broker_profiles x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'scorecard_snapshots', sql: `select count(*) filter (where x.demo_org_id is not null)::int demo, count(*) filter (where x.demo_org_id is null)::int real from fcd.scorecard_snapshots x` },
+  { table: 'scorecard_disputes', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.scorecard_disputes x join fcd.orgs o on o.id = x.partner_org_id` },
 ];
 
 export async function demoCounts(q: Queryable) {

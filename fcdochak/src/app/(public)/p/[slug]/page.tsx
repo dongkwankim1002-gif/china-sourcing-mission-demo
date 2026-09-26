@@ -21,6 +21,7 @@ import { dateKo, notFuture, num, pct, won, ymdDots } from '@/lib/format';
 import { BIZ_TYPE_LABEL } from '@/lib/terms';
 import { partnerLeadTimes } from '@/lib/server/tracker'; // v2 5차 tracker
 import { PartnerLeadTime } from '@/components/tracker/partner-lead';
+import { EntityTabs } from '@/components/scorecard/entity-tabs'; // v2 6차 scorecard — 「성적표」 탭(5차 실측 칸을 이 탭으로 합침)
 
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -131,7 +132,15 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
       ) : null}
 
       {official ? (
-        <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="mt-6">
+        <EntityTabs
+          entityId={p.id}
+          next={`/p/${p.slug}#scorecard`}
+          ports={Object.fromEntries(ref.ports.map((x) => [x.code, x.name_ko]))}
+          modes={Object.fromEntries(ref.modes.map((x) => [x.code, x.name_ko]))}
+          extra={<PartnerLeadTime rows={leadTimes} portName={(c) => nameOf(ref, 'port', c)} modeName={(c) => nameOf(ref, 'mode', c)} />}
+          overview={
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="grid min-w-0 gap-6">
             <Panel>
               <PanelHead title="실측 점수" sub="손으로 넣는 칸이 아닙니다 — 선적·청구 기록에서 계산합니다" />
@@ -150,7 +159,6 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
                 ))}
               </dl>
             </Panel>
-            <PartnerLeadTime rows={leadTimes} portName={(c) => nameOf(ref, 'port', c)} modeName={(c) => nameOf(ref, 'mode', c)} />
             <Panel>
               <PanelHead title="추천 점수 항목" sub="비교 화면의 추천 점수가 어디서 나오는지 — 항목별 점수와 잰 값" />
               <ScoreBreakdown parts={parts} score={score} trust={trust} metrics={metricsView} certainty={certainty} certaintyNote="최근 180일 응찰 기준(비교 화면은 요금표마다 다름)" />
@@ -207,6 +215,9 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
               </div>
             </Panel>
           </aside>
+        </div>
+          }
+        />
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">

@@ -32,6 +32,7 @@ import { seedSourcingDemo } from './sourcing'; // v2 3차 sourcing
 import { seedOnestopDemo } from './onestop'; // v2 4차 onestop
 import { seedSalesDemo } from './sales'; // v2 3차 sales
 import { seedTrackerDemo } from './tracker'; // v2 5차 tracker
+import { seedScorecardDemo } from './scorecard'; // v2 6차 scorecard
 
 export const DEMO_SEED = 0x0fcd0c4a;
 export const DEMO_ACCOUNTS = {
@@ -114,6 +115,8 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
     if (os) log(`데모 원스톱 주문 ${os}건을 넣었습니다.`);
     const tk = await db.transaction((q) => seedTrackerDemo(q, { now: opts.now ?? Date.now(), today: opts.today, shipperEmail: DEMO_ACCOUNTS.shipper.email, onlyIfEmpty: true })); // v2 5차 tracker — 통관 번호가 없던 데모에만
     if (tk) log(`데모 통관 조회 번호 ${tk}개를 넣었습니다.`);
+    const sc6 = await db.transaction((q) => seedScorecardDemo(q, { now: opts.now ?? Date.now(), today: opts.today, adminEmail: DEMO_ACCOUNTS.admin.email, onlyIfEmpty: true })); // v2 6차 scorecard — 성적표가 없던 데모에만
+    if (sc6) log(`데모 성적표 화물 ${sc6}건을 넣었습니다.`);
     return { inserted: false };
   }
   const rng = new Rng(DEMO_SEED);
@@ -931,6 +934,7 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
   await db.transaction((q) => seedSalesDemo(q, { now, today: opts.today, shipperEmail: DEMO_ACCOUNTS.shipper.email })); // v2 3차 sales — 180일 예시 판매 기록
   await db.transaction((q) => seedOnestopDemo(q, { now, shipperEmail: DEMO_ACCOUNTS.shipper.email, adminEmail: DEMO_ACCOUNTS.admin.email })); // v2 4차 onestop — 예시 원스톱 주문
   await db.transaction((q) => seedTrackerDemo(q, { now, today: opts.today, shipperEmail: DEMO_ACCOUNTS.shipper.email })); // v2 5차 tracker — 예시 통관 번호·흉내 단계·예시 소요 통계
+  await db.transaction((q) => seedScorecardDemo(q, { now, today: opts.today, adminEmail: DEMO_ACCOUNTS.admin.email })); // v2 6차 scorecard — 예시 성적표 화물·제출·부호·이의·스냅숏
   if (pw && opts.createAuthUser) {
     for (const [k, id] of Object.entries(demoIds)) {
       const a = DEMO_ACCOUNTS[k as keyof typeof DEMO_ACCOUNTS];

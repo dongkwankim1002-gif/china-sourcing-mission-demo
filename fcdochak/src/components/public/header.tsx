@@ -16,8 +16,9 @@ export const PUBLIC_NAV: { href: string; label: string; lgOnly?: boolean }[] = [
   { href: '/family/sourcing', label: '패밀리 사이트', lgOnly: true },
   // v2 4차 onestop — 원스톱 대행형 구역(미리보기). 머리 줄은 lg 부터(바닥글·모바일 메뉴에는 늘 있다)
   { href: '/onestop', label: '원스톱', lgOnly: true },
-  // v2 5차 tracker — 통관·입고 알리미(공개, 로그인 없이). 768 폭에서는 머리 줄이 두 줄로 넘쳐 lg 부터(바닥글·모바일 메뉴에는 늘 있다)
-  { href: '/track', label: '통관 조회', lgOnly: true },
+  // v2 6차 scorecard — 5차 「통관 조회」를 「물류사 성적표」로 바꿨다(단순 조회는 목적이 아니다 — 모은 실측으로 업체를 고른다).
+  // /track 은 「내 화물 등록 → 성적표에 보탬」 창구로 바닥글에 남는다. 768 폭에서는 lg 부터(바닥글·모바일 메뉴에는 늘 있다)
+  { href: '/partners?sort=fast', label: '물류사 성적표', lgOnly: true },
 ];
 
 export function DemoBand() {

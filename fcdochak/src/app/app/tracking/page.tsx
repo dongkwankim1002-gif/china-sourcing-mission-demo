@@ -14,7 +14,7 @@ import { TRACK_KIND_LABEL } from '@/lib/unipass/validate';
 import { env } from '@/lib/env';
 import { TRACK_ACTION } from '@/lib/terms';
 
-export const metadata = { title: '통관 알림' };
+export const metadata = { title: '내 화물 등록 · 통관 알림' };
 
 const DONE_PAGE = 30;
 
@@ -77,12 +77,17 @@ export default async function TrackingPage({ searchParams }: { searchParams: Pro
   return (
     <>
       <PageTitle
-        title="통관 알림"
-        sub="B/L·화물관리번호를 저장하면 관세청 단계가 바뀔 때 알림 센터에 알려 드립니다(메일·문자는 보내지 않음). FC도착 선적과 이으면 선적 화면의 통관 단계가 실측으로 보입니다."
+        title="내 화물 등록 · 통관 알림"
+        sub="내 B/L 을 등록하면 관세청 단계가 바뀔 때 알림 센터에 알려 드리고(메일·문자는 보내지 않음), 그 화물이 물류사·관세사 성적표에 보태집니다. 물류사·관세사를 고르거나 FC도착 선적과 이으면 그 업체 성적에 들어갑니다(같은 화물은 한 번)."
         actions={
-          <Button asChild variant="secondary">
-            <Link href="/track/stats">{TRACK_ACTION.stats}</Link>
-          </Button>
+          <span className="flex flex-wrap gap-2">
+            <Button asChild variant="secondary">
+              <Link href="/partners?sort=fast">물류사 성적표</Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link href="/track/stats">{TRACK_ACTION.stats}</Link>
+            </Button>
+          </span>
         }
       />
       {!env.unipassEnabled ? (
@@ -92,7 +97,7 @@ export default async function TrackingPage({ searchParams }: { searchParams: Pro
       ) : null}
       <Panel className="mb-4">
         <PanelHead
-          title="번호 더하기"
+          title="내 화물 등록 → 성적표에 보탬"
           sub={ready ? '개인통관고유부호는 받지 않습니다. 저장하면 바로 한 번 조회하고 알림을 켭니다.' : '개인통관고유부호는 받지 않습니다. 저장하면 알림을 켜 두고, 관세청 조회가 연결되면 조회를 시작합니다.'}
         />
         <TrackAddForm thisYear={Number(todayKst().slice(0, 4))} shipments={shipments} />

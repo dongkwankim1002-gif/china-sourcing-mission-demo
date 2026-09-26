@@ -40,6 +40,8 @@ const shots = [
     name: 'track_result',
     path: '/track',
     act: async (page) => {
+      // v2 6차 — 공개 /track 의 조회는 「번호 한 번 보기」 접힘 안에 있다
+      await page.locator('summary', { hasText: '번호 한 번 보기' }).click();
       await page.locator('#trk-number').fill('EXHBL-SHOT-0001');
       await page.locator('#trk-year').fill('2026');
       await page.getByRole('button', { name: '조회하기' }).click();
@@ -48,7 +50,8 @@ const shots = [
     scrollTo: 'track-result',
   },
   ...(customsHref ? [{ name: 'app_shipments_customs', login: 'shipper', path: customsHref, scrollTo: 'shipment-customs-actual' }] : []),
-  { name: 'p_hanbada_lead', path: '/p/hanbada', scrollTo: 'partner-lead-time' },
+  // v2 6차 scorecard — 5차 실측 칸은 업체 화면 「성적표」 탭으로 합쳤다(#scorecard 로 바로 열림)
+  { name: 'p_hanbada_lead', path: '/p/hanbada#scorecard', scrollTo: 'partner-lead-time' },
 ];
 
 const overflow = [];

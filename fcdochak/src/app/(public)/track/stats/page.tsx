@@ -8,7 +8,6 @@ import { DemoChip } from '@/components/badges';
 import { EmptyState, Panel, PanelHead } from '@/components/ui/core';
 import { dateKo } from '@/lib/format';
 import { displayDays } from '@/lib/tracker/leadtime';
-import { TRACK_ACTION } from '@/lib/terms';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +28,7 @@ export default async function TrackStatsPage() {
   return (
     <div className="mx-auto grid max-w-[1100px] gap-6 px-4 py-8">
       <div>
-        <p className="text-xs font-bold text-muted"><Link href="/track" className="underline underline-offset-4">{TRACK_ACTION.lookup}</Link> · 실측 분포</p>
+        <p className="text-xs font-bold text-muted"><Link href="/track" className="underline underline-offset-4">내 화물 등록</Link> · 실측 분포 · <Link href="/market/customs" className="underline underline-offset-4">통관 시장 지표(검사·반입 → 반출·추이)</Link></p>
         <h1 className="mt-1 text-xl font-bold">항구 × 방식별 통관 소요</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
           셀러가 넣은 번호의 관세청 단계 시각으로 셈한 실제 걸린 날입니다. 최근 {d.cfg.rules.windowDays}일 · 한국 영업일 · 표본 {d.cfg.rules.minSamples}건 미만인 칸은 숨깁니다.
@@ -82,7 +81,7 @@ export default async function TrackStatsPage() {
         </>
       ) : (
         <Panel>
-          <EmptyState title="아직 보여 드릴 만큼 모이지 않았습니다" body={`항구·방식마다 표본 ${d.cfg.rules.minSamples}건이 모이면 여기에 분포가 뜹니다. 화주로 번호를 저장하고 선적·물류사와 이을수록 빨리 모입니다(로그인 없이 조회만 한 번호는 셈에 들지 않습니다).`} action={<Link href="/track" className="font-semibold underline underline-offset-4">{TRACK_ACTION.lookup}</Link>} />
+          <EmptyState title="아직 보여 드릴 만큼 모이지 않았습니다" body={`항구·방식마다 표본 ${d.cfg.rules.minSamples}건이 모이면 여기에 분포가 뜹니다. 화주로 번호를 저장하고 선적·물류사와 이을수록 빨리 모입니다(로그인 없이 조회만 한 번호는 셈에 들지 않습니다).`} action={<Link href="/track" className="font-semibold underline underline-offset-4">내 화물 등록</Link>} />
         </Panel>
       )}
       <p className="text-xs text-muted">자료: 관세청 UNI-PASS 화물통관진행정보(처리 일시) · FC 입고는 FC도착에서 이은 선적 기록 · 공휴일 목록은 확인 필요 표시가 붙은 첫 판입니다.</p>

@@ -35,6 +35,8 @@ export async function leadSamples(q: Queryable, demo: boolean): Promise<LeadSamp
             coalesce((select min(se.occurred_at) from fcd.shipment_events se where se.shipment_id = s.id and se.stage = 9), s.delivered_at) fc
        from fcd.cargo_tracks t join fcd.orgs o on o.id = t.org_id left join fcd.shipments s on s.id = t.shipment_id
       where o.is_demo = $1::boolean
+        -- v2 6차 scorecard — 물류사가 제출한 번호(물류사 조직 소유)는 성적표에만 넣는다(업체가 고른 화물로 항구·방식 판이 흔들리지 않게)
+        and o.kind = 'shipper'
       order by coalesce(t.cargo_no, t.kind || ':' || t.number || ':' || coalesce(t.bl_year::text, '')), (s.id is null), t.created_at, t.id`,
     [demo],
   );

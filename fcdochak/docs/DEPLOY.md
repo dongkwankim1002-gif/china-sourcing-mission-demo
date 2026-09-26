@@ -42,6 +42,8 @@
   - `UNIPASS_API_KEY` — API001 인증키. **Sensitive**, 서버 쪽만. 켜기 전 준비(원문·약관·호출 한도 확인)는 기획 9절. 인증키는 요청 주소의 쿼리(`crkyCn`)에 실린다(공개 라이브러리 기준 — 머리글·본문으로 받는지는 확인 필요). 앱은 주소를 로그·오류에 싣지 않지만, **나가는 요청 주소 전체를 남기는 도구(APM·프록시 로그)를 켜지 않는다**. 키가 샌 것으로 보이면 UNI-PASS 에서 재발급하고 Vercel 값을 바꾼 뒤 다시 배포한다.
   - `CRON_SECRET` — `/api/cron/unipass` 확인 값(무작위 32자 이상, Sensitive). 없으면 예약 경로가 닫힌다(503). **`vercel.json` 의 crons 는 넣지 않았다** — 켤지·주기는 사람이 정한다(기획 5-2 에 넣는 법).
   - 규칙·달력은 `fcd.settings`: `tracker.rules` · `calendar.kr_holidays`(첫 판 확인 필요) · `tracker.arrival_promise_enabled`(꺼짐) · `tracker.partner_public_enabled`(꺼짐 — 업체 화면 실측은 예시 판만).
+- **6차 환경변수: 새로 생긴 것 없음.** 물류사 성적표는 5차 `UNIPASS_ENABLED`·`UNIPASS_API_KEY`·`CRON_SECRET` 을 그대로 쓴다(화물운송주선업자 부호 목록도 같은 스위치·같은 키 — API 칸 이름은 확인 필요). 6차 새 표 0024 도 운영 DB 에 들어가지 않는다(`docs/scorecard-plan.md`).
+  - 규칙·스위치는 `fcd.settings`: `scorecard.rules`(첫 판 가정치) · `scorecard.public_named`(**꺼짐** — 켜면 비로그인에게도 업체 이름 붙은 성적이 보인다. 법무 검토 전 켜지 않는다). Postgres 에서는 참조 시드를 다시 올려야 새 키가 생긴다(덧붙이기만).
 - 로컬에서 같은 모양 보기: `PREVIEW_BANNER=v2 npm run build && PREVIEW_BANNER=v2 npm start` (DATABASE_URL 없이 → PGlite). 캡처는 `node scripts/shots-all.mjs http://localhost:3000`.
 - v2 를 운영으로 옮길지는 사람이 정한다. 옮길 때는 `fcdochak-v2` → `fcdochak` PR, 운영 DB 에는 빌드 앞단 `vercel:prepare` 가 0006~0012 를 덧붙인다(지우거나 덮지 않음) — 먼저 Supabase 백업.
 

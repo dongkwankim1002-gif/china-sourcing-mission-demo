@@ -364,3 +364,19 @@ export const TRACK_ACTION = {
   restore: '다시 지켜보기',
   showUnlisted: '목록에서 뺀 번호',
 } as const;
+
+// v2 6차 scorecard — 물류사 성적표. 공개·물류사·운영 화면·e2e 가 같은 말을 쓴다(물류사 화면은 중국어 병기)
+export const SCORECARD_ACTION = {
+  title: '물류사 성적표',
+  register: '내 화물 등록',
+  submit: '화물번호 제출 · 提交单号',
+  dispute: '이의 제기 · 提出异议',
+  withdraw: '이의 거두기 · 撤回',
+  accept: '받아들이기',
+  reject: '돌려보내기',
+  recompute: '성적표 다시 셈',
+  refreshSubmitted: '제출 번호 조회',
+  findCode: '관세청 목록에서 찾기',
+  linkCode: '이 부호로 연결',
+  market: '통관 시장 지표',
+} as const;

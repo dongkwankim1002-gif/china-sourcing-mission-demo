@@ -31,15 +31,15 @@ const noOverflow = async (page: Page) => {
   expect(over).toBeLessThanOrEqual(1);
 };
 
-test('공개 — 머리·바닥의 「통관 조회」, 개인통관고유부호는 막고, B/L 은 예시 결과만(저장 안 함)', async ({ browser }) => {
+// v2 6차 scorecard — 머리 메뉴의 「통관 조회」는 「물류사 성적표」로 바뀌었고(e2e/v2-scorecard.spec.ts),
+// /track 은 바닥글의 「내 화물 등록 · 통관 알림」 창구 — 번호 한 번 보기는 접힘 안에 남았다.
+test('공개 — 바닥의 「내 화물 등록」, 개인통관고유부호는 막고, B/L 은 예시 결과만(저장 안 함)', async ({ browser }) => {
   const { page, close } = await as(browser, null);
   await page.goto('/');
-  const nav = page.getByRole('navigation', { name: '공개 메뉴' });
-  await expect(nav.getByRole('link', { name: '통관 조회', exact: true })).toBeVisible();
-  await expect(page.getByRole('contentinfo').getByRole('link', { name: /통관 조회/ })).toBeVisible();
-  await nav.getByRole('link', { name: '통관 조회', exact: true }).click();
+  await page.getByRole('contentinfo').getByRole('link', { name: /내 화물 등록/ }).click();
   await page.waitForURL('**/track');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('언제 FC');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('물류사 성적표');
+  await page.locator('summary', { hasText: '번호 한 번 보기' }).click();
 
   await page.locator('#trk-number').fill('P123456789012');
   await page.getByRole('button', { name: '조회하기' }).click();

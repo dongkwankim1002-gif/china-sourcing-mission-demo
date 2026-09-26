@@ -10,6 +10,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { asSystem } from '@/lib/db';
 import { env } from '@/lib/env';
 import { pollOnce, recomputeIfStale } from '@/lib/server/tracker';
+import { recomputeScorecardsIfStale, refreshSubmitted } from '@/lib/server/scorecard'; // v2 6차 scorecard — 물류사 제출 번호 조회 · 성적표 새 판
 
 export const dynamic = 'force-dynamic';
 // 한 회차 시간 한도(pollOnce POLL_TIME_LIMIT_MS 45초) + 통계 새 판이 들어가게. 플랫폼 한도는 요금제마다 다르다(확인 필요)
@@ -28,5 +29,8 @@ export async function GET(req: NextRequest) {
   if (!same(auth, `Bearer ${secret}`)) return NextResponse.json({ error: '권한이 없습니다.' }, { status: 401 });
   const summary = await pollOnce({ trigger: 'cron', actorId: null });
   const stats = await asSystem((q) => recomputeIfStale(q));
-  return NextResponse.json({ ok: true, summary, statsRows: stats?.rows ?? null }, { headers: { 'Cache-Control': 'no-store' } });
+  // 폴링 회차가 시간 한도 대부분을 쓰므로 제출 번호는 한 번에 몇 건만(남은 것은 다음 회차 · 운영 버튼)
+  const submitted = await refreshSubmitted({ actorId: null, limit: 5 });
+  const score = await asSystem((q) => recomputeScorecardsIfStale(q));
+  return NextResponse.json({ ok: true, summary, statsRows: stats?.rows ?? null, submitted, scorecardRows: score?.rows ?? null }, { headers: { 'Cache-Control': 'no-store' } });
 }
