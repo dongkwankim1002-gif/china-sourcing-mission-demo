@@ -18,7 +18,7 @@ const STEPS: { title: string; body: string }[] = [
   { title: '판매자정보 → 추가판매정보', body: '「API Key 발급 받기」를 누릅니다(판매자 ID 에 따라 메뉴 위치가 다를 수 있습니다).' },
   { title: 'OPEN API 선택 · 약관 동의', body: '키 사용 목적 「OPEN API」를 고르고 약관을 읽은 뒤 발급합니다.' },
   { title: '연동 방식 고르기', body: '「자체개발(직접입력)」이면 업체명·URL·IP 를 적습니다. FC도착이 연동 업체 목록에 오르면 목록에서 고르면 됩니다(준비 중).' },
-  { title: '업체 코드·키 복사', body: '발급 화면의 업체코드·Access Key·Secret Key 를 복사해 오른쪽에 넣습니다. 권한은 최대 24시간 뒤에 열릴 수 있습니다.' },
+  { title: '업체 코드·키 복사', body: '발급 화면의 업체코드·Access Key·Secret Key 를 복사해 아래 「WING 키」 칸에 넣습니다. 권한은 최대 24시간 뒤에 열릴 수 있습니다.' },
   { title: '180일마다 다시', body: '키 유효기간은 180일입니다. 만료가 가까우면 WING 에서 키를 지우고 다시 발급받아 새로 넣습니다.' },
 ];
 
@@ -79,7 +79,7 @@ export default async function WingPage() {
         accessLast4: d.conn.access_last4,
         issuedOn: d.conn.issued_on,
         expiresOn,
-        expiry: keyExpiryState(expiresOn, today),
+        expiry: keyExpiryState(expiresOn, today, d.set.keyWarnDays),
         version: d.conn.version,
         savedAt: d.conn.created_at,
         who: d.conn.who,
@@ -128,7 +128,7 @@ export default async function WingPage() {
                     );
                   })}
                 </ul>
-                <p className="text-xs text-muted">추천 점수의 「FC 회송」은 아직 물류사 기록으로 셉니다. 쿠팡 기록으로 바꾸는 것은 다음 단계입니다(docs/wing-plan.md §9).</p>
+                <p className="text-xs text-muted">추천 점수의 「FC 회송」은 아직 물류사 기록으로 셉니다. 쿠팡 기록으로 바꾸는 것은 다음 단계에서 합니다.</p>
               </div>
             ) : (
               <p className="px-4 py-4 text-sm text-muted">짝 맞은 입고 요청에 입고 결과(입고·회송 수량)가 아직 없습니다.</p>
@@ -153,7 +153,7 @@ export default async function WingPage() {
               근거: 쿠팡 Open API 문서·연동 솔루션사 안내(2026-09-25 조사). 메뉴 이름·IP 조건은 쿠팡 원문 확인 필요.
             </p>
           </Panel>
-          <WingKeyPanel current={key} canStore={!!env.wingKeyEncryptionKey} enabled={env.wingEnabled} today={today} />
+          <WingKeyPanel current={key} canStore={!!env.wingKeyEncryptionKey} enabled={env.wingEnabled} today={today} warnDays={d.set.keyWarnDays} canManage={v.org.role === 'shipper_admin'} />
           <Panel aria-labelledby="wa-h">
             <PanelHead id="wa-h" title="접근 기록" sub="키 저장·꺼냄·가져오기·짝 — 키 값은 적지 않습니다" />
             {d.log.length ? (

@@ -263,10 +263,11 @@ export function InterviewFlow(props: FlowProps) {
               <div className="grid gap-2 text-md leading-7" data-testid="consent-text">
                 <p>FC도착 서비스 개선 인터뷰입니다. <b>5~10분</b> 걸립니다.</p>
                 <ul className="list-disc space-y-1 pl-5 text-base">
-                  <li><b>모으는 것</b>: 최근 선적 조건(선택), 화면에 대한 의견, 가격에 대한 생각, 자유 의견. 이름·연락처는 묻지 않습니다.</li>
+                  <li><b>모으는 것</b>: 최근 선적 조건(선택), 화면에 대한 의견, 가격에 대한 생각, 자유 의견. 이름은 묻지 않습니다(모집할 때 받은 연락처는 운영 담당만 가려서 보관하고 일정 연락에만 씁니다).</li>
                   <li><b>쓰는 곳</b>: 서비스를 어떻게 만들지 정하는 내부 분석. 이름 없이 묶어서 봅니다. 인용은 마지막에 허락하신 경우에만 이름 없이 씁니다.</li>
-                  <li><b>보관</b>: 인터뷰 끝난 뒤 {rules.retentionDays}일 뒤에 지웁니다. 그 전에라도 요청하시면 지웁니다.</li>
-                  <li><b>거부</b>: 동의하지 않으셔도 아무 불이익이 없습니다. 동의하지 않으면 여기서 끝나고 아무것도 저장하지 않습니다.</li>
+                  <li><b>보관</b>: 인터뷰를 끝낸 날부터 {rules.retentionDays}일이 지나면 운영 담당이 지웁니다(자동으로 지워지지 않습니다).</li>
+                  <li><b>철회·삭제 요청</b>: 그 전에라도 이 링크를 보낸 담당자에게 말씀하시면 철회로 기록하고 답을 지웁니다.</li>
+                  <li><b>거부</b>: 동의하지 않으셔도 아무 불이익이 없습니다. 동의하지 않으면 여기서 끝나며, 동의하지 않았다는 사실만 기록하고 답은 저장하지 않습니다.</li>
                 </ul>
                 <p className="text-xs text-muted">동의 문구 판: {rules.consentVersion} · 실제 계약·결제가 아닙니다. 화면의 가격은 참고 계산입니다.</p>
               </div>
@@ -347,10 +348,11 @@ export function InterviewFlow(props: FlowProps) {
                   <PreviewCard icon={<ShieldCheck aria-hidden />} title={SCREEN_LABEL.firm} testid="preview-firm">
                     {preview.firm.ok ? (
                       <>
+                        {/* 다음 단계(지불 의향 사다리)의 기준점이 되지 않게 기준 총액과의 차이·% 는 사다리 뒤에만 보인다 */}
                         <p className="text-md">
-                          기준 총액 <b className="tnum">{num(preview.firm.base)}원</b> → 확정가 <b className="tnum text-lg">{num(preview.firm.firmPrice)}원</b>
+                          확정가 <b className="tnum text-lg">{num(preview.firm.firmPrice)}원</b>
                         </p>
-                        <p className="mt-1 text-sm text-muted tnum">흔들림을 미리 넣은 몫 {num(preview.firm.premium)}원(+{bpPct(preview.firm.premiumBp)}) · 이 값이면 나중에 추가비용이 없는 방식 · 비교한 요금표 {preview.firm.n}장{preview.firm.lowSample ? ' · 표본 적음' : ''}</p>
+                        <p className="mt-1 text-sm text-muted tnum">이 값이면 나중에 추가비용이 없는 방식 · 비교한 요금표 {preview.firm.n}장{preview.firm.lowSample ? ' · 표본 적음' : ''}</p>
                       </>
                     ) : (
                       <p className="text-md">이 조건은 견줄 요금표가 없어 확정가를 내지 못했습니다.</p>
@@ -396,7 +398,7 @@ export function InterviewFlow(props: FlowProps) {
                   </fieldset>
                   {answers.counter && preview?.firm.ok ? (
                     <p className="rounded-sm bg-surface-2 px-3 py-2 text-sm text-muted" data-testid="shown-premium">
-                      참고로, 앞 화면의 조건에서 계산된 확정가는 기준보다 <b className="tnum text-text">+{bpPct(preview.firm.premiumBp)}</b>였습니다.
+                      참고로, 앞 화면의 확정가는 같은 조건 기준 총액 {num(preview.firm.base)}원보다 <b className="tnum text-text">+{bpPct(preview.firm.premiumBp)}</b>({num(preview.firm.premium)}원) 높았습니다.
                     </p>
                   ) : null}
                 </div>

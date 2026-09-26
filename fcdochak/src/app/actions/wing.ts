@@ -14,9 +14,9 @@ import { decryptCredentials, encryptCredentials, kekFingerprint, last4 } from '@
 import { WingHttpAdapter } from '@/lib/wing/http';
 import { inboundChanged, normalizeInboundRow } from '@/lib/wing/import';
 import { scorePair } from '@/lib/wing/match';
-import { mockInbounds } from '@/lib/wing/mock';
+import { DEMO_WING_SEED, demoWingHints, mockInbounds } from '@/lib/wing/mock';
 import { API_KEY_RE, VENDOR_ID_RE } from '@/lib/wing/settings';
-import { WingDisabledError, type WingInbound } from '@/lib/wing/types';
+import { WingDisabledError, WingHttpError, type WingInbound } from '@/lib/wing/types';
 import { uploadDocument } from './docs';
 
 export interface WingResult<T = undefined> {
@@ -45,8 +45,12 @@ const KeyInput = z.object({
     .or(z.literal('')),
 });
 
+const NOT_ADMIN = 'WING 키는 조직 관리자만 넣고 거둘 수 있습니다';
+const isAdmin = (v: Viewer) => v.org.role === 'shipper_admin';
+
 export async function saveWingKey(input: z.infer<typeof KeyInput>): Promise<WingResult<{ status: 'saved'; enabled: boolean }>> {
   const v = await requireViewer('app');
+  if (!isAdmin(v)) return { ok: false, error: NOT_ADMIN };
   const p = KeyInput.safeParse(input);
   if (!p.success) return { ok: false, error: '입력이 올바르지 않습니다' };
   const d = p.data;
@@ -78,6 +82,7 @@ export async function saveWingKey(input: z.infer<typeof KeyInput>): Promise<Wing
 
 export async function revokeWingKey(): Promise<WingResult> {
   const v = await requireViewer('app');
+  if (!isAdmin(v)) return { ok: false, error: NOT_ADMIN };
   const r = await asUser(v, async (q) => {
     const cur = await currentConnection(q, v.org.id);
     if (!cur || !cur.has_key) return { error: '폐기할 키가 없습니다' };
@@ -147,10 +152,11 @@ export async function importWingMock(): Promise<WingResult<ImportSummary>> {
       const ships = await wingShipments(q, v.org.id);
       const fcs = await coupangFcs(q);
       const rows = mockInbounds({
-        seed: `demo:${v.org.id}`,
+        // 데모 시드(seed/demo/wing.ts)와 같은 씨앗 — 다시 눌러도 같은 번호가 나와 「그대로」로 끝난다(같은 선적에 입고 요청이 두 번 붙지 않게)
+        seed: DEMO_WING_SEED,
         fcs,
         today: todayKst(),
-        hints: ships.filter((x) => x.stage >= 2).map((x) => ({ id: x.id, fcCode: x.fc_code, etaFc: x.eta_fc, units: x.units, cartons: x.cartons, stage: x.stage, returnedUnits: x.fc_returned_units })),
+        hints: demoWingHints(ships).map((x) => ({ id: x.id, fcCode: x.fc_code, etaFc: x.eta_fc, units: x.units, cartons: x.cartons, stage: x.stage, returnedUnits: x.fc_returned_units })),
         strays: 2,
       });
       return storeInbounds(q, v, 'mock', rows);
@@ -197,6 +203,7 @@ export async function syncWingApi(): Promise<WingResult<ImportSummary>> {
     await asUser(v, (q) => logWing(q, { orgId: v.org.id, actorId: v.id, kind: 'wing_api_blocked', detail: { reason: 'WING_ENABLED off' } })).catch(() => {});
     return { ok: false, error: '연동 준비 중입니다 — 쿠팡 WING 호출이 아직 꺼져 있습니다. WING 에서 내려받은 파일을 올려 주세요.' };
   }
+  if (!isAdmin(v)) return { ok: false, error: '쿠팡에서 바로 가져오기는 조직 관리자만 할 수 있습니다(키를 꺼내야 해서). 파일 올리기는 누구나 됩니다.' };
   const kek = env.wingKeyEncryptionKey;
   try {
     const r = await asUser(v, async (q) => {
@@ -207,17 +214,33 @@ export async function syncWingApi(): Promise<WingResult<ImportSummary>> {
       const set = await wingSettings(q);
       const adapter = new WingHttpAdapter({ enabled: env.wingEnabled, credentials: decryptCredentials(blob, v.org.id, kek), rule: set.call });
       const today = todayKst();
+      // 키 상태를 새 판으로 쌓는다(고치지 않는다) — 같은 암호문·지문을 그대로 잇는다
+      const stack = async (status: 'verified' | 'failed') => {
+        const kid = (await q.query<{ kek_id: string | null }>(`select kek_id from fcd.v_wing_connections_current where id = $1`, [cur.id]))[0]?.kek_id ?? kekFingerprint(kek);
+        await q.query(
+          `insert into fcd.wing_connections (org_id, version, supersedes_id, method, status, key_blob, kek_id, vendor_last4, access_last4, issued_on, created_by)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::date,$11)`,
+          [v.org.id, cur.version + 1, cur.id, cur.method, status, blob, kid, cur.vendor_last4, cur.access_last4, cur.issued_on, v.id],
+        );
+      };
       try {
         const rows = await adapter.listInboundRequests({ from: today, to: today });
         await logWing(q, { orgId: v.org.id, actorId: v.id, kind: 'api_called', connectionId: cur.id, detail: { rows: rows.length } });
+        if (cur.status !== 'verified') await stack('verified');
         return { s: await storeInbounds(q, v, 'api', rows) };
       } catch (e) {
         const msg = e instanceof WingDisabledError ? e.message : (e as Error).message;
-        await logWing(q, { orgId: v.org.id, actorId: v.id, kind: 'api_failed', connectionId: cur.id, detail: { code: (e as { code?: string }).code ?? 'error' } });
-        return { error: msg };
+        const status = e instanceof WingHttpError ? e.status : null;
+        await logWing(q, { orgId: v.org.id, actorId: v.id, kind: 'api_failed', connectionId: cur.id, detail: { code: (e as { code?: string }).code ?? 'error', status } });
+        // 쿠팡이 키를 받지 않았으면(401·403) 「확인 실패」 판 — 셀러에게 키를 다시 넣으라고 보인다
+        if ((status === 401 || status === 403) && cur.status !== 'failed') await stack('failed');
+        return { error: msg, refresh: status === 401 || status === 403 };
       }
     });
-    if ('error' in r) return { ok: false, error: r.error };
+    if ('error' in r) {
+      if ('refresh' in r && r.refresh) done();
+      return { ok: false, error: r.error };
+    }
     done();
     return { ok: true, data: r.s };
   } catch {

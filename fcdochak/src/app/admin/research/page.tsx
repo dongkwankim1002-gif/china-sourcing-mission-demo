@@ -5,6 +5,7 @@ import { requireViewer } from '@/lib/server/viewer';
 import { researchBoard } from '@/lib/server/research';
 import { getReference } from '@/lib/server/reference';
 import { DemoChip } from '@/components/badges';
+import { DemoToggle } from '@/components/demo-toggle';
 import { Chip, EmptyState, PageTitle, Panel, PanelHead, type Tone } from '@/components/ui/core';
 import { FunnelBars, INCLUDES_LABEL, RankBars, VolumeCurves, WtpBars } from '@/components/research/board-charts';
 import { ContactCell, LinkCell, ParticipantForm, VendorQuoteForm } from '@/components/research/admin-forms';
@@ -31,9 +32,12 @@ function VerdictChip({ v, testid }: { v: Verdict; testid?: string }) {
   );
 }
 
-export default async function ResearchBoardPage() {
+export default async function ResearchBoardPage({ searchParams }: { searchParams: Promise<{ demo?: string }> }) {
+  const sp = await searchParams;
   const v = await requireViewer('admin', '/admin/research');
-  const [d, ref] = await Promise.all([asUser(v, (q) => researchBoard(q, 30)), getReference()]);
+  // 예시 자료는 데모 운영 계정에서만 기본으로 넣는다 — 실제 운영자의 판정에는 기본으로 빠진다(토글로 바꿈)
+  const includeDemo = sp.demo === '1' ? true : sp.demo === '0' ? false : v.org.is_demo;
+  const [d, ref] = await Promise.all([asUser(v, (q) => researchBoard(q, 30, { includeDemo })), getReference()]);
   const r = d.rules;
   const t = d.wtp.threshold.confirmed;
   const vendorVerdict = d.vendor.verdict;
@@ -46,6 +50,7 @@ export default async function ResearchBoardPage() {
           <>
             <a href="#add-participant" className="text-sm font-semibold underline underline-offset-4">{RESEARCH_ACTION.addParticipant}</a>
             <Link href="/admin/settings" className="text-sm font-semibold underline underline-offset-4">판정선 바꾸기</Link>
+            <DemoToggle include={includeDemo} href={(x) => (x ? '/admin/research?demo=1' : '/admin/research?demo=0')} />
           </>
         }
       />
@@ -60,6 +65,7 @@ export default async function ResearchBoardPage() {
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
             방안 A <VerdictChip v={d.wtp.verdict} testid="wtp-verdict" />
+            {d.inProgressAnswered ? <span className="text-2xs font-normal text-muted">끝내지 않은 {d.inProgressAnswered}명은 빼고 셈</span> : null}
             {d.wtp.verdict === 'met' ? <Chip tone={d.wtp.strong ? 'ok' : 'caution'}>{d.wtp.strong ? '95% 구간 아래 끝도 넘음' : '약한 충족 — 더 모으기'}</Chip> : null}
           </p>
           <p className="mt-2 text-2xs text-muted">
@@ -74,6 +80,9 @@ export default async function ResearchBoardPage() {
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">점검 입구 <VerdictChip v={d.funnel.upload.verdict} testid="upload-verdict" /></p>
           <p className="mt-2 text-2xs text-muted">기준: 방문 기기 {num(r.uploadMinVisitors)}대 이상에서 {bpPct(r.uploadTargetBp)} 이상 · 로그인 화주 보관 {num(d.funnel.savedChecks)}건(같은 기간)</p>
+          <p className={`mt-1 text-2xs ${d.funnel.outliers.heavy ? 'text-caution' : 'text-muted'}`} data-testid="funnel-outliers">
+            살필 기기: 20번 넘게 들어온 기기 {num(d.funnel.outliers.heavy)}대(가장 많이 {num(d.funnel.outliers.max_events)}번) · 방문만 한 기기 {num(d.funnel.outliers.visit_only)}대 — 판정 전에 부풀린 방문이 없는지 봅니다
+          </p>
         </li>
         <li className="min-w-0 rounded-md border border-line bg-surface p-4" data-testid="verdict-vendor">
           <p className="text-xs font-semibold text-muted">실험 ③ 콘솔사 물량 단가</p>
@@ -174,6 +183,29 @@ export default async function ResearchBoardPage() {
       </Panel>
 
       <div className="mb-6"><ParticipantForm /></div>
+
+      {/* 보관 기간 · 지울 대상 */}
+      <Panel className="mb-6">
+        <PanelHead
+          title="지울 대상"
+          sub={`동의 문구의 약속 — 보관 ${r.retentionDays}일이 지났거나 철회한 참여자의 답은 운영 담당이 지웁니다(자동 삭제 없음 · 절차 docs/research-plan.md 7절)`}
+        />
+        {d.retention.expired.length || d.retention.withdrawn.length ? (
+          <ul className="divide-y divide-line-2 text-sm" data-testid="retention-due">
+            {[...d.retention.expired.map((p) => ({ p, why: `보관 ${r.retentionDays}일 지남` })), ...d.retention.withdrawn.map((p) => ({ p, why: '철회함' }))].map(({ p, why }) => (
+              <li key={`${p.id}-${why}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
+                <span className="font-mono text-xs">{p.code}</span>
+                <span className="font-semibold">{p.label}</span>
+                {p.is_demo ? <DemoChip /> : null}
+                <Chip tone="caution">{why}</Chip>
+                {p.completed_at ? <span className="text-2xs text-muted">끝낸 날 {dateKo(p.completed_at, { dow: false })}</span> : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="px-4 py-3 text-sm text-muted" data-testid="retention-due">지금 지울 대상은 없습니다. 삭제 요청을 받으면 통화 화면에서 「철회」로 적어 두세요 — 여기에 올라옵니다.</p>
+        )}
+      </Panel>
 
       {/* 실험 ① */}
       <div className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">

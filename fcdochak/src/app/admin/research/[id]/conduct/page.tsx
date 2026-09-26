@@ -7,6 +7,7 @@ import { loadResearchRules } from '@/lib/server/research';
 import { getReference } from '@/lib/server/reference';
 import { InterviewFlow } from '@/components/research/interview-flow';
 import { DemoChip } from '@/components/badges';
+import { WithdrawButton } from '@/components/research/admin-forms';
 import { PageTitle, Panel, PanelHead } from '@/components/ui/core';
 import { dateTimeKo } from '@/lib/format';
 import { STEP_LABEL, type AnswersT, type Step } from '@/lib/research/answers';
@@ -34,19 +35,25 @@ export default async function ConductPage({ params }: { params: Promise<{ id: st
   if (!d) notFound();
   const ref = await getReference();
   const head = d.versions[0] ?? null;
+  const everDone = d.versions.some((x) => x.completed);
   return (
     <>
       <PageTitle
         eyebrow={<Link href="/admin/research" className="inline-flex items-center gap-1 underline underline-offset-4"><ArrowLeft className="size-3.5" aria-hidden /> 결정 보드</Link>}
         title={<span className="flex flex-wrap items-center gap-2">인터뷰어 모드 — {d.p.code} {d.p.label}{d.p.is_demo ? <DemoChip /> : null}</span>}
-        sub="통화하며 셀러 화면과 같은 순서로 대신 적습니다. 「읽을 말」을 그대로 읽고, 숫자를 먼저 권하지 않습니다. 저장은 새 판으로 쌓입니다."
+        sub={
+          everDone
+            ? '이미 끝낸 인터뷰입니다. 고치면 답만 새 판으로 쌓이고 「끝」 상태와 판정 표본은 그대로입니다.'
+            : '통화하며 셀러 화면과 같은 순서로 대신 적습니다. 「읽을 말」을 그대로 읽고, 숫자를 먼저 권하지 않습니다. 저장은 새 판으로 쌓입니다.'
+        }
+        actions={d.p.consent_state === 'agreed' ? <WithdrawButton id={d.p.id} /> : null}
       />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,640px)_minmax(0,1fr)]">
         <InterviewFlow
           mode="interviewer"
           participantId={d.p.id}
           participantLabel={d.p.label}
-          initial={{ answers: head?.answers ?? null, step: head?.completed ? 'lane' : (head?.step ?? null), headId: head?.id ?? null, version: head?.version ?? 0, consentState: d.p.consent_state }}
+          initial={{ answers: head?.answers ?? null, step: everDone ? 'lane' : (head?.step ?? null), headId: head?.id ?? null, version: head?.version ?? 0, consentState: d.p.consent_state }}
           rules={{ ladderBp: d.rules.ladderBp, consentVersion: d.rules.consentVersion, retentionDays: d.rules.retentionDays }}
           hubs={ref.hubs.map((h) => ({ code: h.code, name_ko: `${h.name_ko}(${h.province_ko})` }))}
           ports={ref.ports.map((p) => ({ code: p.code, name_ko: p.name_ko }))}

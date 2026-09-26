@@ -16,6 +16,8 @@ import { ShipmentTimeline } from '@/components/workspace/timeline';
 import { InvoiceDecisionPanel } from '@/components/workspace/invoice-decision';
 import { currentDecision, shipmentDecisions, shipmentTimelineFacts, workspaceSettings } from '@/lib/server/workspace';
 import { buildTimeline } from '@/lib/workspace/timeline';
+import { inboundForShipment } from '@/lib/server/wing';
+import { WingInboundLine } from '@/components/wing/shipment-inbound';
 import { billingDiff } from '@/lib/money/billing-diff';
 import { Button, Chip, DefList, EmptyState, Panel } from '@/components/ui/core';
 import { dateKo, dateTimeKo, num, pct } from '@/lib/format';
@@ -30,13 +32,13 @@ export default async function ShipmentPage({ params }: { params: Promise<{ id: s
     asUser(v, async (q) => {
       const base = await shipmentDetail(q, id);
       if (!base) return null;
-      const [facts, decisions, ws] = await Promise.all([shipmentTimelineFacts(q, id), shipmentDecisions(q, id), workspaceSettings(q)]);
-      return { ...base, facts, decisions, ws };
+      const [facts, decisions, ws, wing] = await Promise.all([shipmentTimelineFacts(q, id), shipmentDecisions(q, id), workspaceSettings(q), inboundForShipment(q, id)]);
+      return { ...base, facts, decisions, ws, wing };
     }),
     getReference(),
   ]);
   if (!d || d.s.shipper_org_id !== v.org.id) notFound();
-  const { s, events, exceptions, docs, invoices, bid, review, outcome, facts, decisions, ws } = d;
+  const { s, events, exceptions, docs, invoices, bid, review, outcome, facts, decisions, ws, wing } = d;
   const inv = invoices.find((i) => i.current) ?? null;
   const decision = currentDecision(decisions, inv?.id ?? null);
   const diff = inv ? billingDiff(bid.amounts, inv.amounts, ws.billingFlagBp) : null;
@@ -83,6 +85,7 @@ export default async function ShipmentPage({ params }: { params: Promise<{ id: s
           <div className="mt-3"><StageTrack stage={s.stage} events={[...events].reverse()} /></div>
         </details>
       </Panel>
+      {wing ? <WingInboundLine inbound={wing} /> : null}
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <div className="min-w-0">
           <Suspense>

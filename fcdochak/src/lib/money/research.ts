@@ -185,7 +185,8 @@ export function wtpCurve(rows: WtpInput[], rules: Pick<ResearchRules, 'ladderBp'
   const n = reads.length;
   const steps: WtpStep[] = rules.ladderBp.map((bp) => {
     const st = reads.filter((x) => x.l.maxBp >= bp);
-    const cf = st.filter((x) => x.c !== 'agree');
+    // 반대 질문에 답하지 않은 줄(null)은 확인되지 않은 의향으로 본다
+    const cf = st.filter((x) => x.c != null && x.c !== 'agree');
     return {
       bp,
       stated: st.length,

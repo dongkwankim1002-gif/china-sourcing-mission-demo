@@ -10,12 +10,18 @@ const groups = [
   { login: 'shipper', paths: ['/app', '/app/compare', '/app/pnl', '/app/requests', '/app/requests>/app/requests/', '/app/requests/new', '/app/shipments', '/app/shipments>/app/shipments/', '/app/skus', '/app/notifications', '/app/settings', '/forbidden', '/app/checks', '/app/checks>/app/checks/', '/app/docs', '/app/partners', '/app/integrations/wing'] },
   { login: 'partner', paths: ['/partner', '/partner/inbox', '/partner/inbox>/partner/inbox/', '/partner/rates', '/partner/rates>/partner/rates/', '/partner/rates/new', '/partner/rates/upload', '/partner/shipments', '/partner/shipments>/partner/shipments/', '/partner/invoices', '/partner/market', '/partner/profile', '/partner/notifications', '/partner/reviews', '/partner/alliance'] },
   { login: 'partner', extra: ['--widths', '390,1440', '--themes', 'light', '--locale', 'zh', '--suffix', '.zh', '--quality', '55'], paths: ['/partner', '/partner/inbox', '/partner/inbox>/partner/inbox/', '/partner/rates/new', '/partner/shipments>/partner/shipments/', '/partner/alliance'] },
-  { login: 'admin', paths: ['/admin', '/admin/queues', '/admin/data', '/admin/grades', '/admin/ads', '/admin/commission', '/admin/related', '/admin/settings', '/admin/audit', '/admin/demo', '/styleguide', '/admin/metrics', '/admin/assure', '/admin/alliance', '/admin/research'] },
+  { login: 'admin', paths: ['/admin', '/admin/queues', '/admin/data', '/admin/grades', '/admin/ads', '/admin/commission', '/admin/related', '/admin/settings', '/admin/audit', '/admin/demo', '/styleguide', '/admin/metrics', '/admin/assure', '/admin/alliance', '/admin/research', '/admin/research>/admin/research/'] },
 ];
 let bad = 0;
 for (const g of groups) {
   const args = ['scripts/shots.mjs', base, out, g.paths.join(','), ...(g.extra ?? all), ...(g.login ? ['--login', g.login] : [])];
   const r = spawnSync('node', args, { stdio: 'inherit' });
+  if (r.status === 2) bad++;
+  else if (r.status !== 0) process.exit(r.status ?? 1);
+}
+// 셀러 인터뷰 링크(토큰이 그때 만들어짐) — 운영자로 대상·링크를 만든 뒤 로그인 없는 창으로 연다
+{
+  const r = spawnSync('node', ['scripts/shots-interview.mjs', base, out], { stdio: 'inherit' });
   if (r.status === 2) bad++;
   else if (r.status !== 0) process.exit(r.status ?? 1);
 }

@@ -321,7 +321,7 @@ describe('DB — RLS·권한·토큰 함수·데모(메모리 PGlite)', () => {
   });
 
   it('데모 보드 — 예시 12명으로 방안 A 약한 충족 · 업로드 충족 · 공동 혼적 충족', async () => {
-    const b = await asRole(db, 'fcd_user', adminUser, true, (q) => researchBoard(q, 30));
+    const b = await asRole(db, 'fcd_user', adminUser, true, (q) => researchBoard(q, 30, { includeDemo: true }));
     expect(b.participants.filter((p) => /^예시 셀러 \d+$/.test(p.label))).toHaveLength(14);
     expect(b.progress.done).toBe(12);
     expect(b.participants.find((p) => p.code === 'P-13' && p.is_demo)!.progress).toBe('in_progress');
@@ -421,6 +421,37 @@ describe('DB — RLS·권한·토큰 함수·데모(메모리 PGlite)', () => {
     // 판은 셋, 한 줄기
     const chain = await db.query<{ n: number; roots: number }>(`select count(*)::int n, count(*) filter (where supersedes_id is null)::int roots from fcd.research_responses where participant_id = $1`, [pid]);
     expect(chain[0]).toEqual({ n: 3, roots: 1 });
+  });
+
+  it('끝낸 인터뷰를 운영이 대신 고쳐도 끝남은 그대로 — 링크는 닫혀 있고 보드의 「끝」에서 빠지지 않는다', async () => {
+    const pid = (await db.query<{ id: string }>(`select id from fcd.research_participants where org_id = $1 and code = 'P-90'`, [demoPlatform]))[0].id;
+    const token = newInviteToken();
+    const h = hashInviteToken(token);
+    await db.query(`insert into fcd.research_invites (org_id, participant_id, token_hash, expires_at) values ($1,$2,$3, now() + interval '1 day')`, [demoPlatform, pid, h]);
+    const head = (await db.query<{ id: string; version: number }>(`select id, version from fcd.v_research_responses_current where participant_id = $1`, [pid]))[0];
+    // 옛 코드처럼 끝나지 않은 판(completed=false)을 뒤에 쌓아도
+    await asRole(db, 'fcd_user', adminUser, true, (q) =>
+      q.query(`insert into fcd.research_responses (org_id, participant_id, version, supersedes_id, source, step, completed, answers, created_by) values ($1,$2,$3,$4,'interviewer','screens',false,'{"v":1}'::jsonb,$5)`, [demoPlatform, pid, head.version + 1, head.id, adminUser]),
+    );
+    const pub = <T>(sql: string, params: unknown[]) => asRole(db, 'fcd_public', null, true, (q) => q.query<T & Record<string, unknown>>(sql, params));
+    expect((await pub<{ status: string }>(`select status from fcd.research_invite_open($1)`, [h]))[0].status).toBe('completed');
+    expect((await pub<{ result: string }>(`select * from fcd.research_save($1,'ladder','{"v":1}'::jsonb,false)`, [h]))[0].result).toBe('completed');
+    const b = await asRole(db, 'fcd_user', adminUser, true, (q) => researchBoard(q, 30, { includeDemo: true }));
+    expect(b.participants.find((p) => p.id === pid)!.progress).toBe('done');
+  });
+
+  it('결정 보드 기본은 예시를 뺀다 — 실제 운영자에게 데모 참여자·퍼널·단가가 섞이지 않는다', async () => {
+    const b = await asRole(db, 'fcd_user', REAL_ADMIN, false, (q) => researchBoard(q, 30));
+    expect(b.includeDemo).toBe(false);
+    expect(b.participants.every((p) => !p.is_demo)).toBe(true);
+    expect(b.participants.map((p) => p.label)).toContain('실제 셀러 한 분');
+    expect(b.wtp.n).toBe(0);
+    expect(b.wtp.verdict).toBe('insufficient');
+    expect(b.funnel.counts.visitors).toBeLessThan(10); // 데모 380대는 빠지고 실제 방문만
+    expect(b.vendor.rows.map((r) => r.vendor_label)).toEqual(['실제 콘솔사']);
+    // 운영자가 DEMO_MODE 켜짐으로 봐도 기본은 빠진다
+    const b2 = await asRole(db, 'fcd_user', adminUser, true, (q) => researchBoard(q, 30));
+    expect(b2.participants.some((p) => p.is_demo)).toBe(false);
   });
 
   it('모르는·거둔·만료된 토큰, 데모 숨김이면 찾을 수 없음', async () => {

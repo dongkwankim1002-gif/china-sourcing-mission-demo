@@ -71,7 +71,7 @@ export function AssurePanel({ view, mine, ctx, current, sampleLabel, modeLabel, 
               ) : null}
             </>
           )}
-          <PartyLine party={party ?? null} />
+          <PartyLine party={party ?? null} reference={!on.firm} />
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {on.firm && firm?.ok && firm.offerable ? <FirmQuoteButton ctx={ctx} again={!!current} /> : null}
             <InterestButton kind="firm" label={ASSURE_KIND_LABEL.firm} ctx={ctx} shown={firm?.ok ? firm.firmPrice : null} done={has('firm')} pilot={on.firm} />
@@ -148,16 +148,19 @@ function AssureRow({ kind, on, body, ctx, shown, done }: { kind: AssureKind; on:
 }
 
 /** 확정가 계약 상대 — 등록된 제휴 주선사 이름과 등록번호 끝 4자리만(docs/alliance-plan.md) */
-function PartyLine({ party }: { party: ContractParty | null }) {
+function PartyLine({ party, reference }: { party: ContractParty | null; reference: boolean }) {
   return (
     <p className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 text-xs" data-testid="assure-party">
       <Handshake className="size-3.5 shrink-0 text-muted" aria-hidden />
-      <span className="text-muted">계약 상대:</span>{' '}
+      <span className="text-muted">계약 상대{reference && party ? '(참고)' : ''}:</span>{' '}
       {party ? (
         <>
           <b>{party.partnerName}</b>{' '}
           <span className="text-muted tnum">(등록번호 끝 {party.regTail ?? '—'})</span>{' '}
-          <span className="text-2xs text-muted">· 제휴 주선사 명의 계약{party.preferred ? '' : ' · 비교 1위 업체와 다를 수 있음'}</span>
+          <span className="text-2xs text-muted tnum">
+            · 조건 {party.termsNo} · ~{party.validUntil} · 제휴 주선사 명의 계약{party.preferred ? '' : ' · 비교 1위 업체와 다를 수 있음'}
+            {reference ? ' · 시범이 꺼져 있어 지금 계약하지 않습니다' : ''}
+          </span>
         </>
       ) : (
         <span className="font-semibold">제휴 주선사 확정 전</span>

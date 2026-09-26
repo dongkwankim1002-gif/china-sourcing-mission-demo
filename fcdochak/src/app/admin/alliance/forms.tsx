@@ -231,6 +231,13 @@ export function TermsForm({ allianceId, seed }: { allianceId: string; seed: Term
       <fieldset className="min-w-0 rounded-sm border border-line-2 p-3">
         <legend className="px-1 text-sm font-semibold">외부 요인 사건 — 플랫폼 부담(%)과 건당 상한(확정가의 %)</legend>
         <div className="grid gap-2 sm:grid-cols-2">
+          {[0, 1].map((n) => (
+            <div key={`h${n}`} className={`${n ? 'hidden sm:grid' : 'grid'} min-w-0 grid-cols-[5.5rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 text-2xs font-semibold text-muted`} aria-hidden>
+              <span>사건</span>
+              <span>플랫폼 부담(%)</span>
+              <span>건당 상한(%)</span>
+            </div>
+          ))}
           {INCIDENT_KINDS.map((k) => (
             <div key={k} className="grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2">
               <span className="text-sm">{INCIDENT_LABEL[k]}</span>

@@ -100,6 +100,8 @@ export async function seedDemo(db: Driver, opts: DemoSeedOptions) {
     if (al) log(`데모 제휴 기록 ${al}줄을 넣었습니다.`);
     const rs = await db.transaction((q) => seedResearchDemo(q, { now: opts.now ?? Date.now() })); // v2 interview — 인터뷰 예시가 없던 데모에만
     if (rs) log(`데모 인터뷰 참여자 ${rs}명을 넣었습니다.`);
+    const wg = await db.transaction((q) => seedWingDemo(q, { now: opts.now ?? Date.now(), today: opts.today, shipperEmail: DEMO_ACCOUNTS.shipper.email, onlyIfEmpty: true })); // v2 wing — 입고 요청이 없던 데모에만
+    if (wg) log(`데모 WING 입고 요청 ${wg}건을 넣었습니다.`);
     return { inserted: false };
   }
   const rng = new Rng(DEMO_SEED);

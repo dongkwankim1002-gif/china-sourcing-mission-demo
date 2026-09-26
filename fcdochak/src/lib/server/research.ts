@@ -189,20 +189,27 @@ export interface ParticipantRow {
   head_step: string | null;
   head_source: string | null;
   completed: boolean;
+  /** 처음 끝낸 때 — 보관 기간(research.rules.retentionDays)을 여기서 센다 */
+  completed_at: string | null;
   answers: AnswersT | null;
   progress: ProgressState;
 }
 
-export async function listParticipants(q: Queryable): Promise<ParticipantRow[]> {
+/** includeDemo=false 이면 데모 운영 조직(is_demo)의 예시 참여자를 뺀다 — 실제 판정에 예시가 섞이지 않게 */
+export async function listParticipants(q: Queryable, includeDemo = false): Promise<ParticipantRow[]> {
   const rows = await q.query<Omit<ParticipantRow, 'progress'>>(
     `select p.id, p.code, p.label, p.contact_masked, p.has_contact, p.recruit, p.scheduled_at, p.note, p.consent_state, p.consent_at, p.consent_method, p.is_demo, p.created_at,
         (select count(*)::int from fcd.research_invites i where i.participant_id = p.id) invites,
         (select max(i.expires_at) from fcd.research_invites i where i.participant_id = p.id and i.revoked_at is null and i.expires_at > now()) open_invite_expires,
         (p.consent_state <> 'none') opened,
-        h.id head_id, h.version head_version, h.step head_step, h.source head_source, coalesce(h.completed, false) completed, h.answers
+        h.id head_id, h.version head_version, h.step head_step, h.source head_source,
+        exists (select 1 from fcd.research_responses x where x.participant_id = p.id and x.completed) completed, h.answers,
+        (select min(x.created_at) from fcd.research_responses x where x.participant_id = p.id and x.completed) completed_at
        from fcd.v_research_participants p
        left join fcd.v_research_responses_current h on h.participant_id = p.id
+      where ($1 or not p.is_demo)
       order by p.code`,
+    [includeDemo],
   );
   return rows.map((r) => ({ ...r, progress: progressOf({ consent_state: r.consent_state, invites: r.invites, opened: r.opened, head_step: r.head_step, completed: r.completed }) }));
 }
@@ -224,28 +231,60 @@ export interface VendorQuoteRow {
   created_at: string;
 }
 
-export async function funnelCounts(q: Queryable, days: number) {
+/** 퍼널 — 실제 방문은 org_id 가 비어 있고, 데모 자료만 데모 운영 조직 아래에 있다. includeDemo=false 이면 데모 조직 줄을 뺀다 */
+export async function funnelCounts(q: Queryable, days: number, includeDemo = false) {
+  const demo = `($2 or f.org_id is null or not exists (select 1 from fcd.orgs o where o.id = f.org_id and o.is_demo))`;
   const r = await q.query<{ visitors: number; inputters: number; runners: number; savers: number }>(
     `select count(distinct visitor_hash) filter (where kind = 'check_visit')::int visitors,
             count(distinct visitor_hash) filter (where kind = 'check_input')::int inputters,
             count(distinct visitor_hash) filter (where kind = 'check_run')::int runners,
             count(distinct visitor_hash) filter (where kind = 'check_saved')::int savers
-       from fcd.check_funnel_events where occurred_at > now() - make_interval(days => $1)`,
-    [days],
+       from fcd.check_funnel_events f where occurred_at > now() - make_interval(days => $1) and ${demo}`,
+    [days, includeDemo],
   );
   const byMethod = await q.query<{ method: string; n: number }>(
-    `select method, count(distinct visitor_hash)::int n from fcd.check_funnel_events
-      where kind = 'check_input' and method is not null and occurred_at > now() - make_interval(days => $1) group by method order by method`,
-    [days],
+    `select method, count(distinct visitor_hash)::int n from fcd.check_funnel_events f
+      where kind = 'check_input' and method is not null and occurred_at > now() - make_interval(days => $1) and ${demo} group by method order by method`,
+    [days, includeDemo],
   );
-  const saved = await q.query<{ n: number }>(`select count(*)::int n from fcd.invoice_checks where created_at > now() - make_interval(days => $1)`, [days]);
-  return { counts: r[0] ?? { visitors: 0, inputters: 0, runners: 0, savers: 0 }, byMethod, savedChecks: saved[0]?.n ?? 0 };
+  // 이상치 살피기 — 한 기기가 너무 많이 들어왔거나(같은 기기 번호로 부풀리기), 방문만 하고 아무것도 넣지 않은 기기
+  const odd = await q.query<{ heavy: number; visit_only: number; max_events: number }>(
+    `with per as (
+       select visitor_hash, count(*)::int n, bool_or(kind <> 'check_visit') acted
+         from fcd.check_funnel_events f where occurred_at > now() - make_interval(days => $1) and ${demo}
+        group by visitor_hash)
+     select count(*) filter (where n >= 20)::int heavy, count(*) filter (where not acted)::int visit_only, coalesce(max(n), 0)::int max_events from per`,
+    [days, includeDemo],
+  );
+  const saved = await q.query<{ n: number }>(
+    `select count(*)::int n from fcd.invoice_checks c join fcd.orgs o on o.id = c.org_id
+      where c.created_at > now() - make_interval(days => $1) and ($2 or not o.is_demo)`,
+    [days, includeDemo],
+  );
+  return {
+    counts: r[0] ?? { visitors: 0, inputters: 0, runners: 0, savers: 0 },
+    byMethod,
+    savedChecks: saved[0]?.n ?? 0,
+    outliers: odd[0] ?? { heavy: 0, visit_only: 0, max_events: 0 },
+  };
 }
 
-export async function researchBoard(q: Queryable, days = 30) {
+/** 보관 기간이 지난(처음 끝낸 날 + retentionDays) 참여자와 철회한 참여자 — 사람이 지울 대상(docs/research-plan.md §7) */
+export function retentionDue(participants: ParticipantRow[], retentionDays: number, now = Date.now()) {
+  const expired = participants.filter((p) => p.completed_at && new Date(p.completed_at).getTime() + retentionDays * 86_400_000 < now);
+  const withdrawn = participants.filter((p) => p.consent_state === 'withdrawn');
+  return { expired, withdrawn };
+}
+
+/**
+ * 결정 보드. includeDemo 기본 꺼짐 — 실제 운영자의 판정에 예시 셀러·예시 퍼널·예시 단가가 섞이지 않게.
+ * 판정 표본은 끝낸 인터뷰만(중간에 멈춘 답은 progress 에만 보인다).
+ */
+export async function researchBoard(q: Queryable, days = 30, opts: { includeDemo?: boolean } = {}) {
+  const includeDemo = opts.includeDemo ?? false;
   const rules = await loadResearchRules(q);
-  const participants = await listParticipants(q);
-  const answered = participants.filter((p) => p.answers && p.consent_state === 'agreed');
+  const participants = await listParticipants(q, includeDemo);
+  const answered = participants.filter((p) => p.answers && p.completed && p.consent_state === 'agreed');
   const a = answered.map((p) => p.answers!);
   const wtp = wtpCurve(a.map((x) => ({ ladder: x.ladder, counter: x.counter })), rules);
   const bySource = (['self', 'interviewer'] as const).map((src) => ({
@@ -283,18 +322,24 @@ export async function researchBoard(q: Queryable, days = 30) {
     if (x.oneStopWhy?.trim()) quotes.push({ code: p.code, text: x.oneStopWhy.trim(), kind: 'oneStop' });
     for (const k of SCREENS) if (x.screens?.[k]?.why?.trim()) quotes.push({ code: p.code, text: x.screens[k]!.why!.trim(), kind: 'why', screen: k });
   }
-  const funnel = await funnelCounts(q, days);
+  const funnel = await funnelCounts(q, days, includeDemo);
   const upload = uploadRate(funnel.counts, rules);
   const vq = await q.query<VendorQuoteRow>(
     `select id, vendor_label, vendor_kind, hub, port, mode, includes, volume_cbm::float8 volume_cbm, unit_price_krw::bigint unit_price_krw, source, to_char(quoted_on, 'YYYY-MM-DD') quoted_on, note, supersedes_id, created_at
-       from fcd.v_research_vendor_quotes_current order by vendor_kind, vendor_label, volume_cbm`,
+       from fcd.v_research_vendor_quotes_current v
+      where ($1 or not exists (select 1 from fcd.orgs o where o.id = v.org_id and o.is_demo))
+      order by vendor_kind, vendor_label, volume_cbm`,
+    [includeDemo],
   );
   const vqs: VendorQuote[] = vq.map((v) => ({ kind: v.vendor_kind, includes: v.includes, volumeCbm: Number(v.volume_cbm), unitPriceKrw: Number(v.unit_price_krw) }));
   const curves = volumeCurves(vqs, rules.volumeBucketsCbm);
   const consolidation = consolidationReads(vqs, rules);
   return {
     rules,
+    includeDemo,
     participants,
+    retention: retentionDue(participants, rules.retentionDays),
+    inProgressAnswered: participants.filter((p) => p.answers && !p.completed && p.consent_state === 'agreed').length,
     progress: {
       total: participants.length,
       done: participants.filter((p) => p.progress === 'done').length,

@@ -5,6 +5,7 @@
  * 금액은 화면이 보낸 값이 아니라 서버에서 같은 조건으로 다시 셈한다.
  */
 import { revalidatePath } from 'next/cache';
+import { contractParty } from '@/lib/server/alliance';
 import { z } from 'zod';
 import { asUser, todayKst, type Queryable } from '@/lib/db';
 import { requireViewer } from '@/lib/server/viewer';
@@ -78,9 +79,12 @@ export async function saveFirmQuote(input: z.infer<typeof Ctx>): Promise<R> {
     let totals: number[];
     let lane: Record<string, unknown>;
     let prev;
+    let leadPartnerId: string | undefined;
     if (ctx.source === 'compare') {
       const cq = parseCargoQuery(new URLSearchParams(ctx.query));
-      totals = (await compareBasis(q, cq, s, today)).totals;
+      const cb = await compareBasis(q, cq, s, today);
+      totals = cb.totals;
+      leadPartnerId = cb.lead?.partnerId;
       const key = laneKey(cq);
       lane = { key, hub: cq.hub, port: cq.port, mode: cq.mode ?? 'ANY', units: cq.units, cartons: cq.cartons, kg: cq.kg, cbm: cq.cbm, goods: cq.goods, cur: cq.cur, fc: cq.fc, traits: cq.traits };
       prev = await currentFirmQuote(q, v.org.id, { laneKey: key });
@@ -88,12 +92,15 @@ export async function saveFirmQuote(input: z.infer<typeof Ctx>): Promise<R> {
       const b = await requestBasis(q, ctx.requestId, v.org.id, s, today);
       if (!b) return { ok: false, error: '요청을 찾지 못했습니다' };
       totals = b.totals;
+      leadPartnerId = b.lead?.partnerId;
       lane = { requestId: ctx.requestId, reqNo: b.reqNo };
       prev = await currentFirmQuote(q, v.org.id, { requestId: ctx.requestId });
     }
     const f = firmPrice(totals, config.firmRates);
     if (!f.ok) return { ok: false, error: '같은 조건 요금표·응찰이 없어 확정가를 낼 수 없습니다' };
     if (!f.offerable) return { ok: false, error: '가격 변동폭이 커서 이 조건은 확정가 시범 대상이 아닙니다' };
+    // 그때 카드에 보인 계약 상대(제휴 주선사)를 함께 남긴다 — 나중에 제휴가 끝나거나 서류가 만료돼도 무엇을 보였는지 안다
+    const party = await contractParty(q, leadPartnerId);
     const quoteNo = prev?.quote_no ?? newNo('FP');
     const validUntil = new Date(Date.parse(`${today}T00:00:00Z`) + config.firmRates.validDays * 86400_000).toISOString().slice(0, 10);
     const row = await q.query<{ id: string }>(
@@ -102,7 +109,7 @@ export async function saveFirmQuote(input: z.infer<typeof Ctx>): Promise<R> {
       [
         quoteNo, (prev?.version ?? 0) + 1, prev?.id ?? null, v.org.id, v.id, ctx.source, ctx.source === 'request' ? ctx.requestId : null,
         JSON.stringify(lane), f.stats.n, f.base, f.premium, f.firmPrice, f.confidenceBp,
-        JSON.stringify({ ...f.stats, excess: f.excess, parametricExcess: f.parametricExcess, basis: f.basis, lowSample: f.lowSample }),
+        JSON.stringify({ ...f.stats, excess: f.excess, parametricExcess: f.parametricExcess, basis: f.basis, lowSample: f.lowSample, party: party ? { termsNo: party.termsNo, partnerName: party.partnerName, regTail: party.regTail, preferred: party.preferred } : null }),
         JSON.stringify(config.firmRates), validUntil,
       ],
     );

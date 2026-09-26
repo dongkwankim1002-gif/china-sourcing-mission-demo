@@ -65,7 +65,8 @@ export const env = {
   /** WING 키 암호화 키(32자 이상). 값은 서버 환경변수에만 — 없으면 키를 받지 않는다 */
   get wingKeyEncryptionKey() {
     const v = process.env.WING_KEY_ENCRYPTION_KEY;
-    return v && v.length >= 32 ? v : null;
+    // 너무 단순한 값(공백 있는 문장·반복 글자)은 없는 것으로 본다 — src/lib/wing/crypto.ts kekLooksRandom 과 같은 규칙
+    return v && v.length >= 32 && !/\s/.test(v) && new Set(v).size >= 16 ? v : null;
   },
   get usingSupabaseAuth() {
     return !!(this.supabaseUrl && this.supabaseAnonKey && this.supabaseServiceKey);

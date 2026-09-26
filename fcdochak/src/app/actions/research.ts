@@ -226,11 +226,14 @@ export async function saveAsInterviewer(participantId: string, input: SaveInputT
     const part = await q.query<{ org_id: string; consent_state: string }>(`select org_id, consent_state from fcd.v_research_participants where id = $1`, [participantId]);
     if (!part[0]) return { error: '참여자를 찾을 수 없습니다' };
     if (part[0].consent_state !== 'agreed') return { error: '먼저 동의(구두 동의 포함)를 기록해 주세요' };
+    // 이미 끝낸 인터뷰를 고칠 때는 답만 바꾼다 — 끝남(완료·done)은 그대로 두어 보드의 「끝」과 판정 표본에서 빠지지 않게
+    const everDone = (await q.query<{ n: number }>(`select count(*)::int n from fcd.research_responses where participant_id = $1 and completed`, [participantId]))[0].n > 0;
+    const complete = p.data.complete || everDone;
     try {
       const ins = await q.query<{ id: string; version: number }>(
         `insert into fcd.research_responses (org_id, participant_id, version, supersedes_id, source, step, completed, answers, created_by)
          values ($1,$2,$3,$4,'interviewer',$5,$6,$7::jsonb,$8) returning id, version`,
-        [part[0].org_id, participantId, expect.version + 1, expect.id, p.data.complete ? 'done' : p.data.step, p.data.complete, JSON.stringify(p.data.answers), v.id],
+        [part[0].org_id, participantId, expect.version + 1, expect.id, complete ? 'done' : p.data.step, complete, JSON.stringify(p.data.answers), v.id],
       );
       return { id: ins[0].id, version: ins[0].version };
     } catch {

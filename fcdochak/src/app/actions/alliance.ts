@@ -137,18 +137,22 @@ export async function addAllianceCandidate(input: z.infer<typeof Candidate>): Pr
 
 const Status = z.object({ allianceId: uuid, status: z.enum(ALLIANCE_STATUS), note: z.string().trim().min(2, '바꾸는 이유를 적어 주세요').max(600) });
 
-/** 상태 바꾸기 — 「제휴 중」은 필수 요건이 모두 확인되고 서명한 계약 판이 있을 때만 */
+/** 상태 바꾸기 — 「제휴 중」은 필수 요건이 모두 확인(만료 전·보증 금액 이상)되고, 서명한 계약 판이 오늘 유효하고,
+ *  업체의 플랫폼 상태가 정상일 때만. 규칙은 화주 카드의 계약 상대와 같은 fcd.alliance_ready 하나를 쓴다. */
 export async function setAllianceStatus(input: z.infer<typeof Status>): Promise<R> {
   const v = await requireViewer('admin');
   const p = Status.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0].message };
   const out = await asUser(v, async (q): Promise<R> => {
     if (p.data.status === 'active') {
-      const ok = await q.query<{ n: number }>(
-        `select count(*)::int n from fcd.v_alliance_terms_current where alliance_id = $1 and status = 'agreed'`,
+      const t = await q.query<{ n: number }>(
+        `select count(*)::int n from fcd.v_alliance_terms_current
+          where alliance_id = $1 and status = 'agreed' and (now() at time zone 'Asia/Seoul')::date between valid_from and valid_until`,
         [p.data.allianceId],
       );
-      if (!ok[0].n) return { ok: false, error: '서명한 계약 판이 없어 「제휴 중」으로 바꿀 수 없습니다' };
+      if (!t[0].n) return { ok: false, error: '서명한 계약 판이 없거나 오늘이 유효기간 밖이라 「제휴 중」으로 바꿀 수 없습니다' };
+      const ready = (await q.query<{ ok: boolean }>(`select fcd.alliance_ready($1) ok`, [p.data.allianceId]))[0]?.ok;
+      if (!ready) return { ok: false, error: '필수 요건이 모두 「확인함」이 아니거나(만료·보증 금액 부족 포함) 업체의 플랫폼 상태가 정상이 아니라 「제휴 중」으로 바꿀 수 없습니다' };
     }
     const r = await q.query<{ id: string; partner_org_id: string }>(
       `update fcd.alliance_partners set status = $2, status_note = $3, decided_at = now(), decided_by = $4 where id = $1 returning id, partner_org_id`,
@@ -260,7 +264,7 @@ const Settlement = z.object({
   note: z.string().trim().max(1000).optional(),
 });
 
-/** 정산 명세 새 판 — 현재 계약 판(서명함)의 요율로 서버가 다시 셈한다. 기초 준비금 = 앞 기간 명세의 기말 */
+/** 정산 명세 새 판 — 새 명세는 그 기간의 서명한 계약 판, 새 판은 앞 판의 계약 판 요율로 서버가 다시 셈한다. 기초 준비금 = 앞 기간 명세의 기말 */
 export async function addAllianceSettlement(input: z.infer<typeof Settlement>): Promise<R> {
   const v = await requireViewer('admin');
   const p = Settlement.safeParse(input);
@@ -271,18 +275,14 @@ export async function addAllianceSettlement(input: z.infer<typeof Settlement>): 
     const out = await asUser(v, async (q): Promise<R> => {
       const a = (await q.query<{ partner_org_id: string }>(`select partner_org_id from fcd.alliance_partners where id = $1`, [d.allianceId]))[0];
       if (!a) return { ok: false, error: '제휴 기록을 찾지 못했습니다' };
-      const terms = (await q.query<{ id: string; commission_bp: number; reserve_bp: number; liability: Liability }>(
-        `select id, commission_bp, reserve_bp, liability from fcd.v_alliance_terms_current where alliance_id = $1 and status = 'agreed' order by created_at desc limit 1`,
-        [d.allianceId],
-      ))[0];
-      if (!terms) return { ok: false, error: '서명한 계약 판이 없어 정산 명세를 만들 수 없습니다' };
       let statementNo = newNo('AS');
       let version = 1;
       let opening: number;
       let lines;
+      let termsId: string | null = null;
       if (d.supersedesId) {
-        const prev = (await q.query<{ statement_no: string; version: number; reserve_opening: number; lines: SettlementLine[] }>(
-          `select statement_no, version, reserve_opening::float8 reserve_opening, lines from fcd.v_alliance_settlements_current where id = $1 and alliance_id = $2`,
+        const prev = (await q.query<{ statement_no: string; version: number; reserve_opening: number; lines: SettlementLine[]; terms_id: string }>(
+          `select statement_no, version, reserve_opening::float8 reserve_opening, lines, terms_id from fcd.v_alliance_settlements_current where id = $1 and alliance_id = $2`,
           [d.supersedesId, d.allianceId],
         ))[0];
         if (!prev) return { ok: false, error: '현재 판이 아닙니다 — 새로 고쳐 보세요' };
@@ -290,6 +290,8 @@ export async function addAllianceSettlement(input: z.infer<typeof Settlement>): 
         version = prev.version + 1;
         opening = prev.reserve_opening;
         lines = d.text?.trim() ? null : linesToInput(prev.lines);
+        // 새 판은 앞 판이 쓴 계약 판 그대로 다시 셈한다(그 뒤 요율이 바뀌었거나 계약이 끝났어도). 다른 요율이 필요하면 새 명세로
+        termsId = prev.terms_id;
       } else {
         const last = (await q.query<{ reserve_closing: number }>(
           `select reserve_closing::float8 reserve_closing from fcd.v_alliance_settlements_current where alliance_id = $1 and status = 'issued' and period_end < $2::date order by period_end desc, created_at desc limit 1`,
@@ -298,6 +300,17 @@ export async function addAllianceSettlement(input: z.infer<typeof Settlement>): 
         opening = last?.reserve_closing ?? 0;
         lines = null;
       }
+      // 새 명세: 그 기간에 걸친 서명한 계약 판(기간을 다 덮는 판 먼저). 끝낸(ended) 판도 서명일이 있으면 지난 기간 정산에 쓴다
+      const terms = (await q.query<{ id: string; commission_bp: number; reserve_bp: number; liability: Liability }>(
+        termsId
+          ? `select id, commission_bp, reserve_bp, liability from fcd.alliance_terms where id = $1 and alliance_id = $2`
+          : `select id, commission_bp, reserve_bp, liability from fcd.v_alliance_terms_current
+              where alliance_id = $1 and (status = 'agreed' or (status = 'ended' and signed_on is not null))
+                and valid_from <= $3::date and valid_until >= $2::date
+              order by (valid_from <= $2::date and valid_until >= $3::date) desc, (status = 'agreed') desc, signed_on desc nulls last, created_at desc limit 1`,
+        termsId ? [termsId, d.allianceId] : [d.allianceId, d.periodStart, d.periodEnd],
+      ))[0];
+      if (!terms) return { ok: false, error: '그 기간에 걸친 서명한 계약 판이 없어 정산 명세를 만들 수 없습니다' };
       if (!lines) {
         const parsed = parseSettlementLines(d.text ?? '');
         if (parsed.errors.length) return { ok: false, error: parsed.errors[0] };

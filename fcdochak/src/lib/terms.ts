@@ -225,3 +225,8 @@ export const RESEARCH_ACTION = {
   verbalDecline: '거부함',
   addQuote: '단가 넣기',
 } as const;
+
+// v2 2차 고침 — 인터뷰 철회·삭제 요청(쌓기만, 실제 삭제는 사람이 docs/research-plan.md 7절대로)
+export const RESEARCH_ACTION_MORE = {
+  recordWithdrawal: '철회·삭제 요청 받음',
+} as const;

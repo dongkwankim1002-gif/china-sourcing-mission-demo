@@ -16,8 +16,17 @@ export class WingKeyError extends Error {
   readonly code = 'wing_key';
 }
 
+/**
+ * 사람이 외우는 문장(공백 있음)이나 같은 글자 반복을 막는 가벼운 검사. 권장 값은 `openssl rand -base64 32`.
+ * 키 유도는 SHA-256 한 번이라 약한 문장이면 DB·키가 함께 샜을 때 버티지 못한다(docs/wing-plan.md 사람이 정할 일).
+ */
+export function kekLooksRandom(secret: string): boolean {
+  return secret.length >= MIN_KEK_LENGTH && !/\s/.test(secret) && new Set(secret).size >= 16;
+}
+
 function kek(secret: string | null | undefined): Buffer {
   if (!secret || secret.length < MIN_KEK_LENGTH) throw new WingKeyError('암호화 키가 설정되지 않았습니다(WING_KEY_ENCRYPTION_KEY, 32자 이상)');
+  if (!kekLooksRandom(secret)) throw new WingKeyError('암호화 키가 너무 단순합니다(WING_KEY_ENCRYPTION_KEY — openssl rand -base64 32 로 만든 값을 쓰세요)');
   return createHash('sha256').update(`fcd-wing-kek:${secret}`, 'utf8').digest();
 }
 

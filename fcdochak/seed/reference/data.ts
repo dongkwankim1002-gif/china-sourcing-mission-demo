@@ -290,3 +290,7 @@ export const RESEARCH_SETTINGS: { key: string; value: unknown; note: string }[] 
   },
 ];
 SETTINGS.push(...RESEARCH_SETTINGS);
+// v2 2차 고침 — WING 키 만료 알림 시작(일). 화면(연동 페이지)에만 알리고 밖으로 보내지 않는다
+const WING_WARN = { key: 'wing.key_warn_days', value: 14, note: 'WING 키 만료 며칠 전부터 연동 화면에 「곧 만료」를 보일지(일). 메일·문자는 보내지 않는다' };
+WING_SETTINGS.push(WING_WARN);
+SETTINGS.push(WING_WARN);

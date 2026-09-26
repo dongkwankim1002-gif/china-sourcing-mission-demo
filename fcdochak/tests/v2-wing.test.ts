@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Driver } from '@/lib/db/driver';
 import { hmacSha256Hex, wingAuthorization, wingMessage, wingSignature, wingSignedDate } from '@/lib/wing/sign';
 import { RG_INVENTORY_PATH, WING_API_BASE, WingHttpAdapter, backoffMs, isRetryableStatus, minIntervalMs } from '@/lib/wing/http';
-import { WingMockAdapter, mockInbounds } from '@/lib/wing/mock';
+import { DEMO_WING_SEED, WingMockAdapter, demoWingHints, mockInbounds } from '@/lib/wing/mock';
 import { BLOB_RE, decryptCredentials, encryptCredentials, kekFingerprint, last4 } from '@/lib/wing/crypto';
 import { EXTERNAL_NO_RE, WING_IMPORT_COLUMNS, inboundChanged, matchFcCode, normalizeDate, normalizeInboundRow } from '@/lib/wing/import';
 import { measuredReturnRate, qtyDiffBp, reasonText, scorePair, suggestMatches } from '@/lib/wing/match';
@@ -156,6 +156,9 @@ describe('키 암호화', () => {
   it('암호화 키가 없거나 짧으면 받지 않는다', () => {
     expect(() => encryptCredentials(CREDS, ORG, null)).toThrow('WING_KEY_ENCRYPTION_KEY');
     expect(() => encryptCredentials(CREDS, ORG, 'short')).toThrow('WING_KEY_ENCRYPTION_KEY');
+    // 외우는 문장·반복 글자는 받지 않는다
+    expect(() => encryptCredentials(CREDS, ORG, 'my coupang secret passphrase is long')).toThrow('너무 단순');
+    expect(() => encryptCredentials(CREDS, ORG, 'a'.repeat(40))).toThrow('너무 단순');
   });
   it('끝 4자리', () => {
     expect(last4('A00012345')).toBe('2345');
@@ -310,6 +313,7 @@ describe('설정·키 만료·이벤트 이름', () => {
     expect(s.match).toEqual(MATCH);
     expect(s.call).toEqual(RULE);
     expect(s.keyValidDays).toBe(180);
+    expect(s.keyWarnDays).toBe(14);
     for (const k of m.keys()) {
       expect(V2_SETTING_SCHEMAS[k], k).toBeDefined();
       expect(SETTINGS.some((x) => x.key === k), k).toBe(true);
@@ -320,10 +324,12 @@ describe('설정·키 만료·이벤트 이름', () => {
   it('만료 예정일·상태', () => {
     expect(keyExpiry('2026-04-01', 180)).toBe('2026-09-28');
     expect(keyExpiry(null, 180)).toBeNull();
-    expect(keyExpiryState('2026-09-28', '2026-09-25')).toBe('soon');
-    expect(keyExpiryState('2026-12-28', '2026-09-25')).toBe('ok');
-    expect(keyExpiryState('2026-09-24', '2026-09-25')).toBe('expired');
-    expect(keyExpiryState(null, '2026-09-25')).toBe('unknown');
+    expect(keyExpiryState('2026-09-28', '2026-09-25', 14)).toBe('soon');
+    expect(keyExpiryState('2026-12-28', '2026-09-25', 14)).toBe('ok');
+    expect(keyExpiryState('2026-09-24', '2026-09-25', 14)).toBe('expired');
+    expect(keyExpiryState(null, '2026-09-25', 14)).toBe('unknown');
+    expect(keyExpiryState('2026-09-28', '2026-09-25', 2)).toBe('ok'); // 알림 시작 일수는 설정에서
+
   });
   it('WING 이벤트는 접근 기록 action 으로 간다', () => {
     for (const k of WING_EVENT_KINDS) expect(WING_EVENT_ACTION[k]).toMatch(/^[a-z_]+$/);
@@ -489,6 +495,46 @@ describe('DB — RLS·권한·새 판·데모(메모리 PGlite)', () => {
     await ins(2);
     const now = await asShipper((q) => q.query<{ version: number; status_raw: string }>(`select version, status_raw from fcd.v_wing_inbound_current where org_id = $1 and external_no = $2`, [shipperOrg, root.external_no]));
     expect(now).toEqual([{ version: 2, status_raw: '입고 완료' }]);
+  });
+
+  it('키 저장·꺼냄은 화주 관리자만 — 같은 조직 일반 구성원은 막힌다', async () => {
+    const member = (await db.query<{ user_id: string }>(`select user_id from fcd.memberships where org_id = $1 and role = 'shipper_member' limit 1`, [shipperOrg]))[0];
+    expect(member).toBeTruthy();
+    const cur = (await db.query<{ id: string; version: number }>(`select id, version from fcd.v_wing_connections_current where org_id = $1`, [shipperOrg]))[0];
+    await expect(
+      asShipper(
+        (q) => q.query(`insert into fcd.wing_connections (org_id, version, supersedes_id, method, status, key_blob, kek_id, created_by) values ($1,$2,$3,'self_key','saved',$4,$5,$6)`, [shipperOrg, cur.version + 1, cur.id, blob(), kekFingerprint(KEK), member.user_id]),
+        member.user_id,
+      ),
+    ).rejects.toThrow();
+    // 관리자는 새 판을 쌓고 꺼낼 수 있다. 구성원은 같은 판을 꺼내지 못한다
+    const id = (
+      await asShipper((q) =>
+        q.query<{ id: string }>(
+          `insert into fcd.wing_connections (org_id, version, supersedes_id, method, status, key_blob, kek_id, created_by) values ($1,$2,$3,'self_key','saved',$4,$5,$6) returning id`,
+          [shipperOrg, cur.version + 1, cur.id, blob(), kekFingerprint(KEK), shipperUser],
+        ),
+      )
+    )[0].id;
+    expect((await asShipper((q) => q.query<{ b: string | null }>(`select fcd.wing_key_blob($1) b`, [id]), member.user_id))[0].b).toBeNull();
+    expect((await asShipper((q) => q.query<{ b: string | null }>(`select fcd.wing_key_blob($1) b`, [id])))[0].b).not.toBeNull();
+  });
+
+  it('선적 화면의 입고 요청 한 줄 — 화주·맡은 물류사는 같은 번호를 보고, 남은 못 본다', async () => {
+    const m = (await db.query<{ external_no: string; shipment_id: string }>(`select external_no, shipment_id from fcd.v_wing_matches_current where org_id = $1 and action = 'confirmed' limit 1`, [shipperOrg]))[0];
+    const partnerUser = (
+      await db.query<{ user_id: string }>(`select m.user_id from fcd.memberships m join fcd.shipments s on s.partner_org_id = m.org_id where s.id = $1 limit 1`, [m.shipment_id])
+    )[0].user_id;
+    const q1 = `select external_no from fcd.wing_inbound_for_shipment($1::uuid)`;
+    expect((await asShipper((q) => q.query<{ external_no: string }>(q1, [m.shipment_id])))[0].external_no).toBe(m.external_no);
+    expect((await asShipper((q) => q.query<{ external_no: string }>(q1, [m.shipment_id]), partnerUser))[0].external_no).toBe(m.external_no);
+    expect(await asShipper((q) => q.query(q1, [m.shipment_id]), otherShipperUser)).toHaveLength(0);
+  });
+
+  it('예시 가져오기는 데모 시드와 같은 씨앗·같은 선적 고르기 — 다시 가져와도 번호가 늘지 않는다', () => {
+    expect(DEMO_WING_SEED).toBe('fcd-demo-wing');
+    const ships = [9, 2, 3, 9, 4, 5, 6, 9, 7, 9, 8].map((stage, i) => ({ id: `s${i}`, stage }));
+    expect(demoWingHints(ships).map((s) => s.id)).toEqual(['s1', 's2', 's4', 's5', 's6', 's0', 's3', 's7']);
   });
 
   it('데모 숨김(DEMO_MODE 꺼짐)이면 데모 조직의 WING 자료도 안 보인다', async () => {

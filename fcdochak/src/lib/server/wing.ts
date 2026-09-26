@@ -171,3 +171,26 @@ export const ACCESS_ACTION_LABEL: Record<string, string> = {
 };
 
 export type { WingSettings };
+
+export interface ShipmentInbound {
+  external_no: string;
+  fc_code: string | null;
+  center_name: string | null;
+  planned_on: string | null;
+  units: number | null;
+  boxes: number | null;
+  status_raw: string | null;
+  received_units: number | null;
+  returned_units: number | null;
+  source: 'mock' | 'file' | 'api';
+}
+
+/** 선적에 짝을 확정한 WING 입고 요청 — 화주·맡은 물류사·운영이 같은 번호를 본다(fcd.wing_inbound_for_shipment) */
+export async function inboundForShipment(q: Queryable, shipmentId: string): Promise<ShipmentInbound | null> {
+  const r = await q.query<ShipmentInbound>(
+    `select external_no, fc_code, center_name, planned_on::text planned_on, units, boxes, status_raw, received_units, returned_units, source
+       from fcd.wing_inbound_for_shipment($1::uuid)`,
+    [shipmentId],
+  );
+  return r[0] ?? null;
+}

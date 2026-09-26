@@ -39,6 +39,14 @@ function addDays(ymd: string, n: number): string {
   return new Date(Date.parse(`${ymd}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 }
 
+/** 데모 시드와 「예시 입고 요청 가져오기」가 함께 쓰는 씨앗 — 같은 번호가 나와 다시 가져와도 「그대로」로 끝난다 */
+export const DEMO_WING_SEED = 'fcd-demo-wing';
+
+/** 데모에서 짝이 맞을 선적 고르기 — 최근 순으로 받은 선적 중 진행 중(2~8단계) 5건 + 입고 끝(9단계) 3건 */
+export function demoWingHints<T extends { stage: number }>(recentFirst: readonly T[]): T[] {
+  return [...recentFirst.filter((s) => s.stage >= 2 && s.stage <= 8).slice(0, 5), ...recentFirst.filter((s) => s.stage === 9).slice(0, 3)];
+}
+
 const STATUS_OPEN = ['입고 요청', '입고 예정'];
 const STATUS_DONE = '입고 완료';
 

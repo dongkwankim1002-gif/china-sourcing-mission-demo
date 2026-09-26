@@ -4,11 +4,11 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Copy, Eye, Link2, Plus } from 'lucide-react';
-import { addParticipant, addVendorQuote, clearContact, makeResearchLink, revealContact, revokeResearchLinks } from '@/app/actions/research';
+import { addParticipant, addVendorQuote, clearContact, makeResearchLink, recordVerbalConsent, revealContact, revokeResearchLinks } from '@/app/actions/research';
 import { Button, Field, Input, NativeSelect, Panel, PanelHead, Textarea } from '@/components/ui/core';
 import { NumberField } from '@/components/number-field';
 import { dateTimeKo } from '@/lib/format';
-import { RESEARCH_ACTION } from '@/lib/terms';
+import { RESEARCH_ACTION, RESEARCH_ACTION_MORE } from '@/lib/terms';
 
 export function ParticipantForm() {
   const router = useRouter();
@@ -287,5 +287,29 @@ export function VendorQuoteForm({ hubs, ports }: { hubs: { code: string; name_ko
         <Button type="submit" variant="primary" disabled={pending}><Plus aria-hidden /> {pending ? '넣는 중…' : RESEARCH_ACTION.addQuote}</Button>
       </div>
     </form>
+  );
+}
+
+/** 인터뷰어 모드 — 셀러가 철회하거나 답을 지워 달라고 했을 때 한 줄 쌓는다(답은 그대로 — 지우기는 사람이 한다) */
+export function WithdrawButton({ id }: { id: string }) {
+  const router = useRouter();
+  const [pending, start] = React.useTransition();
+  return (
+    <Button
+      size="sm"
+      disabled={pending}
+      data-testid="record-withdrawal"
+      onClick={() => {
+        if (!window.confirm('철회·삭제 요청을 기록합니다. 이 참여자는 판정에서 빠지고 결정 보드의 「지울 대상」에 올라갑니다.')) return;
+        start(async () => {
+          const r = await recordVerbalConsent(id, 'withdrawn');
+          if (!r.ok) return void toast.error(r.error ?? '기록하지 못했습니다');
+          toast.success('철회를 기록했습니다', { description: '답을 지우는 일은 운영 담당이 절차대로 합니다' });
+          router.refresh();
+        });
+      }}
+    >
+      {RESEARCH_ACTION_MORE.recordWithdrawal}
+    </Button>
   );
 }

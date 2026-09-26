@@ -34,6 +34,8 @@ export default async function PartnerAlliance() {
   const terms = det?.terms.filter((t) => t.current) ?? [];
   const stmts = det?.settlements.filter((s) => s.current) ?? [];
   const L = (ko: string, cn: string) => (zh ? cn : ko);
+  // 중국어 화면은 날짜를 YYYY-MM-DD 로(한국어 「10월 16일」 꼴을 보이지 않게)
+  const day = (x: string | Date | null | undefined) => (x ? (zh ? (typeof x === 'string' ? x : x.toISOString()).slice(0, 10) : dateKo(x, { dow: false })) : '');
 
   return (
     <>
@@ -90,7 +92,7 @@ export default async function PartnerAlliance() {
                           <p className="mt-1 text-xs text-muted">
                             {i.req.ref_no ? `${i.req.ref_no} · ` : ''}
                             {i.req.amount != null ? `${num(i.req.amount)}${L('원', ' 韩元')} · ` : ''}
-                            {i.req.valid_until ? `${L('만료', '到期')} ${dateKo(i.req.valid_until, { dow: false })} · ` : ''}
+                            {i.req.valid_until ? `${L('만료', '到期')} ${day(i.req.valid_until)} · ` : ''}
                             v{i.req.version}
                             {i.req.file_name ? (
                               <a href={`/api/alliance-docs/${i.req.id}`} className="ml-2 inline-flex items-center gap-1 underline underline-offset-4">
@@ -149,11 +151,11 @@ export default async function PartnerAlliance() {
                       <Chip tone={t.status === 'agreed' ? 'ok' : 'neutral'}>{zh ? ({ draft: '草案', agreed: '已签署', ended: '已结束' } as const)[t.status] : TERMS_STATUS_LABEL[t.status]}</Chip>
                     </p>
                     <p className="mt-1 text-xs tnum">
-                      {zh ? '' : `${TERMS_MODEL_LABEL[t.model]} · `}
+                      {zh ? `${({ partner_contract: '① 以联盟货代名义签约', sales_agency: '② 销售代理' } as const)[t.model]} · ` : `${TERMS_MODEL_LABEL[t.model]} · `}
                       {L('수수료', '佣金')} {bp(t.commission_bp, 2)} · {L('준비금 적립 프리미엄의', '准备金 = 溢价的')} {bp(t.reserve_bp, 0)}
                     </p>
                     <p className="text-2xs text-muted tnum">
-                      {dateKo(t.valid_from, { dow: false })} ~ {dateKo(t.valid_until, { dow: false })}
+                      {day(t.valid_from)} ~ {day(t.valid_until)}
                       {' · '}
                       {INCIDENT_KINDS.map((k) => `${zh ? ({ overrun: '超支', return: '退回', loss: '丢失', delay: '延误' } as const)[k] : INCIDENT_LABEL[k]} ${bp(t.liability[k].platformBp, 0)}`).join(' · ')}
                     </p>
@@ -173,7 +175,7 @@ export default async function PartnerAlliance() {
                   <li key={s.id} className="border-b border-line-2 px-4 py-3 text-xs last:border-0">
                     <p className="flex flex-wrap items-center gap-2 text-sm">
                       <b className="font-mono text-xs">{s.statement_no} v{s.version}</b>
-                      <span className="text-muted tnum">{dateKo(s.period_start, { dow: false })} ~ {dateKo(s.period_end, { dow: false })}</span>
+                      <span className="text-muted tnum">{day(s.period_start)} ~ {day(s.period_end)}</span>
                     </p>
                     <p className="mt-1 tnum">
                       {L('선적', '货件')} {s.shipments} · {L('수수료', '佣金')} {num(s.commission)} · {L('부가세', '增值税')} {num(s.commission_vat)} · {L('적립', '准备金')} {num(s.reserve_in)} · {L('플랫폼 부담', '平台承担')} {num(s.platform_share)}

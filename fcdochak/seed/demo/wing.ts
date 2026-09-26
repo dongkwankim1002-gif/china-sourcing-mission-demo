@@ -7,13 +7,13 @@
  * 모두 is_demo 조직 아래라 걷어내기(조직 삭제) 한 번에 CASCADE 로 사라진다.
  */
 import type { Queryable } from '@/lib/db/driver';
-import { mockInbounds } from '@/lib/wing/mock';
+import { DEMO_WING_SEED, demoWingHints, mockInbounds } from '@/lib/wing/mock';
 import { suggestMatches } from '@/lib/wing/match';
 import { WING_SETTINGS } from '../reference/data';
 
 const HOUR = 3_600_000;
 
-export async function seedWingDemo(q: Queryable, opts: { now: number; today: string; shipperEmail: string }) {
+export async function seedWingDemo(q: Queryable, opts: { now: number; today: string; shipperEmail: string; onlyIfEmpty?: boolean }) {
   const me = (
     await q.query<{ user_id: string; org_id: string }>(
       `select p.id user_id, p.home_org_id org_id from fcd.profiles p join fcd.orgs o on o.id = p.home_org_id where lower(p.email) = $1 and o.is_demo`,
@@ -21,6 +21,8 @@ export async function seedWingDemo(q: Queryable, opts: { now: number; today: str
     )
   )[0];
   if (!me) return 0;
+  // 이미 데모가 있던 DB(미리보기)에 덧붙일 때 — 입고 요청이 하나라도 있으면 넣지 않는다(멱등)
+  if (opts.onlyIfEmpty && (await q.query<{ n: number }>(`select count(*)::int n from fcd.wing_inbound_requests where org_id = $1`, [me.org_id]))[0].n > 0) return 0;
   const ships = await q.query<{ id: string; shipment_no: string; fc_code: string; eta_fc: string | null; units: number; cartons: number; stage: number; fc_returned_units: number }>(
     // 진행 중 5건 + 입고 끝난 3건(입고 결과·회송이 있는 예시가 보이게)
     `(select id, shipment_no, fc_code, eta_fc::text eta_fc, units, cartons, stage, fc_returned_units
@@ -32,10 +34,10 @@ export async function seedWingDemo(q: Queryable, opts: { now: number; today: str
   );
   const fcs = await q.query<{ code: string; name: string }>(`select code, name from fcd.fc_centers where coalesce(kind, 'coupang_fc') = 'coupang_fc' order by code`);
   const inbounds = mockInbounds({
-    seed: 'fcd-demo-wing',
+    seed: DEMO_WING_SEED,
     fcs,
     today: opts.today,
-    hints: ships.map((s) => ({ id: s.id, fcCode: s.fc_code, etaFc: s.eta_fc, units: s.units, cartons: s.cartons, stage: s.stage, returnedUnits: s.fc_returned_units })),
+    hints: demoWingHints(ships.map((s) => ({ id: s.id, fcCode: s.fc_code, etaFc: s.eta_fc, units: s.units, cartons: s.cartons, stage: s.stage, returnedUnits: s.fc_returned_units }))),
     strays: 2,
   });
   if (!inbounds.length) return 0;

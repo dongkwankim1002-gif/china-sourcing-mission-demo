@@ -361,6 +361,53 @@ describe('화주 카드의 계약 상대', () => {
   });
 });
 
+describe('v2 2차 고침 — 같은 규칙·새 판·관리자만', () => {
+  it('fcd.alliance_ready — 보증보험이 만료된 가람·요건 확인 중인 블루웨이브 모두 「제휴 중」 불가', async () => {
+    const r = await asRole(db, 'fcd_user', ids.admin, true, (q) => q.query<{ g: boolean; b: boolean }>(`select fcd.alliance_ready($1) g, fcd.alliance_ready($2) b`, [garam.alliance, blue.alliance]));
+    expect(r[0]).toEqual({ g: false, b: false });
+  });
+  it('정산 명세의 새 판은 앞 판과 같은 계약 판이어야 한다(요율이 바뀐 뒤 조용히 다시 셈하지 않게)', async () => {
+    const st = (await db.query<{ id: string; statement_no: string; version: number; terms_id: string }>(`select id, statement_no, version, terms_id from fcd.v_alliance_settlements_current where alliance_id = $1 limit 1`, [garam.alliance]))[0];
+    // 다른 계약 번호의 새 판(운영자) — 요율이 다르다
+    const other = (
+      await asRole(db, 'fcd_user', ids.admin, true, (q) =>
+        q.query<{ id: string }>(
+          `insert into fcd.alliance_terms (alliance_id, partner_org_id, terms_no, model, commission_bp, reserve_bp, liability, valid_from, valid_until, status, signed_on, created_by)
+           values ($1,$2,'AT-TEST-OTHER','partner_contract',900,2000,'{}'::jsonb,current_date,current_date + 30,'agreed',current_date,$3) returning id`,
+          [garam.alliance, garam.org, ids.admin],
+        ),
+      )
+    )[0].id;
+    const ins = (terms: string, ver: number) =>
+      asRole(db, 'fcd_user', ids.admin, true, (q) =>
+        q.query(
+          `insert into fcd.alliance_settlements (alliance_id, partner_org_id, terms_id, statement_no, version, supersedes_id, period_start, period_end, lines, shipments, gross_firm, commission, commission_vat, reserve_in, platform_share, partner_share, seller_share, reserve_opening, reserve_drawn, reserve_shortfall, reserve_closing, net_payable, status, created_by)
+           values ($1,$2,$3,$4,$5,$6,current_date,current_date,'[]'::jsonb,0,0,0,0,0,0,0,0,0,0,0,0,0,'void',$7)`,
+          [garam.alliance, garam.org, terms, st.statement_no, ver, st.id, ids.admin],
+        ),
+      );
+    await expect(ins(other, st.version + 1)).rejects.toThrow();
+    await expect(ins(st.terms_id, st.version + 1)).resolves.toBeDefined();
+  });
+  it('제휴 신청·요건 올리기는 물류사 관리자만 — 일반 구성원은 막힌다', async () => {
+    const m = (
+      await db.query<{ user_id: string; org_id: string }>(
+        `select m.user_id, m.org_id from fcd.memberships m join fcd.orgs o on o.id = m.org_id
+          where o.kind = 'partner' and o.is_demo and m.role = 'partner_member'
+            and not exists (select 1 from fcd.alliance_partners a where a.partner_org_id = o.id) limit 1`,
+      )
+    )[0];
+    expect(m).toBeTruthy();
+    await expect(asRole(db, 'fcd_user', m.user_id, true, (q) => q.query(`insert into fcd.alliance_partners (partner_org_id, status, applied_by) values ($1, 'applied', $2)`, [m.org_id, m.user_id]))).rejects.toThrow();
+    const gm = (await db.query<{ user_id: string }>(`select user_id from fcd.memberships where org_id = $1 and role = 'partner_member' limit 1`, [garam.org]))[0];
+    if (gm) {
+      await expect(
+        asRole(db, 'fcd_user', gm.user_id, true, (q) => q.query(`insert into fcd.alliance_requirements (alliance_id, partner_org_id, kind, status, created_by) values ($1,$2,'cargo_insurance','submitted',$3)`, [garam.alliance, garam.org, gm.user_id])),
+      ).rejects.toThrow();
+    }
+  });
+});
+
 describe('데모 걷어내기 — 새 표도 함께', () => {
   it('DEMO_TABLES 에 네 표가 있고, 걷어내면 데모 건수가 0', async () => {
     const names = ['alliance_partners', 'alliance_requirements', 'alliance_terms', 'alliance_settlements'];

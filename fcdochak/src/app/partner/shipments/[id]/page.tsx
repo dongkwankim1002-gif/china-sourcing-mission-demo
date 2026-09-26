@@ -14,6 +14,8 @@ import { DocsPanel } from '@/components/shipment/docs';
 import { DefList, EmptyState, Panel, PanelHead } from '@/components/ui/core';
 import { ExceptionForm, InvoiceForm, ResolveButton, StageForm } from './forms';
 import { currentDecision, shipmentDecisions } from '@/lib/server/workspace';
+import { inboundForShipment } from '@/lib/server/wing';
+import { WingInboundLine } from '@/components/wing/shipment-inbound';
 import { dateKo, dateTimeKo, num } from '@/lib/format';
 import { EXCEPTION_LABEL, STAGES, STAGES_ZH } from '@/lib/terms';
 
@@ -27,12 +29,12 @@ export default async function PartnerShipment({ params }: { params: Promise<{ id
   const [d, ref] = await Promise.all([
     asUser(v, async (q) => {
       const base = await shipmentDetail(q, id);
-      return base ? { ...base, decisions: await shipmentDecisions(q, id) } : null;
+      return base ? { ...base, decisions: await shipmentDecisions(q, id), wing: await inboundForShipment(q, id) } : null;
     }),
     getReference(),
   ]);
   if (!d || d.s.partner_org_id !== v.org.id) notFound();
-  const { s, events, exceptions, docs, invoices, bid, review, decisions } = d;
+  const { s, events, exceptions, docs, invoices, bid, review, decisions, wing } = d;
   const inv = invoices.find((i) => i.current) ?? null;
   const decision = currentDecision(decisions, inv?.id ?? null);
   const names = zh ? STAGES_ZH : STAGES;
@@ -50,6 +52,7 @@ export default async function PartnerShipment({ params }: { params: Promise<{ id
         sub={`${s.shipper_name ?? ''} · ${s.title}`}
       />
       <Panel className="mb-4 p-4"><StageTrack stage={s.stage} events={[...events].reverse()} zh={zh} /></Panel>
+      {wing ? <WingInboundLine inbound={wing} zh={zh} /> : null}
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <div className="min-w-0">
           <Suspense>

@@ -27,7 +27,7 @@ export interface KeyView {
 
 const STATUS_TONE: Record<KeyView['status'], Tone> = { saved: 'caution', verified: 'ok', failed: 'stamp', revoked: 'neutral' };
 
-export function WingKeyPanel({ current, canStore, enabled, today }: { current: KeyView | null; canStore: boolean; enabled: boolean; today: string }) {
+export function WingKeyPanel({ current, canStore, enabled, today, warnDays, canManage }: { current: KeyView | null; canStore: boolean; enabled: boolean; today: string; warnDays: number; canManage: boolean }) {
   const router = useRouter();
   const [method, setMethod] = React.useState<KeyView['method']>('self_key');
   const [vendorId, setVendorId] = React.useState('');
@@ -63,8 +63,13 @@ export function WingKeyPanel({ current, canStore, enabled, today }: { current: K
               {current.expiry === 'expired' ? '키 유효기간이 지났습니다' : '키가 곧 만료됩니다'} — WING 에서 키를 지우고 다시 발급받아 새로 넣어 주세요.
             </p>
           ) : null}
+          {current.status === 'failed' ? (
+            <p className="text-xs font-semibold text-stamp" role="status" data-testid="wing-key-failed">
+              쿠팡이 이 키를 받지 않았습니다 — 만료됐거나 권한이 아직 열리지 않았을 수 있습니다(발급 뒤 최대 24시간). 키를 다시 넣어 주세요.
+            </p>
+          ) : null}
           {!enabled ? <p className="text-xs text-caution">연동 준비 중 — 쿠팡 호출이 아직 꺼져 있어 저장만 해 두었습니다. 켜지면 이 키로 읽기만 합니다.</p> : null}
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          {canManage ? (<div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-muted">폐기하면 새 판으로 「폐기함」이 쌓이고 더는 이 키를 꺼내지 않습니다. WING 에서도 키를 지워 주세요.</p>
             <Button
               size="sm"
@@ -83,10 +88,14 @@ export function WingKeyPanel({ current, canStore, enabled, today }: { current: K
             >
               <Trash2 aria-hidden /> {WING_ACTION.revokeKey}
             </Button>
-          </div>
+          </div>) : null}
         </div>
       ) : null}
-      {!canStore ? (
+      {!canManage ? (
+        <p className="px-4 py-3 text-sm text-muted" role="status" data-testid="wing-key-admin-only">
+          WING 키는 조직 관리자만 넣고 거둘 수 있습니다. 파일 올리기와 짝 맞추기는 누구나 됩니다.
+        </p>
+      ) : !canStore ? (
         <p className="px-4 py-3 text-sm text-caution" role="status" data-testid="wing-key-unavailable">
           운영자가 암호화 키를 설정하기 전까지 키를 받지 않습니다. 그동안은 WING 에서 내려받은 파일을 올려 쓰세요.
         </p>
@@ -123,7 +132,7 @@ export function WingKeyPanel({ current, canStore, enabled, today }: { current: K
           <Field label="Secret Key" htmlFor="wk-secret" required hint="화면에 다시 보이지 않습니다">
             <Input id="wk-secret" type="password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)} maxLength={128} spellCheck={false} autoComplete="off" />
           </Field>
-          <Field label="발급일" htmlFor="wk-issued" hint="적으면 180일 만료 전에 알려 드립니다">
+          <Field label="발급일" htmlFor="wk-issued" hint={`적으면 만료 ${warnDays}일 전부터 이 화면에 표시합니다(메일·문자는 보내지 않음)`}>
             <Input id="wk-issued" type="date" value={issuedOn} max={today} onChange={(e) => setIssuedOn(e.target.value)} />
           </Field>
           {err ? (

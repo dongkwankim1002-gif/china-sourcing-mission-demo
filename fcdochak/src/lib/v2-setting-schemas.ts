@@ -69,12 +69,14 @@ export const WING_SETTING_SCHEMAS = {
     minScore: z.number().int().min(0).max(100),
   }),
   'wing.key_valid_days': z.number().int().min(1).max(365),
+  'wing.key_warn_days': z.number().int().min(1).max(90),
 };
 Object.assign(V2_SETTING_SCHEMAS, WING_SETTING_SCHEMAS);
 Object.assign(V2_SETTING_LABEL, {
   'wing.call_rule': '쿠팡 WING 호출 제한·재시도',
   'wing.match_rule': '쿠팡 입고 요청 ↔ 선적 짝 제안 기준',
   'wing.key_valid_days': '쿠팡 OPEN API 키 유효 일수',
+  'wing.key_warn_days': 'WING 키 만료 알림 시작(일 전)',
 });
 // v2 interview — 셀러 인터뷰 판정선(읽는 쪽 parseResearchRules 와 같은 검사)
 V2_SETTING_SCHEMAS['research.rules'] = z.unknown().superRefine((v, ctx) => {

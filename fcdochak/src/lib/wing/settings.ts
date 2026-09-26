@@ -8,6 +8,8 @@ export interface WingSettings {
   call: WingCallRule;
   match: WingMatchRule;
   keyValidDays: number;
+  /** 만료 며칠 전부터 화면에 「곧 만료」 */
+  keyWarnDays: number;
 }
 
 export function parseWingSettings(m: Map<string, unknown>): WingSettings {
@@ -16,7 +18,7 @@ export function parseWingSettings(m: Map<string, unknown>): WingSettings {
     if (!r.success) throw new Error(`설정 ${k} 가 없거나 올바르지 않습니다. 참조 시드를 올려 주세요.`);
     return r.data;
   };
-  return { call: get('wing.call_rule') as WingCallRule, match: get('wing.match_rule') as WingMatchRule, keyValidDays: get('wing.key_valid_days') as number };
+  return { call: get('wing.call_rule') as WingCallRule, match: get('wing.match_rule') as WingMatchRule, keyValidDays: get('wing.key_valid_days') as number, keyWarnDays: get('wing.key_warn_days') as number };
 }
 
 /** 키 만료 예정일(발급일 + 유효 일수) */
@@ -27,8 +29,8 @@ export function keyExpiry(issuedOn: string | null, validDays: number): string | 
   return new Date(t + validDays * 86_400_000).toISOString().slice(0, 10);
 }
 
-/** 만료 상태 — 14일 안이면 곧 만료 */
-export function keyExpiryState(expiresOn: string | null, today: string, warnDays = 14): 'unknown' | 'ok' | 'soon' | 'expired' {
+/** 만료 상태 — warnDays(설정 wing.key_warn_days) 안이면 곧 만료 */
+export function keyExpiryState(expiresOn: string | null, today: string, warnDays: number): 'unknown' | 'ok' | 'soon' | 'expired' {
   if (!expiresOn) return 'unknown';
   const d = Math.round((Date.parse(`${expiresOn}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
   if (d < 0) return 'expired';
