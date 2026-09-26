@@ -68,6 +68,20 @@ export const env = {
     // 너무 단순한 값(공백 있는 문장·반복 글자)은 없는 것으로 본다 — src/lib/wing/crypto.ts kekLooksRandom 과 같은 규칙
     return v && v.length >= 32 && !/\s/.test(v) && new Set(v).size >= 16 ? v : null;
   },
+  /** 관세청 UNI-PASS 오픈API 호출(v2 5차 tracker). 기본 꺼짐 — 꺼져 있으면 관세청을 한 번도 부르지 않는다(docs/tracker-plan.md) */
+  get unipassEnabled() {
+    return flag(process.env.UNIPASS_ENABLED, false);
+  },
+  /** UNI-PASS API001 인증키. 값은 서버 환경변수에만 — 이 모듈 밖으로는 조회 어댑터에만 넘긴다(로그·화면 금지) */
+  get unipassApiKey() {
+    const v = process.env.UNIPASS_API_KEY?.trim();
+    return v ? v : null;
+  },
+  /** 예약 작업(/api/cron/*) 호출 확인 값 — 16자 미만이면 없는 것으로 본다(예약 경로가 닫힌다) */
+  get cronSecret() {
+    const v = process.env.CRON_SECRET?.trim();
+    return v && v.length >= 16 ? v : null;
+  },
   get usingSupabaseAuth() {
     return !!(this.supabaseUrl && this.supabaseAnonKey && this.supabaseServiceKey);
   },

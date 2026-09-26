@@ -35,6 +35,7 @@ import { MessagesSquare } from 'lucide-react'; // v2 interview
 import { PackageSearch } from 'lucide-react'; // v2 3차 sourcing
 import { ChartNoAxesCombined } from 'lucide-react'; // v2 3차 sales
 import { PackageCheck } from 'lucide-react'; // v2 4차 onestop
+import { Radar } from 'lucide-react'; // v2 5차 tracker
 
 export type AreaKey = 'app' | 'partner' | 'admin';
 export interface NavItem {
@@ -62,6 +63,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
       { href: '/app/notifications', label: '알림', icon: Bell },
       { href: '/app/settings', label: '설정', icon: Settings },
       { href: '/app/sourcing', label: '소싱처 찾기(미리보기)', icon: PackageSearch }, // v2 3차 sourcing
+      { href: '/app/tracking', label: '통관 알림', icon: Radar }, // v2 5차 tracker
     ];
   if (area === 'partner') {
     const zh = locale === 'zh';
@@ -96,6 +98,7 @@ export function navFor(area: AreaKey, locale: 'ko' | 'zh' = 'ko'): NavItem[] {
     { href: '/styleguide', label: '스타일가이드', icon: Palette },
     { href: '/admin/sourcing', label: '소싱 요청', icon: PackageSearch }, // v2 3차 sourcing
     { href: '/admin/onestop', label: '원스톱 주문', icon: PackageCheck }, // v2 4차 onestop
+    { href: '/admin/tracking', label: '통관 조회 폴링', icon: Radar }, // v2 5차 tracker
   ];
 }
 

@@ -20,6 +20,10 @@ const groups = [
   { paths: ['/onestop', '/onestop/price'] },
   { login: 'shipper', paths: ['/onestop/order', '/onestop/orders', '/onestop/orders>/onestop/orders/'] },
   { login: 'admin', paths: ['/admin/onestop', '/admin/onestop>/admin/onestop/'] },
+  // v2 5차 tracker — 공개 통관 조회·소요 분포 · 화주 통관 알림 목록·상세 · 운영 폴링
+  { paths: ['/track', '/track/stats'] },
+  { login: 'shipper', paths: ['/app/tracking', '/app/tracking>/app/tracking/'] },
+  { login: 'admin', paths: ['/admin/tracking'] },
 ];
 let bad = 0;
 for (const g of groups) {

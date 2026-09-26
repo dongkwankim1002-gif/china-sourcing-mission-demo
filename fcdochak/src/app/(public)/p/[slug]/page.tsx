@@ -19,6 +19,8 @@ import { JsonLd } from '@/components/json-ld';
 import { env } from '@/lib/env';
 import { dateKo, notFuture, num, pct, won, ymdDots } from '@/lib/format';
 import { BIZ_TYPE_LABEL } from '@/lib/terms';
+import { partnerLeadTimes } from '@/lib/server/tracker'; // v2 5차 tracker
+import { PartnerLeadTime } from '@/components/tracker/partner-lead';
 
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -50,6 +52,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
   const { partner: p, caps, metrics, fcReady, publicCards, trust, scoreCaps } = d;
   const official = p.status === 'official' || p.status === 'pending_verification';
   const reviews = official ? await partnerPageReviews(p.id) : [];
+  const leadTimes = official ? await asPublic((q) => partnerLeadTimes(q, p.id)) : [];
 
   // 공개가 요금표 — 기준 화물로 계산(비로그인이 볼 수 있는 것만)
   const priced = official
@@ -147,6 +150,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ slug: 
                 ))}
               </dl>
             </Panel>
+            <PartnerLeadTime rows={leadTimes} portName={(c) => nameOf(ref, 'port', c)} modeName={(c) => nameOf(ref, 'mode', c)} />
             <Panel>
               <PanelHead title="추천 점수 항목" sub="비교 화면의 추천 점수가 어디서 나오는지 — 항목별 점수와 잰 값" />
               <ScoreBreakdown parts={parts} score={score} trust={trust} metrics={metricsView} certainty={certainty} certaintyNote="최근 180일 응찰 기준(비교 화면은 요금표마다 다름)" />

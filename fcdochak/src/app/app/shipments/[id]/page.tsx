@@ -18,6 +18,8 @@ import { currentDecision, shipmentDecisions, shipmentTimelineFacts, workspaceSet
 import { buildTimeline } from '@/lib/workspace/timeline';
 import { inboundForShipment } from '@/lib/server/wing';
 import { WingInboundLine } from '@/components/wing/shipment-inbound';
+import { trackForShipment } from '@/lib/server/tracker'; // v2 5차 tracker
+import { TrackCustomsLine } from '@/components/tracker/customs-line';
 import { billingDiff } from '@/lib/money/billing-diff';
 import { Button, Chip, DefList, EmptyState, Panel } from '@/components/ui/core';
 import { dateKo, dateTimeKo, num, pct } from '@/lib/format';
@@ -32,13 +34,13 @@ export default async function ShipmentPage({ params }: { params: Promise<{ id: s
     asUser(v, async (q) => {
       const base = await shipmentDetail(q, id);
       if (!base) return null;
-      const [facts, decisions, ws, wing] = await Promise.all([shipmentTimelineFacts(q, id), shipmentDecisions(q, id), workspaceSettings(q), inboundForShipment(q, id)]);
-      return { ...base, facts, decisions, ws, wing };
+      const [facts, decisions, ws, wing, customs] = await Promise.all([shipmentTimelineFacts(q, id), shipmentDecisions(q, id), workspaceSettings(q), inboundForShipment(q, id), trackForShipment(q, id)]);
+      return { ...base, facts, decisions, ws, wing, customs };
     }),
     getReference(),
   ]);
   if (!d || d.s.shipper_org_id !== v.org.id) notFound();
-  const { s, events, exceptions, docs, invoices, bid, review, outcome, facts, decisions, ws, wing } = d;
+  const { s, events, exceptions, docs, invoices, bid, review, outcome, facts, decisions, ws, wing, customs } = d;
   const inv = invoices.find((i) => i.current) ?? null;
   const decision = currentDecision(decisions, inv?.id ?? null);
   const diff = inv ? billingDiff(bid.amounts, inv.amounts, ws.billingFlagBp) : null;
@@ -86,6 +88,7 @@ export default async function ShipmentPage({ params }: { params: Promise<{ id: s
         </details>
       </Panel>
       {wing ? <WingInboundLine inbound={wing} /> : null}
+      {customs ? <TrackCustomsLine t={customs} href={`/app/tracking/${customs.id}`} partnerClearedAt={events.find((e) => e.stage === 7)?.occurred_at ?? null} /> : null}
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <div className="min-w-0">
           <Suspense>
