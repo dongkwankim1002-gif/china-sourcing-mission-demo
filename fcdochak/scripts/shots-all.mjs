@@ -32,6 +32,12 @@ for (const g of groups) {
   if (r.status === 2) bad++;
   else if (r.status !== 0) process.exit(r.status ?? 1);
 }
+// v2 5차 tracker — 공개 조회 결과(예시 번호로 조회) · 선적 화면의 「관세청 실측」 줄 · 업체 화면의 「실측 통관 소요」 칸
+{
+  const r = spawnSync('node', ['scripts/shots-track.mjs', base, out], { stdio: 'inherit' });
+  if (r.status === 2) bad++;
+  else if (r.status !== 0) process.exit(r.status ?? 1);
+}
 // 셀러 인터뷰 링크(토큰이 그때 만들어짐) — 운영자로 대상·링크를 만든 뒤 로그인 없는 창으로 연다
 {
   const r = spawnSync('node', ['scripts/shots-interview.mjs', base, out], { stdio: 'inherit' });
