@@ -331,3 +331,33 @@ export const SALES_SETTINGS: { key: string; value: unknown; note: string }[] = [
   { key: 'wing.egress_ips', value: [], note: 'FC도착이 쿠팡을 부를 때 나가는 고정 IP — 셀러가 WING 키 설정의 연동 IP 칸에 적는다. 비어 있으면 화면에 「준비 중 — 운영이 정하면 표시」' },
 ];
 SETTINGS.push(...SALES_SETTINGS);
+// v2 4차 onestop — 원스톱 대행형 구역(docs/onestop-plan.md). 스위치는 꺼짐으로 시작한다(접수 기록만 · 대행 계약 전).
+// 요금은 「가정치」(example: true) — 9구간 참고치(REFERENCE_LINES)에서 혼적 규모 효과를 가정해 잡은 값. 사람이 콘솔사 단가로 바꾼다.
+export const ONESTOP_SETTINGS: { key: string; value: unknown; note: string }[] = [
+  { key: 'onestop.enabled', value: false, note: '원스톱 대행 — 대행 계약·사입 대금·보험이 정해지기 전까지 꺼 둔다. 꺼져 있으면 주문서는 「접수 기록만 · 대행 계약 전」. 켜도 앱은 결제·메일·문자를 보내지 않는다' },
+  {
+    key: 'onestop.tariff',
+    value: {
+      example: true,
+      checkedOn: null,
+      lanes: [
+        { hub: 'YIW', mode: 'LCL', port: 'ICN', perCbmKrw: 219000, daysMin: 12, daysMax: 18 },
+        { hub: 'QDG', mode: 'LCL', port: 'ICN', perCbmKrw: 199000, daysMin: 9, daysMax: 14 },
+        { hub: 'QDG', mode: 'FERRY', port: 'PTK', perCbmKrw: 239000, daysMin: 6, daysMax: 9 },
+        { hub: 'WEH', mode: 'FERRY', port: 'ICN', perCbmKrw: 229000, daysMin: 6, daysMax: 9 },
+        { hub: 'CAN', mode: 'LCL', port: 'ICN', perCbmKrw: 239000, daysMin: 13, daysMax: 20 },
+      ],
+      cbmStepCenti: 10,
+      remoteFc: { codes: ['FC-DGU', 'FC-CWN', 'FC-GWJ'], perCbmKrw: 30000 },
+      handlingPerUnitKrw: 60,
+      barcodePerUnitKrw: 90,
+      inspectionPerUnitKrw: { basic: 120, full: 350 },
+      purchaseFeeBp: 500,
+      minChargeKrw: 150000,
+      cutoffWeekdays: [2, 5],
+      cutoffHourKst: 17,
+    },
+    note: '원스톱 고정 요금표(가정치) — 허브·방식별 공동 혼적 CBM당(공장 입고~FC 입고, 관부가세 별도) · 청구 CBM 0.1 올림 · 원거리 FC 할증 · 개당 작업비·바코드·검품 · 사입 대행 수수료(물품가 bp) · 최소 요금 · 혼적 마감(화·금 17시)',
+  },
+];
+SETTINGS.push(...ONESTOP_SETTINGS);

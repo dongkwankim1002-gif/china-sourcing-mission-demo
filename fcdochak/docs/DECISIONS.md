@@ -178,3 +178,10 @@
 
 - 버전 비교실 `/lab`(운영 안, 검색 제외): 운영·v2·v3… 를 한 주소에서 iframe 으로 나란히 — 폭 390/768/1440 · 모두 이동 · 따라가기(끼워진 화면이 지금 경로를 postMessage 로 비교실 주소에만 알림) · 평가 노트(이 브라우저에만). 머리글은 X-Frame-Options DENY → `frame-ancestors 'self'` + SAMEORIGIN(운영은 같은 주소만 담는다).
 - 비교 대상 판은 **판마다 따로 둔 공개 Vercel 프로젝트**(예: `fcdochak-v2-public`, 그 가지만 빌드, 주소는 가지 주소 `fcdochak-v2-live.vercel.app`)로 연다 — 기존 프로젝트 미리보기의 Vercel 로그인 잠금은 그대로 둔다. 그 프로젝트에만 `FRAME_ANCESTORS=https://fcdochak.vercel.app`·`EMBED_COOKIES=on`(SameSite=None·Secure·Partitioned)을 켜서 비교실 안에서도 로그인이 된다. 제3자 쿠키를 막는 브라우저(Safari 등)에서는 끼운 칸 안 로그인이 안 될 수 있어 칸마다 「새 탭」.
+
+- v2 4차 onestop — 원스톱 대행형은 **v2 안의 구역 `/onestop`**(자체 머리·메뉴·바닥, 머리에 늘 「원스톱 · 미리보기」)으로 둔다. v2 화면과 닿는 곳은 공개 머리·바닥 링크 하나·화주 대시보드 카드 하나·운영 메뉴 한 줄뿐(두 가설을 섞지 않고, 지면 폴더만 걷어낸다 — `docs/onestop-plan.md` 3·11절).
+- v2 4차 onestop — 주문은 `onestop_orders` 새 판(첫 판 = 화주, 뒤 판 = 운영의 실측·선적 잇기, `root_id` = 첫 판 id)과 `onestop_order_events`(쌓기만)로 나눈다. 단계는 **앞으로만**(건너뛰기 가능)·문제(`issue`)는 설명과 함께 언제든·취소는 출항 전(화주는 접수 단계만) — DB 함수 `fcd.onestop_event_ok` 가 막는다. 스위치 `onestop.enabled` 꺼짐이면 `preview = true` 만(`fcd.onestop_preview_ok`). 프로필 FK 는 처음부터 ON DELETE SET NULL(0019 의 판단을 따름).
+- v2 4차 onestop — 가격 하나는 `money/onestop.ts` 순수 함수(청구 CBM 0.1 올림 → 혼적 운임·원거리 할증·개당 작업·바코드·검품·사입 수수료 → 최소 요금). 개당 도착원가는 판매손익(`sellerPnl`)과 같이 **부가세 제외**(공제 대상), 통관 때 먼저 낼 부가세 포함 값을 함께 보인다. 9구간과의 차이는 대행 작업이 없는 9구간과 견주므로 「운임만의 차이」도 함께 적는다.
+- v2 4차 onestop — 브라우저 미리보기는 9구간을 **플랫폼 참고치**로, 접수·새 판은 서버가 **구간 시세 중간값**(업체가 적으면 참고치 — 소싱 시뮬과 같은 규칙)으로 다시 셈해 견적 기록(snapshot)으로 남긴다. 보낸 금액은 믿지 않는다. 기록 만들기는 서버·시드·시험이 같이 쓰는 순수 `onestop/snapshot.ts`.
+- v2 4차 onestop — 주문 ↔ 선적 잇기는 운영이 주문 새 판에 **그 화주의 선적**을 적는 것으로 한다(DB 가 같은 화주인지 본다). 이으면 출항·통관·FC 입고는 선적 9단계(5 → 출항, 7 → 통관, 9 → FC 입고)를 따라가고, 서류는 그 선적의 서류함. 여러 셀러가 한 컨테이너에 타는 혼적 회차 모델은 사람이 정할 일로 남긴다.
+- v2 4차 onestop — 비교실(`/lab`)에 「원스톱」 판을 더했다: `LabVersion.home`(비교실이 「/」를 열 때 대신 여는 경로) = `/onestop`, 주소는 v2 공개 주소. 기본으로 띄우는 두 판(운영·v2)은 그대로.

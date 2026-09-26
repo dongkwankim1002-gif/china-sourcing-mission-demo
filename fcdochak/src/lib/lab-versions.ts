@@ -12,11 +12,14 @@ export interface LabVersion {
   url: string;
   note: string;
   planned?: boolean;
+  /** 이 판의 첫 화면 경로(비교실이 「/」를 열 때 대신 연다) — 예: 원스톱 판은 v2 주소의 /onestop */
+  home?: string;
 }
 
 const DEFAULT: LabVersion[] = [
   { key: 'main', name: '운영', url: '', note: '지금 공개된 FC도착 · Supabase 운영 DB' },
   { key: 'v2', name: 'v2', url: 'https://fcdochak-v2-live.vercel.app', note: '확정·책임 플랫폼 전환판 · 임시 DB(예시 자료)' },
+  { key: 'onestop', name: '원스톱', url: 'https://fcdochak-v2-live.vercel.app', home: '/onestop', note: '원스톱 대행형 가설 판 · v2 안의 /onestop(docs/onestop-plan.md)' },
   { key: 'v3', name: 'v3', url: 'https://fcdochak-v3-live.vercel.app', note: '다음 판 자리', planned: true },
 ];
 

@@ -292,3 +292,56 @@ export const SALES_PRODUCT_ACTION = {
   linkSku: 'SKU 잇기',
   sourcing: '비슷한 상품 소싱',
 } as const;
+
+// v2 4차 onestop — 원스톱 대행형 구역(미리보기). 셀러 화면·운영 화면·e2e 가 같은 말을 쓴다
+export const ONESTOP_ACTION = {
+  entrust: '맡기기',
+  submit: '이대로 맡기기',
+  cancel: '주문 취소',
+  price: '요금표 보기',
+  orders: '내 원스톱 주문',
+  setStage: '단계 남기기',
+  revise: '주문 새 판',
+} as const;
+
+export const ONESTOP_STAGE_LABEL: Record<'received' | 'payment_confirmed' | 'factory_received' | 'inspected' | 'barcoded' | 'departed' | 'customs_cleared' | 'fc_received' | 'cancelled' | 'issue', string> = {
+  received: '접수',
+  payment_confirmed: '사입 대금 확인',
+  factory_received: '공장 입고',
+  inspected: '검품',
+  barcoded: '바코드',
+  departed: '혼적 출항',
+  customs_cleared: '통관',
+  fc_received: 'FC 입고',
+  cancelled: '취소',
+  issue: '문제 기록',
+};
+
+/** 중국 창고 쪽이 함께 보는 단계 이름(물류사 화면 관례처럼 중국어 병기) */
+export const ONESTOP_STAGE_ZH: Record<keyof typeof ONESTOP_STAGE_LABEL, string> = {
+  received: '已接单',
+  payment_confirmed: '货款已确认',
+  factory_received: '工厂货已入仓',
+  inspected: '已验货',
+  barcoded: '已贴条码',
+  departed: '拼箱已出港',
+  customs_cleared: '已清关',
+  fc_received: 'FC已入库',
+  cancelled: '已取消',
+  issue: '异常记录',
+};
+
+export const ONESTOP_INSPECTION_LABEL: Record<'none' | 'basic' | 'full', string> = {
+  none: '검품 안 함',
+  basic: '기본 검품(수량·외관)',
+  full: '정밀 검품(작동·치수)',
+};
+
+export const ONESTOP_LINE_LABEL: Record<'freight' | 'remote_fc' | 'handling' | 'barcode' | 'inspection' | 'purchase_fee', string> = {
+  freight: '공동 혼적 운임',
+  remote_fc: '원거리 FC 할증',
+  handling: '개당 작업비',
+  barcode: '바코드 부착',
+  inspection: '검품',
+  purchase_fee: '사입 대행 수수료',
+};

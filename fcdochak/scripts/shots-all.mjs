@@ -16,6 +16,10 @@ const groups = [
   { paths: ['/family/sourcing'] },
   { login: 'shipper', paths: ['/app/sourcing', '/app/sourcing>/app/sourcing/'] },
   { login: 'admin', paths: ['/admin/sourcing', '/admin/sourcing>/admin/sourcing/'] },
+  // v2 4차 onestop — 원스톱 구역(공개 홈·요금표) · 화주 주문서·목록·상세 · 운영 대기열·상세
+  { paths: ['/onestop', '/onestop/price'] },
+  { login: 'shipper', paths: ['/onestop/order', '/onestop/orders', '/onestop/orders>/onestop/orders/'] },
+  { login: 'admin', paths: ['/admin/onestop', '/admin/onestop>/admin/onestop/'] },
 ];
 let bad = 0;
 for (const g of groups) {

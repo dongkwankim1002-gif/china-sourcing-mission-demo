@@ -60,6 +60,9 @@ export const DEMO_TABLES: { table: string; sql: string }[] = [
   { table: 'sales_settlements', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.sales_settlements x join fcd.orgs o on o.id = x.org_id` },
   { table: 'wing_consents', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.wing_consents x join fcd.orgs o on o.id = x.org_id` },
   { table: 'wing_key_alerts', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.wing_key_alerts x join fcd.orgs o on o.id = x.org_id` },
+  // v2 4차 onestop
+  { table: 'onestop_orders', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.onestop_orders x join fcd.orgs o on o.id = x.org_id` },
+  { table: 'onestop_order_events', sql: `select count(*) filter (where o.is_demo)::int demo, count(*) filter (where not o.is_demo)::int real from fcd.onestop_order_events x join fcd.orgs o on o.id = x.org_id` },
 ];
 
 export async function demoCounts(q: Queryable) {
