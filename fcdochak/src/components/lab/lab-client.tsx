@@ -32,6 +32,7 @@ interface Note {
   cons: string;
 }
 const NOTES_KEY = 'fcd-lab-notes-v1';
+const PENDING_MS = 10_000;
 
 function loadNotes(): Record<string, Note> {
   try {
@@ -80,14 +81,24 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
 
   const originOf = useCallback((v: LabVersion) => (v.url ? v.url : typeof window === 'undefined' ? '' : window.location.origin), []);
 
+  // 비교실이 막 옮긴 칸 — 그 칸이 옮기기 전 쪽을 늦게 알려 와도 「따라가기」로 되돌리지 않는다(잠깐만)
+  const pending = useRef<Record<string, { path: string; until: number }>>({});
+  const typing = useRef(false);
+  const expect = (keys: string[], p: string) => {
+    const until = Date.now() + PENDING_MS;
+    for (const k of keys) pending.current[k] = { path: p, until };
+  };
+
   const goAll = useCallback(
     (p: string) => {
       const np = normPath(p);
+      typing.current = false;
       setPath(np);
       setDraft(np);
+      expect(versions.map((v) => v.key), np);
       setSrc((s) => Object.fromEntries(Object.entries(s).map(([k, v]) => [k, { path: np, n: v.n + 1 }])));
     },
-    [],
+    [versions],
   );
 
   // 끼워진 화면이 알려 주는 지금 경로 — 따라가기가 켜져 있으면 다른 판도 같은 경로로
@@ -101,6 +112,11 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
       if (!v) return;
       const p = d.path;
       setCurrent((c) => (c[v.key] === p ? c : { ...c, [v.key]: p }));
+      const wait = pending.current[v.key];
+      if (wait) {
+        if (wait.path === p || Date.now() > wait.until) delete pending.current[v.key];
+        if (Date.now() <= wait.until) return; // 비교실이 옮긴 결과(또는 옮기기 전 쪽의 늦은 알림) — 남을 따라 움직이지 않는다
+      }
       if (!followRef.current) return;
       setSrc((s) => {
         let changed = false;
@@ -112,13 +128,14 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
           }
           if (next[k].path !== p) {
             next[k] = { path: p, n: next[k].n + 1 };
+            pending.current[k] = { path: p, until: Date.now() + PENDING_MS };
             changed = true;
           }
         }
         return changed ? next : s;
       });
       setPath(p);
-      setDraft(p);
+      if (!typing.current) setDraft(p); // 경로 칸에 치는 중이면 덮지 않는다
     }
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
@@ -197,7 +214,10 @@ export function LabClient({ versions }: { versions: LabVersion[] }) {
             <input
               id="lab-path"
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                typing.current = true;
+                setDraft(e.target.value);
+              }}
               className="h-8 min-w-0 flex-1 rounded-sm border border-white/25 bg-white/10 px-2 text-sm text-on-ink placeholder:text-on-ink-muted"
               placeholder="/check"
             />
