@@ -42,6 +42,8 @@ export function StageForm({ orderId, next, canCancel, today }: { orderId: string
   const [note, setNote] = React.useState('');
   const [on, setOn] = React.useState('');
   const options: string[] = [...next, 'issue', ...(canCancel ? ['cancelled'] : [])];
+  // 새로고침으로 목록이 바뀌어 고른 값이 사라졌으면 보이는 첫 항목을 보낸다(보이는 것과 보내는 것이 같게)
+  const chosen = options.includes(stage) ? stage : options[0];
   return (
     <form
       data-testid="onestop-stage-form"
@@ -49,9 +51,9 @@ export function StageForm({ orderId, next, canCancel, today }: { orderId: string
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
-          const r = await addOnestopStage({ orderId, stage, note, occurredOn: on });
+          const r = await addOnestopStage({ orderId, stage: chosen, note, occurredOn: on });
           if (!r.ok) return void toast.error(r.error ?? '남기지 못했습니다');
-          toast.success(`「${ONESTOP_STAGE_LABEL[stage as keyof typeof ONESTOP_STAGE_LABEL]}」을 남겼습니다`);
+          toast.success(`「${ONESTOP_STAGE_LABEL[chosen as keyof typeof ONESTOP_STAGE_LABEL]}」을 남겼습니다`);
           setNote('');
           router.refresh();
         });
@@ -59,7 +61,7 @@ export function StageForm({ orderId, next, canCancel, today }: { orderId: string
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="단계 · 阶段" htmlFor="os-stage">
-          <NativeSelect id="os-stage" value={stage} onChange={(e) => setStage(e.target.value)}>
+          <NativeSelect id="os-stage" value={chosen} onChange={(e) => setStage(e.target.value)}>
             {options.map((s) => (
               <option key={s} value={s}>
                 {ONESTOP_STAGE_LABEL[s as keyof typeof ONESTOP_STAGE_LABEL]} · {ONESTOP_STAGE_ZH[s as keyof typeof ONESTOP_STAGE_ZH]}
@@ -71,7 +73,7 @@ export function StageForm({ orderId, next, canCancel, today }: { orderId: string
           <Input id="os-on" type="date" max={today} value={on} onChange={(e) => setOn(e.target.value)} />
         </Field>
       </div>
-      <Field label={stage === 'issue' ? '무슨 문제인가(필수) · 说明' : '메모 · 备注'} htmlFor="os-snote" hint="앞으로만 남길 수 있습니다(건너뛰기는 됩니다). 잘못 남겼으면 문제 기록으로 설명을 남기세요.">
+      <Field label={chosen === 'issue' ? '무슨 문제인가(필수) · 说明' : '메모 · 备注'} htmlFor="os-snote" hint="앞으로만 남길 수 있습니다(건너뛰기는 됩니다). 잘못 남겼으면 문제 기록으로 설명을 남기세요.">
         <Input id="os-snote" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
       </Field>
       <div>
@@ -83,14 +85,15 @@ export function StageForm({ orderId, next, canCancel, today }: { orderId: string
   );
 }
 
-export function ReviseForm({ orderId, initial, shipments }: { orderId: string; initial: { units: number; cartons: number; cbm: number; kg: number; shipmentNo: string | null }; shipments: { shipment_no: string; stage: number }[] }) {
+export function ReviseForm({ orderId, initial, shipments }: { orderId: string; initial: { units: number; cartons: number; cbm: number; kg: number; measured: boolean; shipmentNo: string | null }; shipments: { shipment_no: string; stage: number }[] }) {
   const router = useRouter();
   const [pending, start] = React.useTransition();
   const [units, setUnits] = React.useState<number | null>(initial.units);
   const [cartons, setCartons] = React.useState<number | null>(initial.cartons);
   const [cbm, setCbm] = React.useState<number | null>(initial.cbm);
   const [kg, setKg] = React.useState<number | null>(initial.kg);
-  const [measured, setMeasured] = React.useState(true);
+  // 앞 판의 실측 여부로 시작한다(선적만 이으려고 새 판을 만들 때 실측으로 잘못 남지 않게)
+  const [measured, setMeasured] = React.useState(initial.measured);
   const [ship, setShip] = React.useState(initial.shipmentNo ?? '');
   const [why, setWhy] = React.useState('');
   return (
@@ -138,7 +141,7 @@ export function ReviseForm({ orderId, initial, shipments }: { orderId: string; i
         </NativeSelect>
       </Field>
       <Field label="새 판을 만드는 까닭(필수)" htmlFor="rv-why">
-        <Input id="rv-why" value={why} onChange={(e) => setWhy(e.target.value)} maxLength={300} placeholder="예) 공장 입고 실측 1.2 CBM" />
+        <Input id="rv-why" value={why} onChange={(e) => setWhy(e.target.value)} maxLength={300} placeholder="예) 중국 창고 입고 실측 1.2 CBM" />
       </Field>
       <div>
         <Button type="submit" variant="secondary" disabled={pending}>

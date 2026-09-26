@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { asUser } from '@/lib/db';
 import { requireViewer } from '@/lib/server/viewer';
-import { loadOnestopConfig, onestopMetrics, orderQueue } from '@/lib/server/onestop';
-import { nextCutoff, WEEKDAY_KO } from '@/lib/onestop/settings';
+import { loadOnestopConfig, onestopSummary, orderQueue } from '@/lib/server/onestop';
+import { nextCutoff, ONESTOP_MODE_KO, stageRank, WEEKDAY_KO } from '@/lib/onestop/settings';
+import { DemoToggle } from '@/components/demo-toggle';
+import { env } from '@/lib/env';
 import { OnestopNotice, StageChip } from '@/components/onestop/parts';
 import { DemoChip } from '@/components/badges';
 import { Chip, EmptyState, PageTitle, Panel, PanelHead } from '@/components/ui/core';
@@ -11,10 +13,22 @@ import { dateKo, num, pct, won } from '@/lib/format';
 
 export const metadata = { title: '원스톱 주문 대기열' };
 
-export default async function OnestopAdmin() {
+export default async function OnestopAdmin({ searchParams }: { searchParams: Promise<{ demo?: string }> }) {
+  const sp = await searchParams;
   const v = await requireViewer('admin');
-  const d = await asUser(v, async (q) => ({ config: await loadOnestopConfig(q), rows: await orderQueue(q), m: await onestopMetrics(q) }));
+  // 예시(데모) 주문은 DEMO_MODE 일 때만, 그리고 「예시 빼고」를 고르지 않았을 때만 센다(/admin/metrics 와 같은 토글)
+  const include = env.demoMode && sp.demo !== '0';
+  const d = await asUser(v, async (q) => {
+    const rows = await orderQueue(q, include);
+    return { config: await loadOnestopConfig(q), rows, m: onestopSummary(rows) };
+  });
   const cut = nextCutoff(Date.now(), d.config.tariff.cutoffWeekdays, d.config.tariff.cutoffHourKst);
+  const cutLabel = `${dateKo(cut.date, { dow: false })}(${WEEKDAY_KO[cut.weekday]})`;
+  /** 회차 — 중국 창고에 들어온 주문(출항 전)은 다음 마감 회차, 아직 안 들어온 주문은 「빨라야」 그 회차 */
+  const round = (r: (typeof d.rows)[number]) => {
+    if (r.shown === 'cancelled' || stageRank(r.shown) >= stageRank('departed')) return null;
+    return stageRank(r.shown) >= stageRank('factory_received') ? `회차 ${cutLabel}` : `창고 입고 전 · 빨라야 ${cutLabel} 회차`;
+  };
   const open = d.rows.filter((r) => r.shown !== 'fc_received' && r.shown !== 'cancelled');
   const done = d.rows.filter((r) => r.shown === 'fc_received' || r.shown === 'cancelled');
   const tile = 'rounded-md border border-line bg-surface p-4';
@@ -34,9 +48,10 @@ export default async function OnestopAdmin() {
               {r.is_demo ? <DemoChip /> : null}
             </span>
             <span>
-              {r.order_no} · {r.hub} {r.mode} · {num(r.units)}개 · {num(r.cbm, 2)} CBM · {won(r.total_krw)} · 접수 {dateKo(r.received_at, { dow: false })}
+              {r.order_no} · {r.hub_name ?? r.hub} · {ONESTOP_MODE_KO[r.mode]} · {num(r.units)}개 · {num(r.cbm, 2)} CBM · {won(r.total_krw)} · 접수 {dateKo(r.received_at, { dow: false })}
               {r.shipment_no ? ` · 선적 ${r.shipment_no}` : ''}
             </span>
+            {round(r) ? <span className="font-semibold text-text">{round(r)}</span> : null}
           </span>
         </span>
         <ArrowRight aria-hidden className="size-4 shrink-0 text-muted" />
@@ -49,9 +64,12 @@ export default async function OnestopAdmin() {
         title="원스톱 주문 대기열"
         sub="맡기기 접수 — 단계 남기기·실측 새 판·선적 잇기. 모두 새 기록으로 쌓이고, 앱은 화주·공장에 연락하거나 돈을 받지 않습니다."
         actions={
-          <Link href="/admin/settings" className="text-sm font-semibold underline underline-offset-4">
-            스위치·요금표 바꾸기(onestop.*)
-          </Link>
+          <>
+            {env.demoMode ? <DemoToggle include={include} href={(x) => (x ? '/admin/onestop' : '/admin/onestop?demo=0')} /> : null}
+            <Link href="/admin/settings" className="text-sm font-semibold underline underline-offset-4">
+              스위치·요금표 바꾸기(onestop.*)
+            </Link>
+          </>
         }
       />
       <OnestopNotice on={d.config.on} />
@@ -66,7 +84,7 @@ export default async function OnestopAdmin() {
         <li className={tile}>
           <p className="text-sm font-bold">다음 혼적 마감</p>
           <p className="mt-1 text-xl font-bold tnum">
-            {dateKo(cut.date, { dow: false })}({WEEKDAY_KO[cut.weekday]})
+            {cutLabel}
           </p>
           <p className="text-2xs text-muted">{d.config.tariff.cutoffHourKst}시(한국 시각)</p>
         </li>

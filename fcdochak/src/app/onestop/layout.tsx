@@ -3,7 +3,7 @@ import { BrandMark } from '@/components/brand-mark';
 import { DemoBand } from '@/components/public/header';
 import { Chip } from '@/components/ui/core';
 import { BRAND } from '@/lib/brand';
-import { getViewer } from '@/lib/server/viewer';
+import { getViewer, homeOf } from '@/lib/server/viewer';
 import { ONESTOP_ACTION } from '@/lib/terms';
 
 export const dynamic = 'force-dynamic';
@@ -15,6 +15,8 @@ export const dynamic = 'force-dynamic';
 export default async function OnestopLayout({ children }: { children: React.ReactNode }) {
   const v = await getViewer();
   const shipper = v?.orgs.some((o) => o.kind === 'shipper') ?? false;
+  // 로그인한 사람에게 「로그인」을 보이지 않는다 — 화주는 내 주문·내 화면, 화주가 아니면(운영·물류사) 자기 화면으로
+  const home = v ? (shipper ? '/app' : homeOf(v)) : null;
   const link = 'inline-flex min-h-10 items-center rounded-sm px-3 text-sm font-semibold hover:bg-surface-2';
   return (
     <>
@@ -42,10 +44,17 @@ export default async function OnestopLayout({ children }: { children: React.Reac
                   요금표
                 </Link>
               </li>
-              <li>
-                {shipper ? (
+              {shipper ? (
+                <li>
                   <Link href="/onestop/orders" className={link}>
                     내 주문
+                  </Link>
+                </li>
+              ) : null}
+              <li>
+                {home ? (
+                  <Link href={home} className={link}>
+                    내 화면
                   </Link>
                 ) : (
                   <Link href="/login?next=/onestop/orders" className={link}>

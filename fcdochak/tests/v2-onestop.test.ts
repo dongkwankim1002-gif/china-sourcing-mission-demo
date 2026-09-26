@@ -9,6 +9,8 @@ vi.mock('server-only', () => ({}));
 import type { Driver } from '@/lib/db/driver';
 import { billableCbm, compareWithNine, estimateDutyVat, onestopArrival, onestopQuote, sellerPnl, type OnestopQuoteInput } from '@/lib/money';
 import {
+  canCancelAsPlatform,
+  canCancelAsShipper,
   effectiveStage,
   nextCutoff,
   nextStages,
@@ -21,7 +23,7 @@ import {
 import { buildOnestopSnapshot, orderCargo, referenceNine } from '@/lib/onestop/snapshot';
 import { V2_SETTING_SCHEMAS } from '@/lib/v2-setting-schemas';
 import { DEMO_TABLES, demoCounts } from '@/lib/server/demo-status';
-import { myOrders, orderByRoot, orderQueue, serverQuote } from '@/lib/server/onestop';
+import { myOrders, onestopSummary, orderByRoot, orderQueue, serverQuote, type QueueRow } from '@/lib/server/onestop';
 import { ONESTOP_SETTINGS, REFERENCE_LINES, SETTINGS } from '@seed/reference/data';
 import { seedDemo } from '@seed/demo';
 import { buildPurgeSql, planPurge } from '@seed/demo/purge';
@@ -241,7 +243,8 @@ describe('RLS · 새 판 · 단계 규칙', () => {
     await expect(revise(ids.admin, v1, v1, 2, other.org)).rejects.toThrow();
     const otherShip = (await db.query<{ id: string }>(`select id from fcd.shipments where shipper_org_id <> $1 limit 1`, [shipperOrg]))[0]?.id;
     if (otherShip) await expect(revise(ids.admin, v1, v1, 2, shipperOrg, otherShip)).rejects.toThrow();
-    const myShip = (await db.query<{ id: string }>(`select id from fcd.shipments where shipper_org_id = $1 limit 1`, [shipperOrg]))[0].id;
+    // 아직 출항 전(5단계 미만) 선적 — 뒤 시험이 이 주문에 단계를 남긴다(출항한 선적이면 보이는 단계가 앞서 막힌다)
+    const myShip = (await db.query<{ id: string }>(`select id from fcd.shipments where shipper_org_id = $1 and stage < 5 order by created_at limit 1`, [shipperOrg]))[0].id;
     const v2 = await revise(ids.admin, v1, v1, 2, shipperOrg, myShip);
     // 앞 판에 다시 잇지 못한다
     await expect(revise(ids.admin, v1, v1, 2)).rejects.toThrow();
@@ -275,6 +278,48 @@ describe('RLS · 새 판 · 단계 규칙', () => {
     expect(cur!.stage).toBe('cancelled');
     expect(cur!.shown).toBe('cancelled');
   });
+  it('취소는 보이는 단계로 — 이은 선적이 출항(5단계)했으면 기록이 접수여도 화주·운영 모두 취소 불가(0021)', async () => {
+    const n = await asRole(db, 'fcd_user', ids.shipper, true, (q) => newOrder(q, shipperOrg, ids.shipper, 'OS-T-0010'));
+    const ship = (await db.query<{ id: string }>(`select id from fcd.shipments where shipper_org_id = $1 and stage >= 5 limit 1`, [shipperOrg]))[0]?.id;
+    expect(ship).toBeTruthy();
+    await revise(ids.admin, n[0].id, n[0].id, 2, shipperOrg, ship);
+    const cur = await asRole(db, 'fcd_user', ids.shipper, true, (q) => orderByRoot(q, n[0].id));
+    expect(cur!.stage).toBe('received');
+    expect(cur!.shownFromShipment).toBe(true);
+    expect(canCancelAsShipper(cur!.shown)).toBe(false);
+    expect(canCancelAsPlatform(cur!.shown)).toBe(false);
+    await expect(addEvent(ids.shipper, n[0].id, shipperOrg, 'cancelled')).rejects.toThrow();
+    await expect(addEvent(ids.admin, n[0].id, shipperOrg, 'cancelled')).rejects.toThrow();
+    // 선적이 이미 지난 단계(대금 확인·출항)는 앞으로만 규칙으로 막히고, 문제 기록은 된다
+    await expect(addEvent(ids.admin, n[0].id, shipperOrg, 'payment_confirmed')).rejects.toThrow();
+    await expect(addEvent(ids.admin, n[0].id, shipperOrg, 'departed')).rejects.toThrow();
+    await addEvent(ids.admin, n[0].id, shipperOrg, 'issue', '선적 먼저 출항 — 기록 늦음');
+    expect(canCancelAsShipper('received')).toBe(true);
+    expect(canCancelAsPlatform('barcoded')).toBe(true);
+    expect(canCancelAsPlatform('departed')).toBe(false);
+  });
+  it('원스톱 SECURITY DEFINER 함수는 남의 조직 주문에 값을 내지 않는다(0021)', async () => {
+    const root = (await db.query<{ id: string }>(`select id from fcd.onestop_orders where order_no = 'OS-T-0004' and version = 1`))[0].id;
+    const mine = await asRole(db, 'fcd_user', ids.shipper, true, (q) => q.query<{ r: number | null; s: number | null }>(`select fcd.onestop_current_rank($1) r, fcd.onestop_shown_rank($1) s`, [root]));
+    expect(mine[0].r).not.toBeNull();
+    const theirs = await asRole(db, 'fcd_user', other.user, true, (q) =>
+      q.query<{ r: number | null; s: number | null; ok: boolean; v: boolean }>(
+        `select fcd.onestop_current_rank($1) r, fcd.onestop_shown_rank($1) s, fcd.onestop_event_ok($1, 'issue', true) ok,
+                fcd.onestop_version_ok($1, $1, 2, $2, 'OS-T-0004', null) v`,
+        [root, shipperOrg],
+      ),
+    );
+    expect(theirs[0]).toEqual({ r: null, s: null, ok: false, v: false });
+  });
+  it('단계 넣기는 주문마다 줄 세운다 — 트리거가 있고, 먼저 들어온 취소 뒤의 단계는 막힌다', async () => {
+    const t = await db.query(`select tgname from pg_trigger where tgname = 'onestop_event_serialize'`);
+    expect(t.length).toBe(1);
+    // 한 트랜잭션 안에서 취소 → 단계(잠금 뒤 다시 보기 — 앞 줄이 보인다)
+    const n = await asRole(db, 'fcd_user', ids.shipper, true, (q) => newOrder(q, shipperOrg, ids.shipper, 'OS-T-0011'));
+    await addEvent(ids.shipper, n[0].id, shipperOrg, 'cancelled');
+    await expect(addEvent(ids.admin, n[0].id, shipperOrg, 'payment_confirmed')).rejects.toThrow();
+    await expect(addEvent(ids.shipper, n[0].id, shipperOrg, 'cancelled')).rejects.toThrow();
+  });
   it('사람(프로필)을 지워도 주문·단계 기록은 남고 「누가」 칸만 빈다', async () => {
     const TMP = '52000000-0000-4000-8000-0000000000dd';
     await db.exec(`insert into fcd.profiles (id, home_org_id, email, name) values ('${TMP}', '${shipperOrg}', 'tmp-onestop@example.com', '시험 사람');
@@ -289,7 +334,7 @@ describe('RLS · 새 판 · 단계 규칙', () => {
 
 describe('데모 자료 · 서버 견적', () => {
   it('데모: 리빙모아 주문 셋(접수 · 검품 + 실측 새 판 · 선적과 이음) + 다른 화주 하나(최소 요금)', async () => {
-    const q = await asRole(db, 'fcd_user', ids.admin, true, (x) => orderQueue(x));
+    const q = await asRole(db, 'fcd_user', ids.admin, true, (x) => orderQueue(x, true));
     const ex = q.filter((r) => r.order_no.startsWith('OS-EX-'));
     expect(ex.map((r) => r.order_no).sort()).toEqual(['OS-EX-0001', 'OS-EX-0002', 'OS-EX-0003', 'OS-EX-0004']);
     const by = Object.fromEntries(ex.map((r) => [r.order_no, r]));
@@ -305,6 +350,22 @@ describe('데모 자료 · 서버 견적', () => {
     expect(ex.every((r) => r.is_demo && r.preview && r.quote.total === r.total_krw)).toBe(true);
     const mine = await asRole(db, 'fcd_user', ids.shipper, true, (x) => myOrders(x, shipperOrg));
     expect(mine.some((r) => r.order_no === 'OS-EX-0004')).toBe(false);
+  });
+  it('운영 요약·대기열 — 보이는 단계로 세고, 예시 빼기면 데모 주문이 없다 · 걸린 날은 FC 입고 시각까지', async () => {
+    const withDemo = await asRole(db, 'fcd_user', ids.admin, true, (x) => orderQueue(x, true));
+    const noDemo = await asRole(db, 'fcd_user', ids.admin, true, (x) => orderQueue(x, false));
+    expect(withDemo.some((r) => r.is_demo)).toBe(true);
+    expect(noDemo.every((r) => !r.is_demo)).toBe(true);
+    expect(withDemo.every((r) => r.hub_name)).toBe(true);
+    const m = onestopSummary(withDemo);
+    expect(m.orders).toBe(withDemo.length);
+    expect(m.open + m.done + m.cancelled).toBe(m.orders);
+    expect(m.cancelled).toBe(withDemo.filter((r) => r.shown === 'cancelled').length);
+    // 선적 9단계에 닿은 주문은 원스톱 기록이 없어도 FC 입고로 센다 · 걸린 날은 fc_at 까지(문제 기록 시각이 아님)
+    const base = withDemo[0];
+    const fake = (over: Partial<QueueRow>): QueueRow => ({ ...base, stage: 'departed', shown: 'fc_received', shownFromShipment: true, received_at: '2026-09-01T00:00:00Z', fc_at: '2026-09-11T00:00:00Z', cbm: 1, ...over });
+    const s = onestopSummary([fake({}), fake({ shown: 'cancelled', stage: 'cancelled', fc_at: null })]);
+    expect(s).toMatchObject({ orders: 2, open: 0, done: 1, cancelled: 1, avg_days: 10 });
   });
   it('서버 견적: 같은 화물로 구간 시세(없으면 참고치)를 모아 9구간 차이를 남긴다', async () => {
     const r = await asRole(db, 'fcd_user', ids.shipper, true, (x) =>

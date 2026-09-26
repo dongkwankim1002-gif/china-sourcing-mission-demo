@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { asUser, todayKst } from '@/lib/db';
 import { requireViewer } from '@/lib/server/viewer';
 import { loadOnestopConfig, orderByRoot, orderEvents, orderNames, orderVersions, shipmentsForOrg } from '@/lib/server/onestop';
-import { nextStages, stageRank } from '@/lib/onestop/settings';
+import { canCancelAsPlatform, nextStages } from '@/lib/onestop/settings';
 import { OnestopNotice, StageChip } from '@/components/onestop/parts';
 import { OrderBody } from '@/components/onestop/order-view';
 import { ReviseForm, StageForm } from '@/components/onestop/actions';
@@ -54,15 +54,16 @@ export default async function OnestopAdminDetail({ params }: { params: Promise<{
           <Panel aria-labelledby="st-h">
             <PanelHead id="st-h" title="단계 남기기 · 更新阶段" sub="기록은 쌓이기만 합니다 — 되돌리기 없음" />
             <div className="p-4">
-              <StageForm orderId={o.root} next={nextStages(o.stage)} canCancel={stageRank(o.stage) < stageRank('departed')} today={todayKst()} />
+              <StageForm key={`${o.shown}-${d.events.length}`} orderId={o.root} next={nextStages(o.shown)} canCancel={canCancelAsPlatform(o.shown)} today={todayKst()} />
             </div>
           </Panel>
           <Panel aria-labelledby="rv-h">
             <PanelHead id="rv-h" title="주문 새 판 · 实测/关联货件" sub="실측·선적 잇기 — 앞 판은 그대로 남고 요금은 다시 셉니다" />
             <div className="p-4">
               <ReviseForm
+                key={o.id}
                 orderId={o.root}
-                initial={{ units: o.units, cartons: o.cartons, cbm: o.cbm, kg: o.kg, shipmentNo: o.shipment_no }}
+                initial={{ units: o.units, cartons: o.cartons, cbm: o.cbm, kg: o.kg, measured: o.measured, shipmentNo: o.shipment_no }}
                 shipments={d.shipments.map((s) => ({ shipment_no: s.shipment_no, stage: s.stage }))}
               />
             </div>

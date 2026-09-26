@@ -129,15 +129,53 @@ export async function orderByRoot(q: Queryable, root: string): Promise<(OrderRow
   return rows[0] ? (finish(rows[0]) as OrderRow & { org_name: string; is_demo: boolean }) : null;
 }
 
-/** 운영 대기열 — 모든 조직(운영자만 RLS 로 다 보인다). 끝난 것(FC 입고·취소)은 뒤로 */
-export async function orderQueue(q: Queryable): Promise<(OrderRow & { org_name: string; is_demo: boolean })[]> {
-  const rows = await q.query<Raw & { org_name: string; is_demo: boolean }>(
-    `select ${COLS}, g.name org_name, g.is_demo from fcd.v_onestop_orders_current o join fcd.orgs g on g.id = o.org_id
-       left join fcd.shipments s on s.id = o.shipment_id
+/**
+ * 운영 대기열 — 모든 조직(운영자만 RLS 로 다 보인다). 끝난 것(FC 입고·취소)은 뒤로.
+ * includeDemo 가 거짓이면 예시(데모) 조직 주문을 뺀다 — 운영은 RLS 에서 org_visible 을 건너뛰므로 여기서 거른다.
+ */
+export async function orderQueue(q: Queryable, includeDemo = env.demoMode): Promise<QueueRow[]> {
+  const rows = await q.query<Raw & { org_name: string; is_demo: boolean; hub_name: string | null; fc_at: string | null }>(
+    `select ${COLS}, g.name org_name, g.is_demo, h.name_ko hub_name,
+            coalesce((select min(e.occurred_at) from fcd.onestop_order_events e where e.order_id = o.root and e.stage = 'fc_received'),
+                     (select min(se.occurred_at) from fcd.shipment_events se where se.shipment_id = o.shipment_id and se.stage = 9)) fc_at
+       from fcd.v_onestop_orders_current o join fcd.orgs g on g.id = o.org_id
+       left join fcd.shipments s on s.id = o.shipment_id left join fcd.hubs h on h.code = o.hub
+      where ($1::boolean or not g.is_demo)
       order by case when o.stage in ('fc_received','cancelled') then 1 else 0 end, fcd.onestop_stage_rank(o.stage), o.received_at
-      limit 200`,
+      limit 500`,
+    [includeDemo],
   );
-  return rows.map((r) => finish(r) as OrderRow & { org_name: string; is_demo: boolean });
+  return rows.map((r) => finish(r) as QueueRow);
+}
+
+export type QueueRow = OrderRow & { org_name: string; is_demo: boolean; hub_name: string | null; fc_at: string | null };
+
+/**
+ * 운영 요약 — 원스톱 쪽 지표(docs/onestop-plan.md 9절). 대기열과 같은 줄(보이는 단계 shown — 이은 선적 반영)로 센다.
+ * 걸린 날 = 접수 → FC 입고(원스톱 「FC 입고」 기록, 없으면 이은 선적의 9단계 기록) — 뒤에 남긴 문제 기록은 넣지 않는다.
+ */
+export function onestopSummary(rows: readonly QueueRow[]) {
+  const live = rows.filter((r) => r.shown !== 'cancelled');
+  const done = rows.filter((r) => r.shown === 'fc_received');
+  const days = done.filter((r) => r.fc_at).map((r) => (Date.parse(r.fc_at!) - Date.parse(r.received_at)) / 86_400_000);
+  const diffs = rows.map((r) => r.quote?.nine?.diffBp).filter((x): x is number => typeof x === 'number' && Number.isFinite(x));
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+  const r1 = (x: number | null, k: number) => (x == null ? null : Math.round(x * k) / k);
+  return {
+    orders: rows.length,
+    open: rows.length - done.length - (rows.length - live.length),
+    done: done.length,
+    cancelled: rows.length - live.length,
+    avg_cbm: r1(avg(rows.map((r) => r.cbm)), 100),
+    min_applied: rows.filter((r) => r.quote?.minApplied).length,
+    avg_diff_bp: r1(avg(diffs), 1),
+    avg_days: r1(avg(days), 10),
+  };
+}
+
+/** 운영 요약 — 대기열을 읽어 onestopSummary 로 센다(예시 포함 여부도 대기열과 같게) */
+export async function onestopMetrics(q: Queryable, includeDemo = env.demoMode) {
+  return onestopSummary(await orderQueue(q, includeDemo));
 }
 
 export interface VersionRow {
@@ -187,23 +225,6 @@ export async function shipmentsForOrg(q: Queryable, orgId: string) {
     `select id, shipment_no, stage::int stage, origin_hub hub, eta_fc::text eta_fc from fcd.shipments where shipper_org_id = $1 order by created_at desc limit 30`,
     [orgId],
   );
-}
-
-/** 운영 요약 — 원스톱 쪽 지표(docs/onestop-plan.md 9절). 모든 조직(운영자만) */
-export async function onestopMetrics(q: Queryable) {
-  const r = await q.query<{ orders: number; open: number; done: number; cancelled: number; avg_cbm: number | null; min_applied: number; avg_diff_bp: number | null; avg_days: number | null }>(
-    `with c as (select * from fcd.v_onestop_orders_current)
-     select count(*)::int orders,
-            count(*) filter (where stage not in ('fc_received','cancelled'))::int open,
-            count(*) filter (where stage = 'fc_received')::int done,
-            count(*) filter (where stage = 'cancelled')::int cancelled,
-            round(avg(cbm), 2)::float8 avg_cbm,
-            count(*) filter (where (quote->>'minApplied')::boolean)::int min_applied,
-            round(avg(nullif(quote->'nine'->>'diffBp', '')::numeric))::float8 avg_diff_bp,
-            round(avg(extract(epoch from (stage_at - received_at)) / 86400) filter (where stage = 'fc_received'), 1)::float8 avg_days
-       from c`,
-  );
-  return r[0];
 }
 
 /** 주문 화면에 적을 이름(허브·FC·분류) */

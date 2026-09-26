@@ -54,6 +54,7 @@ export default async function OnestopPrice() {
         <div className="grid min-w-0 gap-6">
           <Panel aria-labelledby="lanes-h">
             <PanelHead id="lanes-h" title="공동 혼적 — CBM당" sub={`공장(중국 창고) 입고부터 쿠팡 FC 입고까지 · 청구 CBM 은 ${num(t.cbmStepCenti / 100, 2)} CBM 단위 올림 · 관세·부가세 별도`} />
+            <p className="px-4 pt-2 text-2xs text-muted sm:hidden">표를 옆으로 넘기면 도착항·걸리는 날 칸이 더 있습니다.</p>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[420px] text-sm" data-testid="onestop-lanes">
                 <thead className="text-left text-xs text-muted">

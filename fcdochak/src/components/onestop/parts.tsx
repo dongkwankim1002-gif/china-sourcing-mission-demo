@@ -98,7 +98,7 @@ export function PriceCard({ v, testId = 'onestop-price', compact = false }: { v:
           {v.example ? <Chip tone="caution">가정치</Chip> : v.checkedOn ? <Chip tone="ok">확인 {v.checkedOn}</Chip> : null}
           {v.minApplied ? <Chip tone="label">최소 요금 적용</Chip> : null}
         </p>
-        <p className="mt-1 text-2xl font-bold tracking-tight text-text tnum" data-testid={`${testId}-total`}>
+        <p className="mt-1 text-2xl font-bold tracking-tight text-text tnum" data-testid={`${testId}-total`} aria-live="polite" aria-atomic="true">
           {won(v.total)}
         </p>
         <p className="text-sm text-muted tnum">
@@ -130,29 +130,36 @@ export function PriceCard({ v, testId = 'onestop-price', compact = false }: { v:
       </details>
       <dl className="grid gap-2 px-4 py-3 text-sm">
         {v.nine ? (
-          <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3" data-testid={`${testId}-nine`}>
-            <dt className="text-muted">
-              9구간 {v.nine.basis === 'market' ? '구간 시세 중간값' : '참고치'} {won(v.nine.nineTotal)} 대비
-            </dt>
-            <dd className={cn('font-semibold tnum', v.nine.diff > 0 ? 'text-caution' : 'text-ok')}>{diffText}</dd>
+          <div className="grid gap-1" data-testid={`${testId}-nine`}>
+            <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3">
+              <dt className="text-muted">
+                업체별로 따로 맡길 때({v.nine.basis === 'market' ? '9구간 시세 중간값' : '9구간 참고치'}) {won(v.nine.nineTotal)}보다
+              </dt>
+              {/* 가정치 요금표면 절감을 초록(좋음)으로 칠하지 않는다 — 실제 절감으로 읽히지 않게 */}
+              <dd className={cn('font-semibold tnum', v.nine.diff > 0 ? 'text-caution' : v.example ? 'text-text' : 'text-ok')}>
+                {diffText}
+                {v.example ? <span className="ml-1 text-2xs font-normal text-muted">가정치 기준</span> : null}
+              </dd>
+            </div>
+            <dd className="flex items-start gap-1 text-2xs text-muted">
+              <Info aria-hidden className="mt-0.5 size-3 shrink-0" />
+              <span>
+                9구간 = 집하부터 FC 운송·회송 대비까지 아홉 구간을 업체마다 따로 맡기는 길입니다. 그쪽 금액에는 개당 작업·바코드·검품·사입 수수료가 없습니다. 운임만 견주면{' '}
+                {v.nine.logisticsDiff >= 0 ? '+' : '−'}
+                {won(Math.abs(v.nine.logisticsDiff))}.
+              </span>
+            </dd>
           </div>
-        ) : null}
-        {v.nine ? (
-          <p className="flex items-start gap-1 text-2xs text-muted">
-            <Info aria-hidden className="mt-0.5 size-3 shrink-0" />
-            <span>
-              9구간에는 개당 작업·바코드·검품·사입 수수료가 없습니다. 운임만 견주면 {v.nine.logisticsDiff >= 0 ? '+' : '−'}
-              {won(Math.abs(v.nine.logisticsDiff))}.
-            </span>
-          </p>
         ) : null}
         {v.arrival ? (
-          <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3" data-testid={`${testId}-arrival`}>
-            <dt className="text-muted">개당 도착원가(물품가 + 가격 하나 + 관세 참고)</dt>
-            <dd className="font-semibold tnum">{won(v.arrival.perUnit)}</dd>
+          <div className="grid gap-1" data-testid={`${testId}-arrival`}>
+            <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3">
+              <dt className="text-muted">개당 도착원가(물품가 + 가격 하나 + 관세 참고)</dt>
+              <dd className="font-semibold tnum">{won(v.arrival.perUnit)}</dd>
+            </div>
+            <dd className="text-2xs text-muted tnum">통관 때 먼저 낼 부가세까지 개당 {won(v.arrival.perUnitWithVat)} — 관세·부가세는 참고 추정입니다.</dd>
           </div>
         ) : null}
-        {v.arrival ? <p className="text-2xs text-muted tnum">통관 때 먼저 낼 부가세까지 개당 {won(v.arrival.perUnitWithVat)} — 관세·부가세는 참고 추정입니다.</p> : null}
       </dl>
     </div>
   );

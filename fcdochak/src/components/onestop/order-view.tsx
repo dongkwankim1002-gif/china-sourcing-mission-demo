@@ -46,7 +46,7 @@ export function OrderBody({
                 <Link href={`/app/shipments/${o.shipment_id}`} className="font-semibold underline underline-offset-4">
                   선적 화면
                 </Link>
-                <Link href="/app/docs" className="flex items-center gap-1 font-semibold underline underline-offset-4">
+                <Link href={`/app/shipments/${o.shipment_id}?tab=docs`} className="flex items-center gap-1 font-semibold underline underline-offset-4">
                   <FolderOpen aria-hidden className="size-4" />
                   서류함
                 </Link>

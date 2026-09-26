@@ -10,7 +10,7 @@ import { requireViewer } from '@/lib/server/viewer';
 import { newNo } from '@/lib/server/rate-cards';
 import { loadOnestopConfig, orderByRoot, serverQuote, type OnestopOrderInput } from '@/lib/server/onestop';
 import { loadSettings } from '@/lib/server/settings';
-import { ONESTOP_STAGES, nextStages } from '@/lib/onestop/settings';
+import { ONESTOP_STAGES, canCancelAsPlatform, canCancelAsShipper, nextStages } from '@/lib/onestop/settings';
 
 interface R {
   ok: boolean;
@@ -92,8 +92,15 @@ export async function cancelOnestopOrder(input: { orderId: string }): Promise<R>
     const o = await orderByRoot(q, id.data);
     if (!o || o.org_id !== v.org.id) return { ok: false, error: '주문을 찾지 못했습니다' };
     if (o.stage === 'cancelled') return { ok: true, already: true };
-    if (o.stage !== 'received') return { ok: false, error: '사입 대금 확인 뒤에는 운영에 취소를 요청해 주세요' };
-    await q.query(`insert into fcd.onestop_order_events (order_id, org_id, stage, note, actor_id) values ($1,$2,'cancelled','화주가 취소',$3)`, [o.root, o.org_id, v.id]);
+    // 보이는 단계(이은 선적 반영)로 판정 — 기록은 접수여도 선적이 이미 출항했으면 취소 불가
+    if (!canCancelAsShipper(o.shown)) return { ok: false, error: '사입 대금 확인 뒤에는 운영에 취소를 요청해 주세요' };
+    await q.query('savepoint os_cancel');
+    try {
+      await q.query(`insert into fcd.onestop_order_events (order_id, org_id, stage, note, actor_id) values ($1,$2,'cancelled','화주가 취소',$3)`, [o.root, o.org_id, v.id]);
+    } catch {
+      await q.query('rollback to savepoint os_cancel');
+      return { ok: false, error: '그사이 운영이 단계를 남겼습니다 — 새로고침한 뒤 운영에 취소를 요청해 주세요' };
+    }
     await audit(q, v.id, v.org.id, 'onestop.cancel', `onestop_order:${o.root}`, {});
     return { ok: true };
   });
@@ -125,9 +132,11 @@ export async function addOnestopStage(input: z.infer<typeof Stage>): Promise<R> 
     const o = await orderByRoot(q, d.orderId);
     if (!o) return { ok: false, error: '주문을 찾지 못했습니다' };
     if (o.stage === 'cancelled') return { ok: false, error: '취소한 주문입니다' };
-    if (d.stage !== 'issue' && d.stage !== 'cancelled' && !nextStages(o.stage).includes(d.stage as (typeof ONESTOP_STAGES)[number])) {
-      return { ok: false, error: '단계는 앞으로만 남길 수 있습니다' };
+    // 앞으로만·취소 판정은 보이는 단계(o.shown — 이은 선적이 더 앞서면 그쪽)로. DB(0021 onestop_event_ok)도 같은 규칙
+    if (d.stage !== 'issue' && d.stage !== 'cancelled' && !nextStages(o.shown).includes(d.stage as (typeof ONESTOP_STAGES)[number])) {
+      return { ok: false, error: o.shownFromShipment ? '이은 선적이 이미 이 단계를 지났습니다 — 앞으로만 남길 수 있습니다' : '단계는 앞으로만 남길 수 있습니다' };
     }
+    if (d.stage === 'cancelled' && !canCancelAsPlatform(o.shown)) return { ok: false, error: '출항한 뒤에는 취소로 남길 수 없습니다 — 문제로 남겨 주세요' };
     const at = d.occurredOn && d.occurredOn < today ? `${d.occurredOn}T12:00:00+09:00` : new Date().toISOString();
     await q.query('savepoint os_stage');
     try {

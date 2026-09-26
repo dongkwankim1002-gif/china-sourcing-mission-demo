@@ -1,6 +1,6 @@
 /**
  * 데모 시드 — 원스톱 대행형 구역(v2 4차 onestop, 미리보기). 조금만:
- *   · 데모 화주(리빙모아) 주문 셋 — ① 접수만 ② 사입 대행 · 대금 확인 → 공장 입고 → 검품 + 실측 새 판 + 문제 기록 한 줄
+ *   · 데모 화주(리빙모아) 주문 셋 — ① 접수만 ② 사입 대행 · 대금 확인 → 중국 창고 입고 → 검품 + 실측 새 판 + 문제 기록 한 줄
  *     ③ 바코드까지 남기고 그 화주의 출항한 선적과 이음(출항·통관·FC 입고는 선적 단계를 따라감)
  *   · 다른 데모 화주 한 곳에 작은 주문 하나(최소 요금 적용 · 조직별로 갈리는지 보이게)
  * 견적 기록은 플랫폼 참고치로 셈한다(by: 'seed'). 모두 is_demo 조직 아래라 걷어내기(조직 삭제) 한 번에 CASCADE 로 사라진다.
@@ -83,7 +83,7 @@ export async function seedOnestopDemo(q: Queryable, opts: { now: number; shipper
   await insert({ no: 'OS-EX-0001', org: me.org_id, by: me.user_id, version: 1, root: null, sup: null, name: '실리콘 냄비받침(예시)', url: null,
     input: base({ units: 400, cartons: 8, cbm: 0.6, kg: 96 }), shipment: null, measured: false, note: '색상 두 가지 반씩(예시)', change: null, at: opts.now - 1 * DAY });
 
-  // ② 사입 대행 — 대금 확인 → 공장 입고(실측 새 판) → 검품, 문제 기록 한 줄
+  // ② 사입 대행 — 대금 확인 → 중국 창고 입고(실측 새 판) → 검품, 문제 기록 한 줄
   const at2 = opts.now - 9 * DAY;
   const in2 = base({ units: 600, cartons: 15, cbm: 1.1, kg: 210, unitPrice: 9.8, category: 'kitchen', purchase: true, inspection: 'full' });
   const r2 = await insert({ no: 'OS-EX-0002', org: me.org_id, by: me.user_id, version: 1, root: null, sup: null, name: '스테인리스 계량컵 세트(예시)', url: 'https://example.com/item/0002',
@@ -91,7 +91,7 @@ export async function seedOnestopDemo(q: Queryable, opts: { now: number; shipper
   await event(r2, me.org_id, 'payment_confirmed', at2 + 1 * DAY, '예시 — 셀러 송금 확인(미리보기라 실제 대금은 없음)');
   await event(r2, me.org_id, 'factory_received', at2 + 5 * DAY, '15박스 입고');
   await insert({ no: 'OS-EX-0002', org: me.org_id, by: admin.id, version: 2, root: r2, sup: r2, name: '스테인리스 계량컵 세트(예시)', url: 'https://example.com/item/0002',
-    input: { ...in2, cbm: 1.26, kg: 228 }, shipment: null, measured: true, note: null, change: '공장 입고 실측 1.26 CBM · 228 kg(예시)', at: at2 + 5 * DAY + 3600_000 });
+    input: { ...in2, cbm: 1.26, kg: 228 }, shipment: null, measured: true, note: null, change: '중국 창고 입고 실측 1.26 CBM · 228 kg(예시)', at: at2 + 5 * DAY + 3600_000 });
   await event(r2, me.org_id, 'issue', at2 + 6 * DAY, '예시 — 2개 찌그러짐, 공장에 교환 요청');
   await event(r2, me.org_id, 'inspected', at2 + 7 * DAY, '정밀 검품 끝 · 불량 2개 교환 완료');
 

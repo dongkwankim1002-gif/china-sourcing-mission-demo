@@ -153,7 +153,7 @@ export function EntrustForm({ mode, tariff, reference, hubs, fcs, categories = [
           <Field label="박스" htmlFor="os-cartons" required>
             <NumberField id="os-cartons" value={cartons} onValueChange={setCartons} unit="박스" min={1} />
           </Field>
-          <Field label="부피(전체)" htmlFor="os-cbm" required hint="모르면 대략 — 공장 입고 때 실측합니다">
+          <Field label="부피(전체)" htmlFor="os-cbm" required hint="모르면 대략 — 중국 창고에 들어올 때 실측합니다">
             <NumberField id="os-cbm" value={cbm} onValueChange={setCbm} unit="CBM" decimals={2} min={0.01} />
           </Field>
         </div>
@@ -231,7 +231,7 @@ export function EntrustForm({ mode, tariff, reference, hubs, fcs, categories = [
                 </NativeSelect>
               </Field>
             </fieldset>
-            <Field label="남길 말(선택)" htmlFor="os-note">
+            <Field label="남길 말(선택)" htmlFor="os-note" hint="연락처·주소·사람 이름 같은 개인정보는 적지 마세요 — 남긴 말은 고치거나 지울 수 없고 중국 창고도 봅니다.">
               <Textarea id="os-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={600} placeholder="옵션·색상별 수량, 포장 요청 등" />
             </Field>
             <p className="text-xs text-muted">수입자는 셀러 본인입니다 — KC 인증·표시사항·상표 확인은 셀러 책임입니다. 관세·부가세는 통관 때 실비로 냅니다.</p>

@@ -307,7 +307,7 @@ export const ONESTOP_ACTION = {
 export const ONESTOP_STAGE_LABEL: Record<'received' | 'payment_confirmed' | 'factory_received' | 'inspected' | 'barcoded' | 'departed' | 'customs_cleared' | 'fc_received' | 'cancelled' | 'issue', string> = {
   received: '접수',
   payment_confirmed: '사입 대금 확인',
-  factory_received: '공장 입고',
+  factory_received: '중국 창고 입고',
   inspected: '검품',
   barcoded: '바코드',
   departed: '혼적 출항',

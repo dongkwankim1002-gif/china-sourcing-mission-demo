@@ -53,6 +53,10 @@ test('공개 — 원스톱 홈: 미리보기 표시·가격 하나·맡기기는
   await expect(page.getByTestId('onestop-cutoff')).toContainText('다음 혼적 마감');
   await page.getByRole('button', { name: '맡기기', exact: true }).click();
   await page.waitForURL(/\/login\?next=/);
+  // 로그인하러 가도 적은 값이 next 에 실려 있다(로그인 뒤 같은 주문서·같은 가격)
+  const next = new URL(page.url()).searchParams.get('next') ?? '';
+  expect(next).toMatch(/^\/onestop\/order\?/);
+  expect(new URLSearchParams(next.split('?')[1]).get('cbm')).toBe('2.5');
   await page.goto('/onestop');
   await page.setViewportSize({ width: 390, height: 800 });
   await noOverflow(page);
@@ -91,6 +95,7 @@ test('화주 — 주문서로 맡기기(접수 기록만) → 타임라인 → �
   await page.goto('/onestop/order?units=250&cartons=6&cbm=0.5&lane=QDG-LCL');
   await expect(page.getByRole('heading', { level: 1, name: '원스톱 주문서' })).toBeVisible();
   await expect(page.getByLabel('수량')).toHaveValue('250');
+  await expect(page.getByTestId('onestop-cutoff')).toContainText('다음 혼적 마감');
   await page.getByLabel('상품명').fill('시험용 원스톱 상품(예시)');
   await expect(page.getByTestId('onestop-price-total')).toContainText('원');
   await noOverflow(page);
@@ -133,6 +138,10 @@ test('운영 — 데모 주문에 단계 남기기(앞으로만)', async ({ brow
   await expect(page.getByRole('heading', { level: 1 })).toContainText('사입 대금 확인');
   // 이제 대금 확인은 고를 수 없다(앞으로만)
   await expect(form.getByLabel(/단계/).locator('option[value="payment_confirmed"]')).toHaveCount(0);
+  // 바로 한 번 더 — 보이는 첫 항목(중국 창고 입고)이 그대로 남는다(예전엔 앞서 남긴 단계를 다시 보내 실패했다)
+  await expect(form.getByLabel(/단계/)).toHaveValue('factory_received');
+  await form.getByRole('button', { name: '단계 남기기' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('중국 창고 입고');
   await noOverflow(page);
   await close();
 });

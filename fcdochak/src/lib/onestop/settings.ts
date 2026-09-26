@@ -100,6 +100,16 @@ export function nextStages(current: OnestopStage | 'cancelled'): OnestopStage[] 
   return ONESTOP_STAGES.filter((s) => stageRank(s) > stageRank(current));
 }
 
+/** 운영이 「취소」를 남길 수 있는가 — 보이는 단계(이은 선적 반영)가 혼적 출항 전일 때만 */
+export function canCancelAsPlatform(shown: OnestopStage | 'cancelled'): boolean {
+  return shown !== 'cancelled' && stageRank(shown) < stageRank('departed');
+}
+
+/** 화주가 스스로 취소할 수 있는가 — 보이는 단계가 접수일 때만 */
+export function canCancelAsShipper(shown: OnestopStage | 'cancelled'): boolean {
+  return shown === 'received';
+}
+
 // ─── 혼적 마감 ─────────────────────────────────────────────────────────
 
 /**
@@ -118,5 +128,7 @@ export function nextCutoff(nowMs: number, weekdays: readonly number[], hourKst: 
   }
   throw new RangeError('마감을 찾지 못했습니다');
 }
+
+export const ONESTOP_MODE_KO = { LCL: 'LCL 혼적', FERRY: '카페리 혼적' } as const;
 
 export const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'] as const;

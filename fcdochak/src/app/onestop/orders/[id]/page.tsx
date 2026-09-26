@@ -7,6 +7,7 @@ import { OnestopNotice, StageChip } from '@/components/onestop/parts';
 import { OrderBody } from '@/components/onestop/order-view';
 import { CancelOrderButton } from '@/components/onestop/actions';
 import { dateKo } from '@/lib/format';
+import { canCancelAsShipper } from '@/lib/onestop/settings';
 import { ONESTOP_ACTION } from '@/lib/terms';
 
 export const metadata = { title: '원스톱 주문' };
@@ -39,7 +40,7 @@ export default async function OnestopOrderDetail({ params }: { params: Promise<{
             <StageChip stage={o.shown} />
           </h1>
         </div>
-        {o.stage === 'received' ? <CancelOrderButton orderId={o.root} /> : null}
+        {canCancelAsShipper(o.shown) ? <CancelOrderButton orderId={o.root} /> : null}
       </div>
       <OnestopNotice on={d.config.on} />
       <OrderBody o={o} events={d.events} versions={d.versions} area="app" {...d.names} />
